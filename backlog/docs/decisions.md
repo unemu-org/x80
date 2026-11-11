@@ -17,4 +17,5 @@ ADR directory or task board. Never overwrite an existing bead's notes with `--no
 A decision records status, date, decider, context, choice, alternatives,
 consequences and trigger to revisit. Supersede an accepted decision in a new
 record; do not silently change its substance. Tag cross-repository references,
-e.g. `decision-23 (x86jit)`. No x80 decisions are accepted yet; the plan is a draft.
+e.g. `decision-23 (x86jit)`. Accepted records live in
+[`backlog/decisions/`](../decisions/); the plan stays a draft outside them.

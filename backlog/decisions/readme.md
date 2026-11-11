@@ -1,6 +1,8 @@
 # Decisions
 
-Architecture and durable project decisions, not tasks. No accepted decisions yet.
+Architecture and durable project decisions, not tasks. Records are named
+`decision-<n> - <Title>.md`; decision-1 to decision-4 settle the initial M1 API
+and policy choices.
 
 ```sh
 backlog decision create "<title>"

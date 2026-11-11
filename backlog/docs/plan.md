@@ -39,15 +39,17 @@ register view. Avoid raw-pointer overlays and a frozen C ABI at this stage.
 
 ### 2.3. Bus interface
 
-Draft choice: a synchronous, borrowed `Bus` trait for byte memory reads/writes and
-port reads/writes, with access context sufficient to distinguish instruction fetch
-and data access. This fits a small interpreter and avoids replaying I/O side
-effects through an exit protocol. An embedder implements segmentation, mapping
-and devices. No host allocation, filesystem access or global memory in the core.
+Accepted in decision-1: a synchronous, borrowed `Bus` trait for byte memory
+reads/writes and port input/output. Each access carries a kind that distinguishes
+an opcode fetch, another memory access and a port access. Accesses are
+infallible; M1 has no bus faults, wait states or bus-cycle stepping. This fits a
+small interpreter and avoids replaying I/O side effects through an exit protocol.
+An embedder implements segmentation, mapping and devices. No host allocation,
+filesystem access or global memory in the core.
 
-Bus failures, wait-state accounting and observation points remain open. Do not
-promise restartable bus faults until partial reads/writes and device side effects
-have an explicit contract. Prefer instruction-boundary returns initially; bus-cycle
+Bus failures, wait-state accounting and observation points need a new,
+superseding decision. Do not promise restartable bus faults until partial
+reads/writes and device side effects have an explicit contract. Bus-cycle
 stepping is a separate requirement, not implied by instruction cycle totals.
 
 ### 2.4. Step, run, exits and timing
@@ -55,15 +57,16 @@ stepping is a separate requirement, not implied by instruction cycle totals.
 Proposed shapes only: `step(registers, bus, control)` executes at most one
 instruction; `run(registers, bus, control, budget)` repeats it. Budgets carry
 instruction steps and T-states; reports include actual progress and a typed return
-reason (budget, halt, stop request, pending interrupt handoff, integration boundary,
-unsupported encoding or bus failure). No callable API is implemented yet.
+reason (budget, halt, stop request, pending interrupt handoff, integration boundary
+or unsupported encoding, decision-3). No callable API is implemented yet.
 
-Draft budget policy: zero budget executes nothing; stop when either limit is
-reached. Finish an instruction already started and report actual cycles, including
-any overshoot of the cycle limit. Define overflow, interrupt-acknowledgement
-accounting and halted progress before implementation. A strict no-overshoot limit
-would need a different contract; conditional timing and bus waits complicate
-preflight. Halt must return promptly rather than spin forever in `run`.
+Budget policy, accepted in decision-2: zero budget executes nothing; stop when
+either limit is reached. The step unit is one retired instruction. Finish an
+instruction already started and report actual steps and cycles, including any
+overshoot of the cycle limit. Halt returns promptly with a halt exit rather than
+spin in `run`. Cycles spent accepting an interrupt count against the cycle limit;
+their exact accounting comes with the interrupt implementation. Counters are
+`u64` and saturate.
 
 M1 targets documented per-instruction T-state totals, including taken/untaken
 paths, from the manual's state tables. Do not advertise cycle-exact bus waveforms,
@@ -81,9 +84,10 @@ Settle priority and precise observation boundaries with the NEC contract.
 Identical initial state, bus responses and ordered injected events must produce
 identical state, accesses, exits and cycle counts. No wall clock, host randomness
 or hidden worker threads. Timing and events advance only through explicit inputs.
-The empty library already uses `#![no_std]` and forbids unsafe code; preserve a
-no-allocation default unless a demonstrated requirement changes that decision.
-Host-side integration tests may use `std` without adding crate dependencies.
+Accepted in decision-4: the library stays `#![no_std]`, forbids unsafe code and
+does not allocate. MSRV stays 1.95 to match x86jit; bead `x80-ecy.1` adds the
+gate that tests it. Host-side integration tests may use `std` without adding
+crate dependencies.
 
 ## 3. V20/V30 integration contract sketch
 
@@ -162,14 +166,16 @@ offline witness tests. No 8080-family corpus or manual is pinned yet; the shared
 These are planning landmarks; after setup, beads holds priorities, dependencies
 and claims. Do not turn this draft into a second task tracker.
 
-## 6. Open questions for the maintainer
+## 6. Questions for the maintainer
+
+Decided items cite their record; the rest stay open.
 
 1. Which exact manual editions, order numbers and public scans should be pinned,
    (Storage is decided: the shared `unemu-org/oracles` repository as x80's own submodule.)
-2. Confirm the synchronous bus choice: infallible access or typed failures, wait
-   states, and instruction-boundary timing versus bus-cycle accuracy for M1?
-3. Accept cycle-budget overshoot at completed instruction boundaries, and how
-   should halt, interrupt acknowledgement and counter overflow consume budgets?
+2. Decided in decision-1: synchronous, infallible bus; no wait states;
+   instruction-boundary timing for M1.
+3. Decided in decision-2: overshoot at completed instruction boundaries; prompt
+   halt exit; interrupt-acceptance cycles count; saturating `u64` counters.
 4. Is a safe borrowed-register trait sufficient for V20, and which execution
    latches must the embedder retain across native/emulation transitions?
 5. The joint register/flag/PC/segment/stack and native-context mapping is settled in
@@ -177,7 +183,8 @@ and claims. Do not turn this draft into a second task tracker.
    reviewed in the same change. Who owns the shared test fixture?
 6. Who recognizes RETEM/CALLN, and what exact bytes, state, timing and event
    precedence apply to each native handoff, including masked external interrupts?
-7. What is the policy for undocumented opcodes/flags and silicon variants across
-   8080, 8085 and Z80? Which diagnostic/capture licenses permit oracle use?
-8. Keep the no_std/no-allocation default and provisional Rust 1.95 MSRV inherited
-   from x86jit, or choose a different tested MSRV before the first API lands?
+7. Decided for the 8080 in decision-3: undocumented encodings return a typed
+   unsupported exit; 8085 and Z80 revisit it at M3 and M4. Still open: which
+   diagnostic/capture licenses permit oracle use?
+8. Decided in decision-4: keep no_std and no allocation; MSRV 1.95, tested by
+   bead `x80-ecy.1` before the first API lands.
