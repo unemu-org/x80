@@ -1,12 +1,13 @@
 # Status
 
-**M0: in progress.** Tracking, the pinned shell, hooks, local gates and the first
-commit are done. Decisions 1-4 settle the initial API choices. Source pins remain.
+**M0: done.** Tracking, the pinned shell, hooks, local gates and the first commit
+are in place. Decisions 1-4 settle the initial API choices. The 8080 primary
+sources are pinned (see [PROVENANCE.md](../../PROVENANCE.md)).
 
 `x80-core` contains empty documented modules and a zero-dependency boundary test.
 There is no CPU state implementation, decoder, step/run API or instruction support.
-No 8080-family manuals, ROMs or oracle corpora are pinned yet; the shared `oracles/`
-submodule (pin 86e33db) holds only other projects' sources.
+Two Intel 8080 manuals are pinned as fetch-only sources in the shared `oracles/`
+submodule (pin ddef3b6). No ROMs or oracle corpora are pinned yet.
 M1–M4 have not started. See [plan §5](plan.md#5-milestones).
 
 This is a capability snapshot, not the task board. Consult beads for claims and

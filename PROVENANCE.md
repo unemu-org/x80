@@ -8,15 +8,34 @@ SHA-256 before implementing a fact; check scans against page images. Comments
 also link the relevant design section. Each implemented fact needs an independent
 witness test with expected values derived from that citation.
 
-The list below is a discovery inventory, **not a set of pinned sources**. No
-8080-family document is pinned or verified yet (bead x80-2g7.1). Unknown metadata is
-marked `source to find` rather than guessed. URLs remain unset until confirmed.
+### Pinned sources
+
+Both are fetch-only and cite-only (© Intel, no redistribution grant). Their rows in
+`oracles/MANIFEST.md` carry the URL, page count and page-to-PDF map; fetch them with
+`./oracles/fetch-oracles.sh fetch` and check them with `verify`. Both are scans with
+a noisy OCR text layer: check every cited value against the page image.
+
+| Path in `oracles/` | Title | Order number, date | SHA-256 | Role |
+| --- | --- | --- | --- | --- |
+| `intel/i8080-um.pdf` | Intel 8080 Microcomputer Systems User's Manual | 98-153B, September 1975 | `d5982f96536b1dbecbeff409d2370970638716296dce7b318624d86221597a9e` | Primary: CPU chapter (interrupt, halt, start-up, per-instruction machine-cycle/state table), instruction set and flags, 8080A data sheet |
+| `intel/i8080-alpm.pdf` | Intel 8080/8085 Assembly Language Programming Manual | 9800301-04 (title page; mirror file name says 9800301D), May 1981 (printing code 581 on p. ii) | `c2f17d613159b624cf7226b0b9200192a49ff172147d88f56d50f45e94691643` | Second witness: per-opcode cycles and states, flags, interrupts |
+
+Both are Intel documents: the second is independent in authorship, not a hardware
+witness. Where they disagree, an oracle may falsify one reading; record the case
+below and in a bead.
+
+| Disagreement | Citations | Status |
+| --- | --- | --- |
+| Auxiliary carry after 8080 logical AND (ANA, ANI) | 98-153B p. 4-9: ANI clears CY and AC; 9800301-04 p. 1-12: AND sets AC to the logical OR of bit 3 of the operands | Unresolved, bead x80-ecy.2 |
+
+### Discovery inventory
+
+The list below is **not a set of pinned sources**. Unknown metadata is marked
+`source to find` rather than guessed. URLs remain unset until confirmed.
 
 | Candidate title | Order number | Year | Public source URL | Intended role |
 | --- | --- | --- | --- | --- |
-| Intel 8080 Microcomputer Systems User's Manual | source to find | 1975 (brief; edition to verify) | source to find | 8080 state, instructions, flags, machine cycles and state tables |
-| Intel 8080/8085 Assembly Language Programming Manual | source to find | source to find | source to find | Instruction semantics and programming model |
-| Intel MCS-80/85 Family User's Manual | source to find | source to find | source to find | Family architecture, interrupts and timing |
+| MCS-80 User's Manual; MCS-80/85 Family User's Manual | 98-153D; 205775-00x | 1977; 1983 | bitsavers mirror (not pinned) | Not pinned: later editions that repeat the 98-153B CPU chapters; a possible check for corrections |
 | Intel 8085AH datasheet | source to find | source to find | source to find | 8085-specific signals and timing |
 | Zilog Z80 CPU User Manual | source to find | source to find | source to find | Z80 state, instruction set, interrupts and timing |
 | NEC V20/V30 user's manual (exact title to verify) | source to find | source to find | source to find | Emulation-mode entry/exit, mapping, CALLN and native interrupt handoff |

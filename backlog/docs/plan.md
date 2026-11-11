@@ -150,8 +150,8 @@ single-step corpora where available. Exact artifacts, origin, licenses, pins and
 redistribution permissions are **to check before vendoring**. Oracles can falsify
 a claim but never license a fact; record measured divergences and consult primary
 sources. Manuals and downloaded corpora must never be required for ordinary
-offline witness tests. No 8080-family corpus or manual is pinned yet; the shared
-`oracles/` checkout currently holds only other projects' sources.
+offline witness tests. The two Intel 8080 manuals are pinned (PROVENANCE.md);
+no 8080 corpus is pinned yet.
 
 ## 5. Milestones
 
@@ -170,8 +170,9 @@ and claims. Do not turn this draft into a second task tracker.
 
 Decided items cite their record; the rest stay open.
 
-1. Which exact manual editions, order numbers and public scans should be pinned,
-   (Storage is decided: the shared `unemu-org/oracles` repository as x80's own submodule.)
+1. Decided for the 8080: 98-153B (primary) and 9800301-04 (second witness), pinned
+   fetch-only in the shared `unemu-org/oracles` repository (PROVENANCE.md). 8085,
+   Z80 and NEC V20/V30 sources stay open until their milestones.
 2. Decided in decision-1: synchronous, infallible bus; no wait states;
    instruction-boundary timing for M1.
 3. Decided in decision-2: overshoot at completed instruction boundaries; prompt
