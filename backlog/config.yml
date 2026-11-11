@@ -1,0 +1,17 @@
+# Backlog.md is used for docs and decisions only. Open work belongs in beads.
+project_name: "x80"
+default_status: "To Do"
+statuses: ["To Do", "In Progress", "Done"]
+labels: []
+definition_of_done: []
+date_format: yyyy-mm-dd hh:mm
+max_column_width: 80
+auto_open_browser: false
+default_port: 6420
+remote_operations: false
+auto_commit: false
+bypass_git_hooks: false
+check_active_branches: false
+active_branch_days: 30
+# Required CLI task settings are inert: never use backlog task create here.
+task_prefix: "x80"

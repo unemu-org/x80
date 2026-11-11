@@ -1,0 +1,12 @@
+[package]
+name = "x80-core"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Guest-agnostic Intel 8080-family interpreter core (skeleton)."
+readme = "../README.md"
+keywords = ["8080", "8085", "z80", "emulator", "interpreter"]
+categories = ["emulators", "no-std"]
+
+[dependencies]

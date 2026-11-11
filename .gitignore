@@ -1,0 +1,36 @@
+# Rust
+/target/
+**/*.rs.bk
+
+# Nix and direnv
+/result
+/result-*
+/.direnv/
+
+# Generated skills and navigation index
+/.claude/skills/
+/.repoctx/
+
+# Beads / Dolt local databases and credentials
+/.beads/
+/.dolt/
+.beads-credential-key
+*.gate.lock*
+
+# Local files and editors
+*.log
+*.local
+.envrc.local
+.DS_Store
+Thumbs.db
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.swp
+*.swo
+*~
+
+# Beads / Dolt files (added by bd init)
+.dolt/
+*.db
+.beads/proxieddb/
