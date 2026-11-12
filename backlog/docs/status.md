@@ -2,8 +2,7 @@
 
 **M0: done.** Tracking, the pinned shell, hooks, local gates and the first commit
 are in place. Decisions 1-5 settle the M1 API, decision-6 the CPU model layout and
-decision-7 an interim flag reading. The 8080 primary
-sources are pinned (see [PROVENANCE.md](../../PROVENANCE.md)).
+decision-7 an interim flag reading. The 8080 primary sources are pinned (see [PROVENANCE.md](../../PROVENANCE.md)).
 
 **M1: in progress.** `x80-core` has the types of decision-5: the
 model-neutral `Bus`, `MemoryAccess`, `Control`, `Budget`, `Report`, `Exit` and
@@ -17,9 +16,18 @@ Ch. 4 documents, with their lengths and groups, witnessed against the summaries
 on 98-153B p. 4-15 and 9800301-04 p. A-5. The other 12 (08, 10, 18, 20, 28, 30,
 38, CB, D9, DD, ED, FD) return `Unsupported` (decision-3).
 
-Implemented instruction groups (decision-5 item 7): none. NOP is the only
-instruction that executes; every other documented opcode returns
-`Unsupported`, and only NOP has cited state totals.
+Implemented instruction groups (decision-5 item 7), each with cited state
+totals and bus traces:
+
+- Data Transfer: all (98-153B pp. 4-4, 4-5).
+- Arithmetic: all except DAA (pp. 4-6 to 4-8); DAA's state total is cited,
+  its execution is `x80-ecy.9`.
+- Branch: all (pp. 4-11, 4-12).
+- Stack, I/O and Machine Control: PUSH, POP, XTHL, SPHL, IN, OUT and NOP
+  (pp. 4-13, 4-14); EI, DI and HLT are `x80-ecy.13`.
+- Logical: none yet (`x80-ecy.10`).
+
+Documented opcodes outside these return `Unsupported` until their bead lands.
 
 Interim gaps:
 
