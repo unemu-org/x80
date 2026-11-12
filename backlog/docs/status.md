@@ -67,7 +67,7 @@ other acknowledged byte returns `Unsupported` with no state change
 
 Two Intel 8080 manuals and, for M3, two 8085 sources (205775-002 and the 8085AH data
 sheet) are pinned as fetch-only sources in the shared `oracles/` submodule, with two 8080 CPU exercisers, 8080PRE and 8080EXM, as fetch-only oracles
-(pin 1431bbc; PROVENANCE.md §2). The NEC V20/V30 user's manual, pinned by x86jit in the
+(pin f379261; PROVENANCE.md §2), plus 8085EXM for M3. The NEC V20/V30 user's manual, pinned by x86jit in the
 same stash, is recorded for M2 in PROVENANCE.md §1. The unpublished `x80-oracle` crate runs them
 offline ([commands](commands.md)); on 2026-11-12 8080PRE passed and 8080EXM passed
 all 25 groups, about 16 s for 2.9 billion instructions in a release build.

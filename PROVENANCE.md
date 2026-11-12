@@ -143,6 +143,17 @@ Results, 2026-11-12, MEASURED: 8080PRE passes; 8080EXM passes all 25 groups. The
 as `8080-exercisers/8080-8085-cpu-exerciser-results.pdf` (pp. 3-4: contributor measurements per
 part, not Intel documentation); x80 cites it before treating a mismatch as a defect.
 
+For the 8085 (M3, bead x80-4gk.6): `8085EXM` (.COM and .MAC source), the same exerciser
+modified for the 8085 by Bartholomew (October 2009) with flag mask D5h, GPL-2.0-or-later,
+pinned fetch-only under `8080-exercisers/` (oracles f379261). Its 24 expected CRCs other
+than the long ALU register group equal the D8085AH-1 column of the pinned results page
+(p. 3; checked value by value). The long ALU register group's CRC (0CFD75B5) was added in
+May 2020 per the header from an unnamed 8085, so it is unverified; that group can be
+reported, not judged. Unpinned, READ by research only: another exerciser build run on a
+P8085AH-2 (2023 forum report) gives different CRCs for the ALU, DAA and INR/DCR groups;
+whether that reflects a different build, mask or part is unresolved. 8080PRE also serves as
+the 8085's preliminary test (the results page).
+
 Rejected or not chosen: the Microcosm 8080/8085 CPU diagnostic (CPUDIAG/TST8080, 1980;
 licence unclear, so fetch-only would be the most it could be), the SuperSoft CPU test
 (commercial, binary only). No hardware-captured single-step corpus for the 8080 was
