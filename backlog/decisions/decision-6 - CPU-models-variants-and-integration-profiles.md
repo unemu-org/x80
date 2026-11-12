@@ -7,6 +7,8 @@ status: accepted
 
 Decider: maintainer. Settles [plan](../docs/plan.md) §6 Q9 except the run-time
 wrapper; design in §2.6.
+decision-9 answers the NEC emulation-mode question below (the 8080 model plus a V20
+profile).
 
 ## Context
 

@@ -146,46 +146,71 @@ an entry may hold separate untaken and taken totals for any instruction.
 An integration profile (§3) is a separate axis: it defines where control returns
 to the embedder, not what an instruction does.
 
-## 3. V20/V30 integration contract sketch
+## 3. V20/V30 integration contract
 
-First consumer: x86jit's planned NEC V20/V30 models. Settle this contract jointly
-with x86jit's accepted **decision-23** (x86jit commit 0eb0d06, §3 "8080 emulation
-mode on the V20/V30 is split between two cores") and its V20/V30 bead **C4
-(xj-50w.7 in x86jit)**, which designs the typed `Exit` and depends on pinning the
-NEC V20/V30 manual (xj-vao). Until then x86jit refuses BRKEM with a typed exit.
-These are coordination references, not verified semantics.
+First consumer: the NEC V20/V30 models of x86jit (decision-23 (x86jit) §3, bead C4
+`xj-50w.7` (x86jit)), embedded by a machine. decision-9 settles x80's
+side: the emulation mode is the `i8080` model plus a V20 integration profile. Facts are
+from the pinned NEC manual (stock no. 500350; PROVENANCE.md §1, "NEC V20/V30 8080
+emulation mode"); page numbers below are its printed pages.
 
-Provisional flow supplied by the brief: x86jit returns a typed entry exit at
-BRKEM; the embedder lends the mapped registers and shared memory to x80; a
-RETEM-like boundary returns control for native resumption. CALLN requires a native
-call handoff, and an external interrupt forces native mode. Verify every detail
-against a pinned NEC manual before implementing any part of this flow.
+Ownership: x86jit decodes BRKEM in the native stream and returns a typed exit; the
+embedder's adapter (not x80) copies state in and out and runs `I8080::run`; x80 owns the
+contract vectors and a mock native side (bead `x80-pzp.5`). Neither core depends on the
+other.
 
-| 8080 register/view | Proposed V20/V30 backing; unverified |
-| --- | --- |
-| A | AL |
-| BC | CX |
-| DE | DX |
-| HL | BX |
-| SP | BP |
-| Memory | DS-relative embedder bus view |
+| 8080 state or access | V20/V30 backing | Source |
+| --- | --- | --- |
+| A | low byte of AW (AL) | p. 8-1, Fig. 8-1 |
+| BC, DE, HL | CW, DW, BW (high and low bytes as drawn in Fig. 8-1) | p. 8-1, Fig. 8-1 |
+| SP | BP | p. 8-1 |
+| PC | PC | Fig. 8-1 |
+| Flags | low byte of the PSW, S Z 0 AC 0 P 1 CY | Fig. 8-2 |
+| Interrupt enable | PSW.IE (bit 9) | Fig. 8-2; p. 9-1 |
+| `OpcodeFetch`, `OperandFetch` | PS:address | p. 8-1 |
+| `Data`, `Stack` | DS0:address | p. 8-1 |
+| Not addressable in emulation | AH, native SP, IX, IY, PS, SS, DS0, DS1 | p. 8-1 |
 
-TODO: verify PC/IP entry and return positions, flag mapping and preserved native
-bits, address/segment wrapping, stack frames, high-byte preservation, and the
-ownership of native-mode context. The embedder owns all x86 register conversion.
+Flow:
 
-RETEM/CALLN recognition is an integration-profile matter (§2.6), not a change to
-ordinary 8080 opcode behavior. Whether the NEC emulation mode is the 8080 model,
-a variant of it or a model of its own is decided from the pinned NEC manual at
-M2; until then nothing is assumed about its flags or timing. Define fetched/consumed
-bytes, committed state and cycle accounting on each return; choose whether the
-embedder recognizes boundaries before `step` or x80 exposes typed extension
-exits. No dependency on x86jit and no x86 execution inside x80.
+- Entry: BRKEM imm8 (0F FF imm8, p. 12-169) pushes PSW, PS, PC on the native stack and
+  enters emulation at PS:PC from the vector. The adapter copies the mapped registers into
+  `Registers` and runs x80.
+- Return: x80 returns `Unsupported` at opcode EDh with PC at that byte and nothing
+  consumed. The adapter reads the following bytes through PS: ED FD is RETEM (pops PC, PS,
+  PSW; p. 12-177), ED ED imm8 is CALLN (pushes PSW with MD = 0, PS, PC; IE and BRK cleared;
+  native routine returns with RETI; pp. 12-176, 6-1). Any other Unsupported byte is a
+  typed refusal.
+- Interrupts: serviced in native mode (p. 8-4, Fig. 8-6). A request is not an acceptance:
+  NMI is always accepted; INT is accepted when it is high at an instruction boundary with
+  IE = 1 and no simultaneous NMI or hold request (p. 6-2; pp. 6-1, 8-4). When the native side
+  would accept one, the adapter requests a host stop, copies state out at the clean boundary
+  and services it natively; RETI returns to emulation. A masked INT is not serviced, except
+  that it ends HLT standby (below). The adapter never asserts INT into x80.
+- HLT: x80 returns `Halt`; the adapter owns the V20 standby. An INT with interrupts
+  disabled resumes the 8080 program after the HLT without service (pp. 8-2, 9-1): clear
+  `latches.halted` and run again. NMI is unconditional; RESET ends emulation.
+- Timing: x80 reports Intel 98-153B T-states, not V20 clocks; NEC gives V20 clocks only for
+  BRKEM, RETEM, CALLN, RETI and interrupts. A joint clock is the embedder's to reconcile.
 
-TODO: define interrupt request versus acceptance, masked interrupts, interrupted
-halt, event priority, native return frames, CALLN continuation, cancellation and
-budget precedence. Witness one complete entry/exit round trip and interrupted
-round trip using shared memory and a borrowed register view on both projects.
+Answered from the manual: native-only state (AH, native SP, IX, IY, segment registers) is
+not addressable in emulation and is untouched by 8080 code (p. 8-1); RETEM restores the full
+PSW from the stack, so the native flags and MD come back and the 8080 flags do not carry
+over (p. 12-177); the program runs within the 64 KiB of PS, and data and stack within DS0,
+with 16-bit offsets (pp. 8-1, 8-2).
+
+To confirm with x86jit (the manual is unclear): IE after BRKEM; whether the native EI delay
+applies to the 8080 EI in emulation; the PC that CALLN pushes; the high address byte during
+8080 IN/OUT; the uPD8080AF's equivalence to the Intel 8080A (ASSUMED, PROVENANCE §1).
+
+Open for the joint contract (C4 and the adapter; decision-5 gives only x80's local rules):
+offset wrap at FFFFh within PS and DS0; which x80 execution latches (EI delay, halted) the
+adapter keeps across a native excursion; cancellation and joint event and budget precedence
+across the two cores; exact step and cycle accounting of each handoff.
+
+Joint witnesses (beads `x80-pzp.5`, `x80-pzp.6`): one complete entry/exit round trip and
+one interrupted round trip on shared memory, run from x80's contract vectors on both sides
+once C4 lands.
 
 ## 4. Testing strategy and provenance
 
@@ -246,15 +271,19 @@ Decided items cite their record; the rest stay open.
    view (2026-11-12): by-value copy-in/copy-out through `I8080::new`,
    `registers_mut` and `latches_mut` suffices, since copies happen only at
    BRKEM/RETEM/CALLN and interrupt stops. Decided by the maintainer: the V20/V30
-   adapter belongs to the embedder (bead `x80-pzp`).
+   adapter belongs to the embedder (bead `x80-pzp`); decision-9 records the copy-in/out
+   contract.
 5. The joint register/flag/PC/segment/stack and native-context mapping is settled in
    x86jit's C4 bead (xj-50w.7) against the pinned NEC manual; x80's side must be
-   reviewed in the same change. Who owns the shared test fixture?
+   reviewed in the same change. Who owns the shared test fixture? Decided (decision-9):
+   x80 owns the contract vectors and a mock native side; the mapping x80 relies on is
+   in §3.
 6. Who recognizes RETEM/CALLN, and what exact bytes, state, timing and event
    precedence apply to each native handoff, including masked external interrupts?
-   Proposed by x86jit: the embedder's adapter recognizes them from an
-   `Unsupported` exit at opcode EDh and serves V20 interrupts natively through the
-   host stop; to verify against the pinned NEC manual at M2.
+   Recognition decided in decision-9 from the NEC manual: the adapter recognizes RETEM
+   and CALLN from an `Unsupported` exit at opcode EDh, and serves interrupts natively
+   through the host stop (§3). Still open with C4: handoff timing, event precedence and
+   the items listed at the end of §3.
 7. Decided for the 8080 in decision-3: undocumented encodings return a typed
    unsupported exit; 8085 and Z80 revisit it at M3 and M4. Oracle licences
    decided for the 8080 (PROVENANCE.md §2): 8080PRE and 8080EXM, GPL-2.0-or-later,

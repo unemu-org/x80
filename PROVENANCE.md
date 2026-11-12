@@ -195,8 +195,8 @@ None is presented as a stated fact; where each qualification is recorded is note
   the 8-bit device number. decision-5 item 3.
 - The manuals differ on HLT's machine-cycle count (two versus one); no effect on
   states. §1 and `tests/i8080_timing.rs`.
-The V20 mapping in [plan §3](backlog/docs/plan.md#3-v20v30-integration-contract-sketch)
-is explicitly unverified. Glossary definitions are orientation, not implementation
+The V20 mapping in [plan §3](backlog/docs/plan.md#3-v20v30-integration-contract) is
+cited from the NEC manual (§1); its open items are listed there. Glossary definitions are orientation, not implementation
 authority. Ordinary tests pin derived values in code and run without manuals,
 corpus downloads or network access.
 
