@@ -124,11 +124,24 @@ fn stop_polls_every_line_preserves_latches_then_held_edges_are_sampled() {
     );
 
     bus.stop = false;
-    assert_eq!(cpu.step(&mut bus).exit, Exit::Halt);
-    assert!(cpu.latches().trap_pending);
+    assert_eq!(
+        cpu.step(&mut bus),
+        Report {
+            steps: 1,
+            cycles: 12,
+            exit: Exit::Budget
+        }
+    );
+    assert!(!cpu.latches().trap_pending);
+    assert!(!cpu.latches().trap_armed);
+    assert!(!cpu.latches().halted);
+    assert!(!cpu.latches().interrupt_enable);
+    assert!(cpu.latches().trap_saved_interrupt_enable);
+    assert!(cpu.latches().trap_rim_pending);
     assert!(cpu.latches().rst7_5_pending);
     assert!(cpu.latches().last_trap);
     assert!(cpu.latches().last_rst7_5);
+    assert_eq!((cpu.registers().pc, cpu.registers().sp), (0x0024, 0xDEEE));
     assert_eq!(
         bus.take_log(),
         [
@@ -137,15 +150,26 @@ fn stop_polls_every_line_preserves_latches_then_held_edges_are_sampled() {
             Event::Rst7_5Poll(true),
             Event::Rst6_5Poll(true),
             Event::Rst5_5Poll(true),
-            Event::IntrPoll(true)
+            Event::IntrPoll(true),
+            Event::Write {
+                address: 0xDEEF,
+                kind: MemoryAccess::Stack,
+                value: 0x10
+            },
+            Event::Write {
+                address: 0xDEEE,
+                kind: MemoryAccess::Stack,
+                value: 0x00
+            },
         ]
     );
 }
 
 #[test]
-fn halt_follows_polls_and_declined_vectored_sources_but_intr_wakes() {
-    // Vectored acceptance still declines. Eligible INTR now acknowledges
-    // RST 0 and wakes: decision-12 rules 5/7; 205775-002 pp. 2-13/2-16.
+fn every_eligible_source_wakes_halt_and_none_returns_halt_without_fetch() {
+    // Decision-12 rules 4/5/7: enabled, unmasked vectored sources and an
+    // eligible INTR (acknowledging RST 0) wake halt; 205775-002 pp. 2-13 to
+    // 2-16. With no request, Halt follows the polls and nothing is fetched.
     for source in 0..6 {
         let mut cpu = cpu_at(0x1000);
         cpu.latches_mut().halted = true;
@@ -164,13 +188,9 @@ fn halt_follows_polls_and_declined_vectored_sources_but_intr_wakes() {
         assert_eq!(
             cpu.step(&mut bus),
             Report {
-                steps: if source == 4 { 1 } else { 0 },
-                cycles: if source == 4 { 12 } else { 0 },
-                exit: if source == 4 {
-                    Exit::Budget
-                } else {
-                    Exit::Halt
-                }
+                steps: u64::from(source < 5),
+                cycles: if source < 5 { 12 } else { 0 },
+                exit: if source < 5 { Exit::Budget } else { Exit::Halt }
             }
         );
         let expected_polls = match source {
@@ -218,13 +238,17 @@ fn halt_follows_polls_and_declined_vectored_sources_but_intr_wakes() {
         };
         let mut trace = expected_polls.to_vec();
         let mut expected_registers = *cpu_at(0x1000).registers();
-        if source == 4 {
-            trace.extend([
-                Event::Read {
+        if source < 5 {
+            if source == 4 {
+                trace.push(Event::Read {
                     address: 0x1000,
                     kind: MemoryAccess::InterruptAcknowledge,
                     value: 0xC7,
-                },
+                });
+            }
+            expected_registers.pc = [0x0024, 0x003C, 0x0034, 0x002C, 0x0000][source];
+            expected_registers.sp = 0xDEEE;
+            trace.extend([
                 Event::Write {
                     address: 0xDEEF,
                     kind: MemoryAccess::Stack,
@@ -236,13 +260,11 @@ fn halt_follows_polls_and_declined_vectored_sources_but_intr_wakes() {
                     value: 0x00,
                 },
             ]);
-            expected_registers.pc = 0;
-            expected_registers.sp = 0xDEEE;
         }
         assert_eq!(bus.take_log(), trace);
         assert_eq!(*cpu.registers(), expected_registers);
-        assert_eq!(cpu.latches().halted, source != 4);
-        assert_eq!(cpu.latches().interrupt_enable, source != 4);
+        assert_eq!(cpu.latches().halted, source >= 5);
+        assert_eq!(cpu.latches().interrupt_enable, source >= 5);
     }
 }
 
@@ -390,22 +412,25 @@ fn cycle_budget_overshoots_and_reached_budget_does_not_poll_again() {
 }
 
 #[test]
-fn unsupported_reports_earlier_nop_progress() {
+fn unsupported_reports_earlier_nop_and_trap_progress() {
     let mut cpu = cpu_at(0x2000);
     cpu.latches_mut().ei_delay = true;
     let mut bus = RecordingBus::new();
     bus.load(0x2000, &[0x00, 0x08]);
+    bus.load(0x0024, &[0x08]);
     bus.trap_levels.extend([false, true]);
     bus.rst7_5_levels.extend([false, true]);
     let report = cpu.run(&mut bus, UNLIMITED);
-    assert_eq!((report.steps, report.cycles), (1, 4));
-    assert_fetch_unsupported(report.exit, 0x2001, 0x08);
-    assert_eq!(cpu.registers().pc, 0x2001);
+    assert_eq!((report.steps, report.cycles), (2, 16));
+    assert_fetch_unsupported(report.exit, 0x0024, 0x08);
+    assert_eq!((cpu.registers().pc, cpu.registers().sp), (0x0024, 0xDEEE));
     assert!(!cpu.latches().ei_delay);
     assert!(!cpu.latches().trap_pending);
-    assert!(!cpu.latches().rst7_5_pending);
-    assert!(!cpu.latches().last_trap);
-    assert!(!cpu.latches().last_rst7_5);
+    assert!(cpu.latches().rst7_5_pending);
+    assert!(cpu.latches().last_trap);
+    assert!(cpu.latches().last_rst7_5);
+    assert!(!cpu.latches().trap_armed);
+    assert!(cpu.latches().trap_rim_pending);
     assert_eq!(
         bus.take_log(),
         [
@@ -426,8 +451,24 @@ fn unsupported_reports_earlier_nop_progress() {
             Event::Rst6_5Poll(false),
             Event::Rst5_5Poll(false),
             Event::IntrPoll(false),
+            Event::Write {
+                address: 0xDEEF,
+                kind: MemoryAccess::Stack,
+                value: 0x20
+            },
+            Event::Write {
+                address: 0xDEEE,
+                kind: MemoryAccess::Stack,
+                value: 0x01
+            },
+            Event::StopPoll(false),
+            Event::TrapPoll(false),
+            Event::Rst7_5Poll(false),
+            Event::Rst6_5Poll(false),
+            Event::Rst5_5Poll(false),
+            Event::IntrPoll(false),
             Event::Read {
-                address: 0x2001,
+                address: 0x0024,
                 kind: MemoryAccess::OpcodeFetch,
                 value: 0x08
             },
@@ -439,6 +480,8 @@ fn unsupported_reports_earlier_nop_progress() {
 fn unsupported_preserves_latches_then_held_edges_are_sampled() {
     // Control/decision-5 item 6 preserve the pre-sampling boundary state.
     let mut cpu = cpu_at(0x3000);
+    // Inhibit acceptance so the high TRAP reaches the unsupported fetch.
+    cpu.latches_mut().ei_delay = true;
     let before = cpu.clone();
     let mut bus = RecordingBus::new();
     bus.load(0x3000, &[0x08]);
@@ -536,6 +579,8 @@ fn pulses_only_at_stop_or_unsupported_are_not_retained() {
     // until a boundary that retains sampling (decision-12 rule 2).
     for stop in [true, false] {
         let mut cpu = cpu_at(0x3000);
+        // Keep TRAP from preempting the boundary being tested.
+        cpu.latches_mut().ei_delay = true;
         let before = *cpu.latches();
         let mut bus = RecordingBus::new();
         bus.load(0x3000, &[0x08]);
@@ -602,9 +647,9 @@ fn trap_pending_survives_inhibited_low_boundary_then_eligible_low_clears_it() {
 }
 
 #[test]
-fn trap_pending_survives_inhibited_low_boundary_then_high_stays_pending() {
+fn trap_pending_survives_inhibited_low_boundary_then_high_is_accepted() {
     // Same rules 2/6 sequence, but high at the next eligible boundary.
-    // The acceptance seam declines, so pending remains observable.
+    // Acceptance consumes pending and disarms TRAP (rule 4).
     let mut cpu = cpu_at(0x3000);
     cpu.latches_mut().trap_pending = true;
     cpu.latches_mut().last_trap = true;
@@ -630,22 +675,25 @@ fn trap_pending_survives_inhibited_low_boundary_then_high_stays_pending() {
         cpu.step(&mut bus),
         Report {
             steps: 1,
-            cycles: 4,
+            cycles: 12,
             exit: Exit::Budget
         }
     );
-    assert!(cpu.latches().trap_pending);
-    assert!(cpu.latches().trap_armed);
+    assert!(!cpu.latches().trap_pending);
+    assert!(!cpu.latches().trap_armed);
     assert!(cpu.latches().last_trap);
     assert!(!cpu.latches().ei_delay);
-    assert!(cpu.latches().interrupt_enable);
+    assert!(!cpu.latches().interrupt_enable);
+    assert!(cpu.latches().trap_saved_interrupt_enable);
+    assert!(cpu.latches().trap_rim_pending);
+    assert_eq!((cpu.registers().pc, cpu.registers().sp), (0x0024, 0xDEEE));
 }
 
 #[test]
 fn trap_held_high_does_not_rearm_after_an_embedder_supplied_acceptance_state() {
     // Decision-12 rule 2; 231718-001 p. 16-15: recognition requires low
     // then high after acceptance. Simulate that acceptance's sampler state
-    // through the public latch view; the seam itself still never accepts.
+    // through the public latch view; the next fresh edge is accepted.
     let mut cpu = cpu_at(0x3000);
     cpu.latches_mut().trap_armed = false;
     cpu.latches_mut().last_trap = true;
@@ -672,8 +720,18 @@ fn trap_held_high_does_not_rearm_after_an_embedder_supplied_acceptance_state() {
     assert!(cpu.latches().trap_armed);
     assert!(!cpu.latches().trap_pending);
     assert_eq!(bus.take_log(), low_polls());
-    assert_eq!(cpu.step(&mut bus).exit, Exit::Halt);
-    assert!(cpu.latches().trap_pending);
+    assert_eq!(
+        cpu.step(&mut bus),
+        Report {
+            steps: 1,
+            cycles: 12,
+            exit: Exit::Budget
+        }
+    );
+    assert!(!cpu.latches().trap_pending);
+    assert!(!cpu.latches().trap_armed);
+    assert!(!cpu.latches().halted);
+    assert_eq!((cpu.registers().pc, cpu.registers().sp), (0x0024, 0xDEEE));
     assert_eq!(
         bus.take_log(),
         [
@@ -682,7 +740,17 @@ fn trap_held_high_does_not_rearm_after_an_embedder_supplied_acceptance_state() {
             Event::Rst7_5Poll(false),
             Event::Rst6_5Poll(false),
             Event::Rst5_5Poll(false),
-            Event::IntrPoll(false)
+            Event::IntrPoll(false),
+            Event::Write {
+                address: 0xDEEF,
+                kind: MemoryAccess::Stack,
+                value: 0x30
+            },
+            Event::Write {
+                address: 0xDEEE,
+                kind: MemoryAccess::Stack,
+                value: 0x00
+            },
         ]
     );
 }

@@ -138,8 +138,7 @@ fn di_immediate_disable_and_next_boundary_inhibition_unverified() {
     // four states/no flags. Decision-12 rule 6: unverified interpretation
     // of "not recognized during" suppresses acceptance at the next boundary.
     // TRAP included; pending survives an inhibited low sample (rule 2).
-    // Acceptance seams still decline: latches/exit/trace are the observable
-    // eligibility witness, not proof of an interrupt being accepted later.
+    // The asserted lines cannot preempt the instruction after DI.
     for initially_enabled in [false, true] {
         for initial_delay in [false, true] {
             let mut cpu = I8085::new(
@@ -191,9 +190,17 @@ fn di_immediate_disable_and_next_boundary_inhibition_unverified() {
         }
     }
 
-    // Make the inhibition independently observable despite declining seams:
+    // Make the inhibition independently observable through cancellation:
     // a low sample cancels pending TRAP only when eligible, not after DI.
-    let mut cpu = I8085::new(registers(0x2000), Latches::default());
+    // Start inhibited so the high TRAP does not preempt DI itself; DI
+    // re-arms the delay, preserving pending at the following low boundary.
+    let mut cpu = I8085::new(
+        registers(0x2000),
+        Latches {
+            ei_delay: true,
+            ..Latches::default()
+        },
+    );
     let mut bus = RecordingBus::new();
     bus.load(0x2000, &[0xF3, 0, 0]);
     bus.trap = true;

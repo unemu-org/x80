@@ -259,10 +259,10 @@ fn every_other_acknowledge_including_ei_di_restores_state_and_repeats() {
 
 #[test]
 fn intr_loses_to_each_eligible_higher_line_without_acknowledging() {
-    // 231718-001 Table 2 p. 16-13. Vectored acceptance still declines:
-    // observe that selecting a higher line does NOT acknowledge INTR;
-    // the NOP fallback is interim behavior, not vectored acceptance.
-    for source in 0..4 {
+    // 231718-001 Table 2 p. 16-13; decision-12 rules 3-5: each higher
+    // eligible line is accepted at its vector, pushing the boundary PC
+    // without acknowledging INTR or consuming its queued byte.
+    for (source, vector) in [(0, 0x0024), (1, 0x003C), (2, 0x0034), (3, 0x002C)] {
         let mut cpu = I8085::new(
             registers(),
             Latches {
@@ -280,30 +280,34 @@ fn intr_loses_to_each_eligible_higher_line_without_acknowledging() {
         bus.rst5_5 = source == 3;
         bus.intr = true;
         bus.acknowledges.push_back(0xC7);
-        let memory = bus.memory.clone();
-        assert_eq!(cpu.step(&mut bus), report(1, 4));
+        let mut memory = bus.memory.clone();
+        memory[0x80FF] = 0x23;
+        memory[0x80FE] = 0xFF;
+        assert_eq!(cpu.step(&mut bus), report(1, 12));
         let mut trace = polls(source == 0, source == 1, source == 2, source == 3, true);
-        trace.push(read(0x23FF, MemoryAccess::OpcodeFetch, 0));
+        trace.extend([write(0x80FF, 0x23), write(0x80FE, 0xFF)]);
         assert_eq!(bus.take_log(), trace);
         assert_eq!(bus.acknowledges.iter().copied().collect::<Vec<_>>(), [0xC7]);
         assert_eq!(bus.memory, memory);
         assert_eq!(
             *cpu.registers(),
             Registers {
-                pc: 0x2400,
+                pc: vector,
+                sp: 0x80FE,
                 ..registers()
             }
         );
         assert_eq!(
             *cpu.latches(),
             Latches {
-                interrupt_enable: true,
+                interrupt_enable: false,
                 mask7_5: false,
                 mask6_5: false,
                 mask5_5: false,
-                trap_pending: source == 0,
+                trap_armed: source != 0,
+                trap_saved_interrupt_enable: source == 0,
+                trap_rim_pending: source == 0,
                 last_trap: source == 0,
-                rst7_5_pending: source == 1,
                 last_rst7_5: source == 1,
                 ..Latches::default()
             }
