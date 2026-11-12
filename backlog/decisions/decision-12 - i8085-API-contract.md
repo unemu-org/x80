@@ -2,10 +2,10 @@
 id: decision-12
 title: i8085 API contract
 date: '2026-11-12'
-status: proposed
+status: accepted
 ---
 
-Decider: maintainer. The 8085 extension of decision-5 within the layout of decision-10;
+Decider: maintainer (2026-11-12). The 8085 extension of decision-5 within the layout of decision-10;
 bead `x80-4gk.5`. Page numbers are 205775-002 (printed 2-n = PDF 23+n, 5-n = PDF 85+n)
 unless marked "DS" (the 8085AH data sheet 231718-001 in the 1988 handbook, printed 16-n =
 PDF 947+n) or 9800301-04. Values marked "to confirm" are checked on the page image by
