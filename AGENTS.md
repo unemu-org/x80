@@ -8,7 +8,7 @@ Canonical repository instructions for coding agents. `CLAUDE.md` imports this fi
 8080 first, then 8085 and Z80. Memory, port devices, scheduling, interrupt sources,
 file formats and machines belong to embedders. No JIT, x86 execution or machine
 emulation. `x80-core` has zero dependencies; its boundary test enforces the rule.
-Today this is a documented module skeleton, with no execution implementation.
+Today the core types and the 8080 register file exist; nothing executes yet.
 
 Open work uses beads (`bd`, prefix `x80`); design, guides and decisions live in
 `backlog/`. Backlog.md is for docs and decisions only. The beads database is

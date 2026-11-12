@@ -4,9 +4,10 @@ A guest-agnostic Intel 8080-family interpreter, planned as a pure-Rust library:
 8080 first, then 8085 and Z80. Embedders provide memory, port I/O and interrupts;
 machines, devices and file formats live outside the core.
 
-**Skeleton only:** `x80-core` has empty documented modules and zero dependencies.
-No instructions or execution API are implemented. M0 (skeleton and tooling) is in
-progress. Read the [draft plan](backlog/docs/plan.md),
+**Early M1:** `x80-core` has zero dependencies and defines the bus, budget, exit
+and input-line traits and the 8080 register types, but no instructions or
+execution API are implemented yet. M0 (skeleton and tooling) is done; M1 (8080)
+is in progress; see [status](backlog/docs/status.md). Read the [draft plan](backlog/docs/plan.md),
 [architecture](backlog/docs/architecture.md) and [provenance rules](PROVENANCE.md).
 
 ```sh

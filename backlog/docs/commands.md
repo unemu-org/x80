@@ -1,8 +1,8 @@
 # Commands
 
 Run from the workspace root in `nix develop` or the direnv shell. These commands
-do not install missing tools. Cargo gates use offline mode; the empty core needs
-no registry downloads. [Dev setup](dev-setup.md) covers provisioning.
+do not install missing tools. Cargo gates use offline mode; the dependency-free core
+needs no registry downloads. [Dev setup](dev-setup.md) covers provisioning.
 
 ## Build, test, lint
 
@@ -24,7 +24,7 @@ now, not a feature toggle. No binary or emulator CLI exists.
 
 Use `cargo fmt --all` to format. Add release-profile runs when optimization could
 change behavior. Serialize heavy campaigns; no perf, fuzz or cross-target gate
-exists at this skeleton stage.
+exists yet.
 
 ## MSRV
 
@@ -36,7 +36,8 @@ in any shell:
 nix develop .#msrv --no-update-lock-file -c cargo test -p x80-core --offline --locked
 ```
 
-It builds `x80-core` and runs its unit, boundary and doc tests with Rust 1.95.0;
+It builds `x80-core` and runs its unit, integration (including boundary) and doc tests
+with Rust 1.95.0;
 the boundary test's nested `cargo tree` uses the same Cargo. First use may download
 the toolchain. Clippy, rustfmt, nextest and deny stay on the default shell.
 Without Nix, any Rust 1.95.0 toolchain can run the same cargo command.

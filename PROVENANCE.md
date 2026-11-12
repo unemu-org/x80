@@ -66,8 +66,13 @@ every family member. No oracle artifacts are currently included.
 
 ## 3. Witnesses and current scope
 
-Only a module skeleton exists; no hardware semantics or timing constants are
-implemented. The V20 mapping in [plan §3](backlog/docs/plan.md#3-v20v30-integration-contract-sketch)
+The core types exist; no instruction semantics or timing constants are
+implemented. The encoded hardware facts are the 8080 register pairs and the
+flag-byte layout of the processor status word (98-153B pp. 2-2, 2-3, 4-2, 4-3,
+4-13; 9800301-04 p. 3-45), each with a witness test, plus structural facts cited
+in code without behaviour yet: five 1-bit flags (p. 4-2), one INT line (p. 5-14)
+and the interrupt-enable, EI-delay and halt latches (pp. 2-13, 4-14, 5-14).
+The V20 mapping in [plan §3](backlog/docs/plan.md#3-v20v30-integration-contract-sketch)
 is explicitly unverified. Glossary definitions are orientation, not implementation
 authority. Ordinary tests will pin derived values in code and run without manuals,
 corpus downloads or network access.

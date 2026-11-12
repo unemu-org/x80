@@ -5,11 +5,17 @@ are in place. Decisions 1-5 settle the M1 API, decision-6 the CPU model layout a
 decision-7 an interim flag reading. The 8080 primary
 sources are pinned (see [PROVENANCE.md](../../PROVENANCE.md)).
 
-`x80-core` contains empty documented modules and a zero-dependency boundary test.
-There is no CPU state implementation, decoder, step/run API or instruction support.
+**M1: in progress.** `x80-core` has the passive types of decision-5: the
+model-neutral `Bus`, `MemoryAccess`, `Control`, `Budget`, `Report`, `Exit` and
+`Unsupported` at the crate root, and the `i8080` model with `Registers`, `Flags`,
+`Latches`, `Inputs` and `I8080`. The BC, DE and HL pair and PSW accessors and the
+PSW flag-byte layout are cited and witnessed. Nothing executes: there is no
+decoder, no instruction behaviour and no `step`, `run` or `reset`, so no
+instruction group is implemented yet (decision-5 item 7).
+
 Two Intel 8080 manuals are pinned as fetch-only sources in the shared `oracles/`
 submodule (pin ddef3b6). No ROMs or oracle corpora are pinned yet.
-M1–M4 have not started. See [plan §5](plan.md#5-milestones).
+M2–M4 have not started. See [plan §5](plan.md#5-milestones).
 
 This is a capability snapshot, not the task board. Consult beads for claims and
 priorities. Update this file when a milestone advances.

@@ -23,7 +23,7 @@ x86jit and its embedder; x80 executes only the emulation-mode instruction stream
 
 One workspace member now: `x80-core`, edition 2021, zero normal, build or dev
 dependencies. `tests/boundary.rs` enforces that boundary, including optional and
-target-specific dependencies. Only empty documented modules exist.
+target-specific dependencies. The core types exist; nothing executes yet.
 
 Model-neutral types (bus, budget, report, exits, host stop) live at the crate
 root. Each CPU model has its own module and type, starting with `i8080` in M1;
@@ -34,8 +34,8 @@ when a second model uses it.
 
 ### 2.2. CPU state and borrowing
 
-Planned 8080 state: A, B, C, D, E, H, L, PC, SP, flags, interrupt-enable state,
-pending enable delay and halt state. The register file and the execution latches
+8080 state, implemented in `i8080`: A, B, C, D, E, H, L, PC, SP, flags,
+interrupt-enable state, pending enable delay and halt state. The register file and the execution latches
 are types of the model (§2.6), not family-wide types; a later model defines its
 own. Exact flag images, reset values and timing latches require the pinned
 manual, not guessed constants. Keep register-pair and flag manipulation
@@ -79,7 +79,7 @@ one instruction; `run` repeats it under a budget. Both are methods of the model
 type and take the embedder's bus and input lines. Budgets carry
 instruction steps and T-states; reports include actual progress and a typed return
 reason (budget, halt, stop request or unsupported encoding, decision-3; handoff
-exits for an integration profile come with M2). No callable API is implemented yet.
+exits for an integration profile come with M2). No `step` or `run` is implemented yet.
 Budget, report and exit reasons are model-neutral. The exit enum and the
 unsupported-encoding payload are non-exhaustive so that later models and the M2
 handoff can extend them. Each model has its own unsupported-encoding policy
