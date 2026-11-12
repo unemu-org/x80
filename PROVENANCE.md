@@ -27,10 +27,10 @@ below and in a bead.
 | Disagreement | Citations | Status |
 | --- | --- | --- |
 | Length of RET (C9) and JZ (CA) | 98-153B pp. 4-11, 4-12 and 9800301-04 pp. 3-32, 3-48: RET one byte, JZ three bytes; 9800301-04 p. A-5 prints "RET Adr" at C9 and "JZ" without "Adr" at CA | Resolved for the opcode map: p. A-5 misprint (operand marker one row off); the per-instruction pages of both manuals agree. Witness pins both bytes |
-| CY after DAA when CY was set before DAA, or when the low adjustment carries out of bit 7 | 98-153B p. 4-8: two-step rule, "All flags are affected"; p. 4-2 general rule: CY set on a carry out of the high-order bit, "otherwise it is reset"; 9800301-04 p. 6-13: DAA's carry is needed "for adding the higher-order bytes" (MADD routine, pp. 6-12 to 6-14; subtraction routine pp. 6-14 to 6-17) | Not stated explicitly. Derived (maintainer, 2026-11-12): CY is kept from before DAA and set by a carry out of bit 7 from either step, which then triggers the high adjustment; the documented decimal routines are correct only this way. Falsifiable by the oracle run, bead x80-ecy.17 |
+| CY after DAA when CY was set before DAA, or when the low adjustment carries out of bit 7 | 98-153B p. 4-8: two-step rule, "All flags are affected"; p. 4-2 general rule: CY set on a carry out of the high-order bit, "otherwise it is reset"; 9800301-04 p. 6-13: DAA's carry is needed "for adding the higher-order bytes" (MADD routine, pp. 6-12 to 6-14; subtraction routine pp. 6-14 to 6-17) | Not stated explicitly. Derived (maintainer, 2026-11-12): CY is kept from before DAA and set by a carry out of bit 7 from either step, which then triggers the high adjustment; the documented decimal routines are correct only this way. Not falsified: 8080EXM's "daa,cma,stc,cmc" group passes (2026-11-12), subject to the CRC provenance noted in §2 |
 | EI delay edge cases: EI followed by EI, DI after EI, and RESET during the delay | 98-153B p. 4-14: EI enables "following the execution of the next instruction", DI disables "immediately following the execution of the DI instruction"; 9800301-04 pp. 3-22, 3-23 say the same; p. 5-14: RESET clears INTE. None addresses a second EI, DI cancelling a pending delay, or RESET clearing the delay | Unverified model (x80-ecy.13): a second EI re-arms the delay, DI clears it, RESET clears it. Labelled in code and tests |
 | Machine cycles of HLT | 98-153B p. 2-18 state table: M1 and M2; 9800301-04 p. 3-24: one machine cycle; both give 7 states | No effect on x80, which counts states only; HLT takes 7 states, witnessed |
-| Auxiliary carry after 8080 logical AND (ANA, ANI) | 98-153B p. 4-9: ANI clears CY and AC; 9800301-04 p. 1-12: AND sets AC to the logical OR of bit 3 of the operands | Unresolved, bead x80-ecy.2. Interim (decision-7, unverified): ANA and ANI set AC to bit 3 of (A OR operand) |
+| Auxiliary carry after 8080 logical AND (ANA, ANI) | 98-153B p. 4-9: ANI clears CY and AC; 9800301-04 p. 1-12: AND sets AC to the logical OR of bit 3 of the operands | Interim (decision-7): ANA and ANI set AC to bit 3 of (A OR operand). Oracle evidence, 2026-11-12, MEASURED: with this reading 8080EXM's two ALU groups pass; with "AC cleared" they fail (found 7799ea9d and b3491c2a instead of 9e922f9e and cf762c86), so 8080EXM falsifies "AC cleared" if its expected CRCs reflect Intel silicon, whose provenance is not pinned (§2). Bead x80-ecy.2 |
 
 ### Discovery inventory
 
@@ -76,7 +76,8 @@ Chosen by the maintainer (2026-11-12, bead x80-ecy.3), pinned FETCH-ONLY in the 
 Both are CP/M programs: they load at 0100h, print through BDOS 2 and 9 via `CALL 0005h`
 and exit with `JMP 0000h`. 8080EXM sets SP from the word at 0006h; 8080PRE never sets SP
 before its first `CALL`, so the host must start it with a usable SP. Neither executes an
-undocumented opcode. No harness exists yet (bead x80-ecy.17). Which parts 8080EXM's
+undocumented opcode. The `x80-oracle` crate runs them (commands.md, "Oracle runs").
+Results, 2026-11-12, MEASURED: 8080PRE passes; 8080EXM passes all 25 groups. Which parts 8080EXM's
 expected CRCs were measured on is not established by the pinned files; x80 records the
 provenance of any CRC it relies on before treating a mismatch as a defect.
 

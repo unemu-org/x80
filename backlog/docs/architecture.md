@@ -69,7 +69,11 @@ An integration test that needs a bus includes `tests/support` with
 witnesses. Witness expectations are literals derived from the cited pages,
 never crate helpers.
 
-Only `x80-core` is a workspace member. Future dependency-bearing oracle harnesses
-will be separate and unpublished; 8085 and Z80 modules wait for those milestones.
+`x80-oracle/` is a second, unpublished workspace member with no dependencies beyond
+`x80-core`: a CP/M-style host that runs the pinned 8080 exercisers and gives a verdict
+only for their pinned SHA-256 digests (commands.md, "Oracle runs").
+
+Any future dependency-bearing oracle harness will also be separate and unpublished;
+8085 and Z80 modules wait for those milestones.
 The V20 adapter belongs to the embedder; x80 will expose only agreed boundaries.
 Keep this map current when modules change.
