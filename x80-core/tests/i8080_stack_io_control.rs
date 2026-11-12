@@ -7,7 +7,7 @@
 
 mod support;
 
-use support::{assert_unsupported, sample_registers, Event, RecordingBus};
+use support::{sample_registers, Event, RecordingBus};
 use x80_core::i8080::{Flags, Latches, Registers, I8080};
 use x80_core::{Budget, Exit, MemoryAccess, Report};
 
@@ -476,13 +476,5 @@ fn in_out_fetch_port_before_io_and_preserve_flags_in_ten_states() {
                 }
             }
         }
-    }
-}
-
-#[test]
-fn ei_di_and_hlt_remain_unimplemented() {
-    // Outside x80-ecy.12; decision-5 item 7's interim Unsupported contract.
-    for opcode in [0xFB, 0xF3, 0x76] {
-        assert_unsupported(opcode, 0x2345);
     }
 }

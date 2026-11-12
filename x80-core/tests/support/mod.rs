@@ -192,6 +192,16 @@ pub fn sample_latches() -> Latches {
     }
 }
 
+/// The sample latches after one completed non-EI instruction: the pending
+/// delay expires (98-153B Ch. 4 EI p. 4-14; decision-5 item 4).
+pub fn settled_latches() -> Latches {
+    Latches {
+        interrupt_enable: true,
+        ei_delay: false,
+        halted: false,
+    }
+}
+
 /// Whether `exit` is the unsupported exit of an opcode fetch (decision-5
 /// item 6): `pc` and `opcode` as given, `acknowledge` false.
 pub fn is_fetch_unsupported(exit: Exit, pc: u16, opcode: u8) -> bool {

@@ -6,7 +6,7 @@
 
 mod support;
 
-use support::{sample_latches, sample_registers, Event, RecordingBus};
+use support::{sample_latches, sample_registers, settled_latches, Event, RecordingBus};
 use x80_core::i8080::{Flags, Registers, I8080};
 use x80_core::{Exit, MemoryAccess, Report};
 
@@ -115,7 +115,7 @@ fn completed(cpu: &I8080, report: Report, expected: Registers, states: u64) {
         }
     );
     assert_eq!(*cpu.registers(), expected);
-    assert_eq!(*cpu.latches(), sample_latches());
+    assert_eq!(*cpu.latches(), settled_latches());
 }
 
 // Register codes: 98-153B Ch. 4 p. 4-3, DDD/SSS.

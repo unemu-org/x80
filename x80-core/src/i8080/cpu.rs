@@ -3,8 +3,7 @@
 //! It owns the register file and the execution latches. `run` and `step`
 //! follow the boundary sequence of decision-5 item 5; fetched opcodes go
 //! through the opcode map to their group's module. Interim gaps: interrupts
-//! are polled but not accepted until bead x80-ecy.14, and `reset` does not
-//! exist yet.
+//! are polled but not accepted until bead x80-ecy.14.
 
 use super::opcodes::{Group, OPCODES};
 use super::{arithmetic, branch, data_transfer, logical, stack_io_control};
@@ -46,6 +45,27 @@ impl I8080 {
         &mut self.latches
     }
 
+    /// Applies RESET (decision-5 item 9).
+    ///
+    /// Clears PC, interrupt enable and halt, preserving flags, A, the other
+    /// working registers and SP: Intel 98-153B (September 1975), Ch. 2,
+    /// "Halt Sequences" and "Start-up of the 8080 CPU", p. 2-13 (PDF 27),
+    /// Figs. 2-12/2-13, pp. 2-14/2-15 (PDF 28/29); Ch. 5, 8080A pin
+    /// definitions, RESET/INTE, p. 5-14 (PDF 76). Intel 9800301-04 (May
+    /// 1981), Ch. 3, EI/HLT, pp. 3-23/3-24 also confirms PC and interrupt
+    /// disable on reset and restart from halt.
+    ///
+    /// Clearing the EI delay is an unverified model choice: those RESET
+    /// descriptions do not specify its effect on a pending EI. This does
+    /// not initialize indeterminate power-up registers; they keep their
+    /// supplied values (98-153B p. 2-13). No bus access or input poll occurs.
+    pub fn reset(&mut self) {
+        self.registers.pc = 0;
+        self.latches.interrupt_enable = false;
+        self.latches.ei_delay = false;
+        self.latches.halted = false;
+    }
+
     /// Executes instructions until `budget` is spent or another exit occurs
     /// (decision-2, decision-5).
     ///
@@ -64,7 +84,7 @@ impl I8080 {
     /// 5. Read the opcode at PC as [`MemoryAccess::OpcodeFetch`] and execute
     ///    the instruction. An opcode that the 8080 manual does not document
     ///    (decision-3), or that is documented but not implemented yet
-    ///    (decision-5 item 7; only NOP executes so far), returns
+    ///    (decision-5 item 7), returns
     ///    [`Exit::Unsupported`] with `acknowledge` false. That exit adds no
     ///    step and no cycle and changes no state: only the opcode read has
     ///    reached the bus.
@@ -121,7 +141,7 @@ impl I8080 {
             // 3. Interim gap until bead x80-ecy.14: an eligible interrupt
             // (INT high, interrupts enabled, EI delay expired) is not
             // accepted, so a halted CPU with one still exits with `Halt`
-            // below. The EI delay latch is not advanced either.
+            // below.
             //
             // 4. Halt: return at once, never spin (decision-2). The halt state
             // is left only by an interrupt or RESET (98-153B p. 2-13, "Halt
@@ -131,7 +151,18 @@ impl I8080 {
             }
             // 5. Fetch and execute.
             match self.execute(system) {
-                Ok(states) => progress.retire(states),
+                Ok((states, opcode)) => {
+                    // decision-5 item 4; 98-153B Ch. 4 EI p. 4-14,
+                    // 9800301-04 Ch. 3 EI p. 3-23: enable only after the
+                    // following instruction completes. EI itself arms the
+                    // delay; no exit without completion advances it.
+                    // EI;EI rearms it: simplest consistent model, unverified
+                    // by these pages. DI clears enable and delay itself.
+                    if opcode != 0xFB {
+                        self.latches.ei_delay = false;
+                    }
+                    progress.retire(states);
+                }
                 Err(unsupported) => return progress.report(Exit::Unsupported(unsupported)),
             }
         }
@@ -151,10 +182,10 @@ impl I8080 {
 
     /// Boundary step 5: reads the opcode at PC and executes its instruction.
     ///
-    /// Returns the states spent, or the unsupported exit with no state
+    /// Returns the states spent and opcode, or the unsupported exit with no state
     /// changed. Every check happens before the group's executor runs, and an
     /// executor that returns `None` has changed and accessed nothing.
-    fn execute<S: Bus>(&mut self, system: &mut S) -> Result<u8, Unsupported> {
+    fn execute<S: Bus>(&mut self, system: &mut S) -> Result<(u8, u8), Unsupported> {
         let pc = self.registers.pc;
         let opcode = system.read(pc, MemoryAccess::OpcodeFetch);
         let unsupported = Unsupported {
@@ -180,7 +211,8 @@ impl I8080 {
         };
         // `None`: documented, but its group does not execute it yet
         // (decision-5 item 7).
-        path.map(|path| states.of(path)).ok_or(unsupported)
+        path.map(|path| (states.of(path), opcode))
+            .ok_or(unsupported)
     }
 }
 

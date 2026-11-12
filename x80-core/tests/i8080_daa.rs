@@ -5,7 +5,7 @@
 
 mod support;
 
-use support::{sample_latches, sample_registers, Event, RecordingBus};
+use support::{sample_latches, sample_registers, settled_latches, Event, RecordingBus};
 use x80_core::i8080::{Flags, Registers, I8080};
 use x80_core::{Exit, MemoryAccess, Report};
 
@@ -99,7 +99,7 @@ fn check_daa(a: u8, cy: bool, ac: bool, pc: u16, next_pc: u16, expected: (u8, Fl
         },
         "A={a:02X} CY={cy} AC={ac}"
     );
-    assert_eq!(*cpu.latches(), sample_latches());
+    assert_eq!(*cpu.latches(), settled_latches());
     assert_eq!(bus.memory, memory);
     // 98-153B Ch. 2 p. 2-16 (PDF 30), DAA row: M1 only, PC += 1.
     // OpcodeFetch and boundary polls: decision-5 items 3-5/8.

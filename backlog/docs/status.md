@@ -23,19 +23,18 @@ totals and bus traces:
 - Arithmetic: all, including DAA (pp. 4-6 to 4-8); DAA's carry rule is
   derived, not stated (PROVENANCE.md §1).
 - Branch: all (pp. 4-11, 4-12).
-- Stack, I/O and Machine Control: PUSH, POP, XTHL, SPHL, IN, OUT and NOP
-  (pp. 4-13, 4-14); EI, DI and HLT are `x80-ecy.13`.
+- Stack, I/O and Machine Control: all (pp. 4-13, 4-14), including EI with its
+  one-instruction delay, DI and HLT. `I8080::reset` clears PC, the
+  interrupt-enable latch and halt (pp. 2-13, 5-14). The EI-delay edge cases
+  are an unverified model (PROVENANCE.md §1).
 - Logical: all (pp. 4-8 to 4-11); AC after ANA and ANI is the interim
   reading of decision-7.
 
-Documented opcodes outside these return `Unsupported` until their bead lands.
+Every documented 8080 opcode now executes; only the 12 undocumented bytes
+return `Unsupported` (decision-3).
 
-Interim gaps:
-
-- Interrupts are polled at every boundary but never accepted until
-  `x80-ecy.14`; a halted CPU with an eligible interrupt still returns `Halt`.
-- The EI delay latch is not advanced by executed instructions yet.
-- There is no `reset` yet (`x80-ecy.13`).
+Interim gap: interrupts are polled at every boundary but never accepted until
+`x80-ecy.14`; a halted CPU with an eligible interrupt still returns `Halt`.
 
 Two Intel 8080 manuals are pinned as fetch-only sources in the shared `oracles/`
 submodule (pin ddef3b6). No ROMs or oracle corpora are pinned yet.

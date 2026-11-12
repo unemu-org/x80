@@ -6,7 +6,7 @@
 //! Field letters are those of `Encoding` in `opcodes`.
 //!
 //! Design: decision-5 items 3, 7 and 8 (bus kinds and execution), plan §2.2
-//! (registers and flags). EI, DI and HLT remain Unsupported for x80-ecy.13.
+//! (registers and flags); items 4/5 cover EI delay and halt boundaries.
 //! Source revisions and hashes are pinned in PROVENANCE.md; secondary citations
 //! below refer to Intel 9800301-04 (May 1981), Ch. 3, 8080 state counts.
 
@@ -43,12 +43,12 @@ pub(super) const ENCODINGS: &[Encoding] = &[
     Encoding::new(b"11011011", 2).with_states(States::single(10)),
     // OUT port, p. 4-14: 10 states; 9800301-04 Ch. 3 p. 3-41.
     Encoding::new(b"11010011", 2).with_states(States::single(10)),
-    // EI, p. 4-14.
-    Encoding::new(b"11111011", 1),
-    // DI, p. 4-14.
-    Encoding::new(b"11110011", 1),
-    // HLT, p. 4-14.
-    Encoding::new(b"01110110", 1),
+    // EI, p. 4-14: 4 states; 9800301-04 Ch. 3 p. 3-23.
+    Encoding::new(b"11111011", 1).with_states(States::single(4)),
+    // DI, p. 4-14: 4 states; 9800301-04 Ch. 3 pp. 3-22/3-23.
+    Encoding::new(b"11110011", 1).with_states(States::single(4)),
+    // HLT, p. 4-14: 7 states; 9800301-04 Ch. 3 p. 3-24 (8080).
+    Encoding::new(b"01110110", 1).with_states(States::single(7)),
     // NOP, p. 4-14: "Cycles: 1, States: 4". Second witness: 9800301-04
     // p. A-4, NOP, 8080 column: 4.
     Encoding::new(b"00000000", 1).with_states(States::single(4)),
@@ -132,6 +132,27 @@ pub(super) fn execute<S: Bus>(
                 system.output(port, registers.a);
             }
         }
+        // decision-5 item 4; 98-153B Ch. 4 EI p. 4-14 and 9800301-04
+        // Ch. 3 EI p. 3-23: enabled following the next instruction.
+        // INTE and delay together represent this; run expires the delay.
+        0xFB => {
+            let latches = cpu.latches_mut();
+            latches.interrupt_enable = true;
+            latches.ei_delay = true;
+        }
+        // Same primary page, DI; second witness pp. 3-22/3-23:
+        // interrupts disabled immediately following DI. Cancelling the
+        // internal delay is an unverified model choice for EI;DI.
+        0xF3 => {
+            let latches = cpu.latches_mut();
+            latches.interrupt_enable = false;
+            latches.ei_delay = false;
+        }
+        // decision-5 item 5; 98-153B Ch. 4 HLT p. 4-14, Ch. 2
+        // Halt Sequences p. 2-13: stopped, registers/flags unchanged.
+        // 9800301-04 Ch. 3 HLT p. 3-24 explicitly leaves PC at the
+        // next instruction. run returns Halt at the next boundary.
+        0x76 => cpu.latches_mut().halted = true,
         // 98-153B Ch. 4 p. 4-14 NOP: no operation; registers and flags
         // unaffected, apart from sequential PC advancement below.
         NOP => {}
@@ -140,6 +161,7 @@ pub(super) fn execute<S: Bus>(
     // Sequential PC advancement: 98-153B Ch. 4 p. 4-2 and the fetch cycles
     // in Ch. 2 pp. 2-16, 2-18. PC/SP arithmetic wraps by their 16-bit width
     // (Ch. 2 p. 2-2); wrapping itself is derived, not stated explicitly.
+    let registers = cpu.registers_mut();
     registers.pc = registers.pc.wrapping_add(u16::from(instruction.length));
     Some(Path::Taken)
 }

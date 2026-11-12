@@ -6,7 +6,7 @@ mod arithmetic_reference;
 mod support;
 
 use arithmetic_reference::arithmetic;
-use support::{sample_latches, sample_registers, Event, RecordingBus};
+use support::{sample_latches, sample_registers, settled_latches, Event, RecordingBus};
 use x80_core::i8080::{Flags, Registers, I8080};
 use x80_core::{Exit, MemoryAccess, Report};
 
@@ -245,7 +245,7 @@ fn exhaustive_add_adc_sub_sbb_every_encoding_and_trace() {
                             expected,
                             "opcode={opcode:02x} A={a:02x} operand={operand:02x} CY={carry}"
                         );
-                        assert_eq!(*cpu.latches(), sample_latches());
+                        assert_eq!(*cpu.latches(), settled_latches());
                         let prefix = boundary(0xFFFF, opcode);
                         assert_eq!(&bus.log[..3], &prefix);
                         match source {
@@ -314,7 +314,7 @@ fn exhaustive_inr_dcr_every_encoding_preserves_carry_and_traces() {
                         expected,
                         "opcode={opcode:02x} operand={operand:02x} CY={carry}"
                     );
-                    assert_eq!(*cpu.latches(), sample_latches());
+                    assert_eq!(*cpu.latches(), settled_latches());
                     assert_eq!(&bus.log[..3], &boundary(0xFFFF, opcode));
                     if destination == 6 {
                         assert_eq!(
@@ -406,7 +406,7 @@ fn inx_dcx_all_pairs_wrap_and_preserve_all_flags() {
                         }
                     );
                     assert_eq!(*cpu.registers(), expected);
-                    assert_eq!(*cpu.latches(), sample_latches());
+                    assert_eq!(*cpu.latches(), settled_latches());
                     assert_eq!(bus.log, boundary(0xFFFF, opcode));
                     bus.log.clear();
                 }
@@ -454,7 +454,7 @@ fn dad_all_pairs_changes_only_hl_and_carry() {
                     }
                 );
                 assert_eq!(*cpu.registers(), expected);
-                assert_eq!(*cpu.latches(), sample_latches());
+                assert_eq!(*cpu.latches(), settled_latches());
                 assert_eq!(bus.log, boundary(0xFFFF, opcode));
                 bus.log.clear();
             }
