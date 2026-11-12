@@ -123,3 +123,132 @@ fn default_input_lines_request_no_stop_and_no_interrupt() {
     assert!(!silent.stop_requested());
     assert!(!silent.interrupt_requested());
 }
+
+impl x80_core::i8085::Inputs for Silent {}
+
+#[test]
+fn default_8085_inputs_are_low_and_sod_notification_is_a_no_op() {
+    use x80_core::i8085::Inputs;
+    // decision-12: defaults are part of the API, not hardware line bias.
+    let mut silent = Silent;
+    assert!(!silent.stop_requested());
+    assert!(!silent.trap());
+    assert!(!silent.rst7_5());
+    assert!(!silent.rst6_5());
+    assert!(!silent.rst5_5());
+    assert!(!silent.intr());
+    assert!(!silent.sid());
+    silent.sod_changed(true);
+    silent.sod_changed(false);
+}
+
+/// Drive the decision-12 rule 1 order through the trait. This tests the bus
+/// fixture, not CPU boundary execution (which is not implemented yet).
+fn drive_8085<S: x80_core::i8085::Inputs>(system: &mut S) -> [bool; 7] {
+    [
+        system.stop_requested(),
+        system.trap(),
+        system.rst7_5(),
+        system.rst6_5(),
+        system.rst5_5(),
+        system.intr(),
+        system.sid(),
+    ]
+}
+
+#[test]
+fn records_8085_scripts_then_fallbacks_and_every_sod_notification() {
+    use x80_core::i8085::Inputs;
+    let mut bus = RecordingBus::new();
+    bus.stop = true;
+    bus.trap = true;
+    bus.rst6_5 = true;
+    bus.intr = true;
+    bus.trap_levels.extend([false, true]);
+    bus.rst7_5_levels.extend([true, false]);
+    bus.rst6_5_levels.extend([false, true]);
+    bus.rst5_5_levels.extend([true, false]);
+    bus.intr_levels.extend([false, true]);
+    bus.sid_levels.extend([true, false]);
+
+    assert_eq!(
+        drive_8085(&mut bus),
+        [true, false, true, false, true, false, true]
+    );
+    assert_eq!(
+        drive_8085(&mut bus),
+        [true, true, false, true, false, true, false]
+    );
+    assert_eq!(
+        drive_8085(&mut bus),
+        [true, true, false, true, false, true, false]
+    );
+    bus.sod_changed(true);
+    bus.sod_changed(true); // Enabled SIM writes notify even at the same level.
+    bus.sod_changed(false);
+    assert_eq!(
+        bus.take_log(),
+        [
+            Event::StopPoll(true),
+            Event::TrapPoll(false),
+            Event::Rst7_5Poll(true),
+            Event::Rst6_5Poll(false),
+            Event::Rst5_5Poll(true),
+            Event::IntrPoll(false),
+            Event::SidPoll(true),
+            Event::StopPoll(true),
+            Event::TrapPoll(true),
+            Event::Rst7_5Poll(false),
+            Event::Rst6_5Poll(true),
+            Event::Rst5_5Poll(false),
+            Event::IntrPoll(true),
+            Event::SidPoll(false),
+            Event::StopPoll(true),
+            Event::TrapPoll(true),
+            Event::Rst7_5Poll(false),
+            Event::Rst6_5Poll(true),
+            Event::Rst5_5Poll(false),
+            Event::IntrPoll(true),
+            Event::SidPoll(false),
+            Event::SodChanged(true),
+            Event::SodChanged(true),
+            Event::SodChanged(false),
+        ]
+    );
+}
+
+#[test]
+fn input_scripts_are_independent_between_models_and_rim_reads() {
+    use x80_core::i8085::Inputs;
+    let mut bus = RecordingBus::new();
+    bus.interrupt_levels.extend([true, false]);
+    bus.intr_levels.extend([false, true]);
+    bus.sid_levels.push_back(true);
+    bus.rst6_5_levels.extend([false, true]);
+    bus.rst5_5_levels.extend([true, false]);
+    assert!(x80_core::i8080::Inputs::interrupt_requested(&mut bus));
+    assert!(!bus.intr());
+    assert!(!x80_core::i8080::Inputs::interrupt_requested(&mut bus));
+    assert!(bus.intr());
+    // rule 8's in-instruction SID / RST 6.5 / RST 5.5 order consumes
+    // independent scripts, including when level methods are read again.
+    assert!(bus.sid());
+    assert!(!bus.rst6_5());
+    assert!(bus.rst5_5());
+    assert!(bus.rst6_5());
+    assert!(!bus.rst5_5());
+    assert_eq!(
+        bus.take_log(),
+        [
+            Event::InterruptPoll(true),
+            Event::IntrPoll(false),
+            Event::InterruptPoll(false),
+            Event::IntrPoll(true),
+            Event::SidPoll(true),
+            Event::Rst6_5Poll(false),
+            Event::Rst5_5Poll(true),
+            Event::Rst6_5Poll(true),
+            Event::Rst5_5Poll(false),
+        ]
+    );
+}

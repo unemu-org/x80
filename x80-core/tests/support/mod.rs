@@ -8,6 +8,10 @@
 //! arguments and result, to [`RecordingBus::log`], so a test can compare the
 //! whole trace with a literal list of [`Event`]s.
 //!
+//! It also implements `i8085::Inputs` with independent scripts and fallback
+//! levels for all five interrupt lines and SID, and logs SOD notifications
+//! (decision-12). Existing 8080 INT scripting is independent of 8085 INTR.
+//!
 //! [`sample_registers`] and [`sample_latches`] give a CPU state with a
 //! distinct value everywhere, and [`assert_unsupported`] checks the
 //! unsupported exit of decision-5 items 5 and 6 for one opcode.
@@ -43,6 +47,20 @@ pub enum Event {
     StopPoll(bool),
     /// [`Inputs::interrupt_requested`], with the level returned.
     InterruptPoll(bool),
+    /// 8085 TRAP level read (decision-12 rule 1).
+    TrapPoll(bool),
+    /// 8085 RST 7.5 level read (decision-12 rule 1).
+    Rst7_5Poll(bool),
+    /// 8085 RST 6.5 level read (decision-12 rules 1 and 8).
+    Rst6_5Poll(bool),
+    /// 8085 RST 5.5 level read (decision-12 rules 1 and 8).
+    Rst5_5Poll(bool),
+    /// 8085 INTR level read (decision-12 rule 1).
+    IntrPoll(bool),
+    /// 8085 SID level read (decision-12 rule 8).
+    SidPoll(bool),
+    /// 8085 SOD notification, including repeated levels (decision-12 rule 8).
+    SodChanged(bool),
 }
 
 /// A recording bus with scriptable responses; see the module docs.
@@ -72,6 +90,30 @@ pub struct RecordingBus {
     pub interrupt_levels: VecDeque<bool>,
     /// Lower the fallback INT level when an acknowledge read occurs.
     pub lower_interrupt_on_acknowledge: bool,
+    /// Fallback TRAP level for `i8085::Inputs`.
+    pub trap: bool,
+    /// Scripted TRAP levels, then `trap` when empty.
+    pub trap_levels: VecDeque<bool>,
+    /// Fallback RST 7.5 level for `i8085::Inputs`.
+    pub rst7_5: bool,
+    /// Scripted RST 7.5 levels, then `rst7_5` when empty.
+    pub rst7_5_levels: VecDeque<bool>,
+    /// Fallback RST 6.5 level for `i8085::Inputs`.
+    pub rst6_5: bool,
+    /// Scripted RST 6.5 levels, then `rst6_5` when empty.
+    pub rst6_5_levels: VecDeque<bool>,
+    /// Fallback RST 5.5 level for `i8085::Inputs`.
+    pub rst5_5: bool,
+    /// Scripted RST 5.5 levels, then `rst5_5` when empty.
+    pub rst5_5_levels: VecDeque<bool>,
+    /// Fallback INTR level for `i8085::Inputs`, independent of 8080 INT.
+    pub intr: bool,
+    /// Scripted INTR levels, then `intr` when empty.
+    pub intr_levels: VecDeque<bool>,
+    /// Fallback SID level for `i8085::Inputs`.
+    pub sid: bool,
+    /// Scripted SID levels, then `sid` when empty.
+    pub sid_levels: VecDeque<bool>,
     /// Every call so far, oldest first.
     pub log: Vec<Event>,
 }
@@ -87,6 +129,18 @@ impl RecordingBus {
             interrupt: false,
             interrupt_levels: VecDeque::new(),
             lower_interrupt_on_acknowledge: false,
+            trap: false,
+            trap_levels: VecDeque::new(),
+            rst7_5: false,
+            rst7_5_levels: VecDeque::new(),
+            rst6_5: false,
+            rst6_5_levels: VecDeque::new(),
+            rst5_5: false,
+            rst5_5_levels: VecDeque::new(),
+            intr: false,
+            intr_levels: VecDeque::new(),
+            sid: false,
+            sid_levels: VecDeque::new(),
             log: Vec::new(),
         }
     }
@@ -168,6 +222,50 @@ impl Inputs for RecordingBus {
         let level = self.interrupt_levels.pop_front().unwrap_or(self.interrupt);
         self.log.push(Event::InterruptPoll(level));
         level
+    }
+}
+
+// Additive 8085 input support (decision-10 and decision-12). Each script
+// consumes one level per call, including RIM's extra RST 6.5/5.5 reads.
+impl x80_core::i8085::Inputs for RecordingBus {
+    fn trap(&mut self) -> bool {
+        let level = self.trap_levels.pop_front().unwrap_or(self.trap);
+        self.log.push(Event::TrapPoll(level));
+        level
+    }
+
+    fn rst7_5(&mut self) -> bool {
+        let level = self.rst7_5_levels.pop_front().unwrap_or(self.rst7_5);
+        self.log.push(Event::Rst7_5Poll(level));
+        level
+    }
+
+    fn rst6_5(&mut self) -> bool {
+        let level = self.rst6_5_levels.pop_front().unwrap_or(self.rst6_5);
+        self.log.push(Event::Rst6_5Poll(level));
+        level
+    }
+
+    fn rst5_5(&mut self) -> bool {
+        let level = self.rst5_5_levels.pop_front().unwrap_or(self.rst5_5);
+        self.log.push(Event::Rst5_5Poll(level));
+        level
+    }
+
+    fn intr(&mut self) -> bool {
+        let level = self.intr_levels.pop_front().unwrap_or(self.intr);
+        self.log.push(Event::IntrPoll(level));
+        level
+    }
+
+    fn sid(&mut self) -> bool {
+        let level = self.sid_levels.pop_front().unwrap_or(self.sid);
+        self.log.push(Event::SidPoll(level));
+        level
+    }
+
+    fn sod_changed(&mut self, level: bool) {
+        self.log.push(Event::SodChanged(level));
     }
 }
 

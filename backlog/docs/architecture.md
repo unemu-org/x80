@@ -26,6 +26,7 @@ x80-core/
   src/i8080/logical.rs          Logical Group (pp. 4-8 to 4-11)
   src/i8080/branch.rs           Branch Group (pp. 4-11, 4-12)
   src/i8080/stack_io_control.rs Stack, I/O and Machine Control Group (pp. 4-13, 4-14)
+  src/i8085/                    model-owned Registers, Flags/PSW, Latches, Inputs and I8085 reset; execution pending (decisions 10–12)
   tests/boundary.rs             zero-dependency and model-neutral root tripwires
   tests/support/                recording test bus, sample state, unsupported check
   tests/i8080_run.rs            budget, boundary sequence, exit precedence, step, determinism
@@ -48,8 +49,8 @@ x80-v20-contract/               unpublished test-only V20 vectors and mock nativ
 Model split (decision-6, plan §2.6): the crate root holds the model-neutral
 types, re-exported as `x80_core::{Bus, MemoryAccess, Control, Budget, Report,
 Exit, Unsupported}`. They carry no hardware fact and cite decisions, not
-manuals. Each CPU model is its own module and type; the only one is
-`x80_core::i8080`, with `I8080`, `Registers`, `Flags`, `Latches` and `Inputs`.
+manuals. Each CPU model is its own module and type: `x80_core::i8080` and
+`x80_core::i8085`, each with its CPU, `Registers`, `Flags`, `Latches` and `Inputs`.
 Hardware facts live in the model and cite the pinned manuals by page. There is
 no family-wide CPU or register type and no model trait.
 
@@ -87,6 +88,6 @@ never crate helpers.
 only for their pinned SHA-256 digests (commands.md, "Oracle runs").
 
 Any future dependency-bearing oracle harness will also be separate and unpublished;
-8085 and Z80 modules wait for those milestones.
+8085 execution and the Z80 module wait for their milestone beads.
 The V20 adapter belongs to the embedder; x80 will expose only agreed boundaries.
 Keep this map current when modules change.
