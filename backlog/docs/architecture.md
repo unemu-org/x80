@@ -42,6 +42,7 @@ x80-core/
   tests/arithmetic_reference/  independent 8080 arithmetic reference
 backlog/docs/                   design and guides
 backlog/decisions/              durable decisions
+x80-v20-contract/               unpublished test-only V20 vectors and mock native mode switches (decision-9)
 ```
 
 Model split (decision-6, plan §2.6): the crate root holds the model-neutral

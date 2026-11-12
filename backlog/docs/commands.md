@@ -60,6 +60,12 @@ protocol regardless of filename. Optional `--oracle pre` or `--oracle exm` check
 the expected identity of a known program; it cannot give an unknown digest a
 verdict. No interrupts or host stop are requested.
 
+## V20 contract fixtures
+
+`cargo test -p x80-v20-contract --offline --locked` runs the portable vectors
+and mock native operations; see [the fixture format](../../x80-v20-contract/README.md).
+No native core, manual download or x86 execution is needed.
+
 ## MSRV
 
 The declared MSRV is Rust 1.95 (`rust-version` in `Cargo.toml`). The `msrv` dev

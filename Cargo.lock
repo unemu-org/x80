@@ -12,3 +12,10 @@ version = "0.1.0"
 dependencies = [
  "x80-core",
 ]
+
+[[package]]
+name = "x80-v20-contract"
+version = "0.1.0"
+dependencies = [
+ "x80-core",
+]

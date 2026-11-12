@@ -1,0 +1,11 @@
+[package]
+name = "x80-v20-contract"
+publish = false
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "Test-only V20 mode-switch contract vectors and mock native side"
+
+[dependencies]
+x80-core = { path = "../x80-core", version = "0.1.0" }

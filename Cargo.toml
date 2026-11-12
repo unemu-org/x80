@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["x80-core", "x80-oracle"]
+members = ["x80-core", "x80-oracle", "x80-v20-contract"]
 
 [workspace.package]
 version = "0.1.0"
