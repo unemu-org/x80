@@ -24,13 +24,13 @@ pub(super) const ENCODINGS: &[Encoding] = &[
     Encoding::new(b"00110000", 1, States::single(4)),
 ];
 
-/// Executes RIM or SIM. A byte outside this group has no effects.
+/// Executes RIM or SIM, as guaranteed by the opcode map.
 pub(super) fn execute<S: Bus + super::Inputs>(
     cpu: &mut I8085,
     system: &mut S,
     opcode: u8,
     instruction: Instruction,
-) -> Option<Path> {
+) -> Path {
     match opcode {
         // 205775-002 p. 5-17, RIM; 9800301-04 p. 3-49: A bits 7..0
         // are SID, I7.5, I6.5, I5.5, IE, M7.5, M6.5, M5.5.
@@ -87,11 +87,11 @@ pub(super) fn execute<S: Bus + super::Inputs>(
                 system.sod_changed(latches.sod);
             }
         }
-        _ => return None,
+        _ => unreachable!("opcode map dispatches only this group's encodings"),
     }
     // Sequential execution: §5.4 p. 5-3. The PC's 16-bit width (§2.2.1
     // p. 2-2) motivates wrapping; wrap itself is derived, not stated.
     let registers = cpu.registers_mut();
     registers.pc = registers.pc.wrapping_add(u16::from(instruction.length));
-    Some(Path::Taken)
+    Path::Taken
 }

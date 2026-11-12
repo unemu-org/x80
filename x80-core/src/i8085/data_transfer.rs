@@ -57,13 +57,13 @@ pub(super) const ENCODINGS: &[Encoding] = &[
 ];
 
 /// Executes an opcode already fetched and dispatched to this group.
-/// An unrecognized byte returns `None` without effects (decision-5 item 7).
+/// The opcode map guarantees that the byte belongs to this group.
 pub(super) fn execute<S: Bus>(
     cpu: &mut I8085,
     system: &mut S,
     opcode: u8,
     instruction: Instruction,
-) -> Option<Path> {
+) -> Path {
     let registers = cpu.registers_mut();
     match opcode {
         // MOV: §5.6.1 p. 5-4; 9800301-04 pp. 3-36/3-37.
@@ -129,7 +129,7 @@ pub(super) fn execute<S: Bus>(
             core::mem::swap(&mut registers.h, &mut registers.d);
             core::mem::swap(&mut registers.l, &mut registers.e);
         }
-        _ => return None,
+        _ => unreachable!("opcode map dispatches only this group's encodings"),
     }
     // §2.2.1 p. 2-2: PC points at the next instruction; §5.3 p. 5-2:
     // successive instruction bytes. PC wrap is DERIVED from its 16-bit
@@ -137,7 +137,7 @@ pub(super) fn execute<S: Bus>(
     // Flags remain untouched (§5.6.1 p. 5-4). These instructions have one
     // total in both state slots (§5.2 p. 5-2; decision-5 item 7).
     registers.pc = registers.pc.wrapping_add(u16::from(instruction.length));
-    Some(Path::Taken)
+    Path::Taken
 }
 
 // §5.3 p. 5-2: bytes follow the opcode at successive addresses. Table 5-1

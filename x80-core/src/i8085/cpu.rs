@@ -19,7 +19,8 @@ enum Interrupt {
 /// An Intel 8085 CPU's registers and execution latches (decision-10).
 ///
 /// `Default` uses the library-chosen register and latch defaults, not a
-/// hardware power-up state. Group executors land per bead (decision-5 item 7).
+/// hardware power-up state. Every documented instruction has a completing
+/// group executor (decision-5 item 7 closure).
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct I8085 {
     registers: Registers,
@@ -92,17 +93,18 @@ impl I8085 {
     /// delay has expired. Its rising edge sets pending. A rising RST 7.5 sets its
     /// flip-flop even while masked or disabled (rules 2 and 6).
     ///
-    /// After stop, the highest eligible interrupt goes through its acceptance
-    /// seam. Both seams currently decline without effects. Halt follows,
-    /// then opcode fetch. Undocumented bytes, and documented instructions whose
-    /// group executor has not landed yet (decision-5 item 7), return
-    /// [`Exit::Unsupported`] with no instruction effects or progress.
+    /// After stop, the highest eligible interrupt is accepted: internally
+    /// vectored sources push PC without a bus read; INTR acknowledges RST or
+    /// CALL (decision-12 rules 4/5). Halt follows, then opcode fetch. Every
+    /// documented byte executes; undocumented bytes and unsupported INTR
+    /// acknowledges return [`Exit::Unsupported`] without effects or progress.
     /// Boundary sampling is retained on Halt, interrupt acceptance and
     /// instruction completion. Stop leaves CPU state unchanged ([`crate::Control`]);
     /// Unsupported restores the latches from before sampling (decision-5 item 6).
     /// A pulse seen only at a Stop or Unsupported boundary is sampled again
     /// next run only if the embedder still holds it.
-    /// SID and SOD are untouched; they belong to RIM/SIM (rule 8).
+    /// RIM reads SID and the RST 6.5/5.5 levels; SIM updates masks and
+    /// notifies enabled SOD writes in program order (rule 8).
     ///
     /// A zero or reached budget returns without polling or sampling. Started
     /// instructions complete even if they overshoot the cycle budget. Steps
@@ -234,8 +236,9 @@ impl I8085 {
         }
     }
 
-    /// Dispatch does not advance PC or fetch operands until an executor
-    /// completes (decision-5 items 6/7; decision-11).
+    /// Dispatch fetches only the opcode; the completing group executor owns
+    /// PC advancement and operand reads. Only undocumented fetched bytes
+    /// return Unsupported here (decision-5 items 6/7 closure; decision-11).
     fn execute<S: Bus + Inputs>(&mut self, system: &mut S) -> Result<u8, Unsupported> {
         let pc = self.registers.pc;
         let opcode = system.read(pc, MemoryAccess::OpcodeFetch);
@@ -255,8 +258,7 @@ impl I8085 {
             Group::StackIoControl => stack_io_control::execute(self, system, opcode, instruction),
             Group::RimSim => rim_sim::execute(self, system, opcode, instruction),
         };
-        path.map(|path| instruction.states.of(path))
-            .ok_or(unsupported)
+        Ok(instruction.states.of(path))
     }
 }
 
@@ -266,7 +268,7 @@ mod tests {
 
     // Decision-12 rule 3, 231718-001 Table 2 p. 16-13 and p. 16-15;
     // masks and flip-flop: 205775-002 RIM/SIM pp. 5-17/5-18.
-    // Selection is observed here because both acceptance seams still decline.
+    // Selection is observed directly here; integration witnesses cover acceptance.
     #[test]
     fn priority_masks_enable_delay_and_trap_level_select_one_source() {
         let mut cpu = I8085::default();

@@ -75,10 +75,13 @@ M2 and M3 are in progress: M2's x80-side work (beads `x80-pzp.1` to `.5`) runs f
 pinned NEC manual, and its joint witnesses wait on x86jit's V20/V30 bead (C4); M3 (8085)
 has its sources pinned. M4 has not started. See [plan §5](plan.md#5-milestones).
 
-M3 (8085): the 246 documented opcode entries have lengths and 8085 state totals;
+M3 (8085): all documented 8085 instructions and all five interrupt sources execute
+with 8085 state totals; INTR supports RST and CALL acknowledges. Undocumented
+bytes and other INTR acknowledge bytes return `Unsupported` without state change.
 `run`/`step` perform the full six-poll boundary sequence and persistent TRAP/RST 7.5
-edge sampling (decision-12). Only NOP executes; other documented and undocumented
-bytes return `Unsupported`. Vectored and INTR acceptance remain stubs.
+edge sampling (decision-12). Literal whole-set coverage, mixed-program replay and
+step/cycle budget splits witness execution and determinism, including RIM/SIM
+and serial-line notifications. Oracle results are recorded by `x80-4gk.21`.
 
 This is a capability snapshot, not the task board. Consult beads for claims and
 priorities. Update this file when a milestone advances.

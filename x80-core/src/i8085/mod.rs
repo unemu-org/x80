@@ -14,9 +14,10 @@
 //! Stop preserves CPU state ([`crate::Control`]); Unsupported restores the
 //! latches from before sampling (decision-5 item 6). A pulse seen only at
 //! either boundary is sampled again next run only if the embedder still holds it.
-//! Undocumented bytes, and documented instructions whose group executor has
-//! not landed yet, return Unsupported (decision-5 item 7). Interrupt
-//! acceptance seams decline without effects.
+//! Every documented instruction executes, including RIM/SIM. Undocumented
+//! bytes return Unsupported (decision-11; decision-5 item 7 closure). All
+//! five interrupt sources execute; INTR supports RST and CALL acknowledges
+//! and returns Unsupported for other acknowledge bytes (decision-12 rule 5).
 //!
 //! The five flags occupy PSW bits 7, 6, 4, 2 and 0. Bits 5, 3 and 1 are
 //! undefined (205775-002 §5.6.5, p. 5-15, FLAG WORD). Their stored image is

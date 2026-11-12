@@ -26,7 +26,7 @@ x80-core/
   src/i8080/logical.rs          Logical Group (pp. 4-8 to 4-11)
   src/i8080/branch.rs           Branch Group (pp. 4-11, 4-12)
   src/i8080/stack_io_control.rs Stack, I/O and Machine Control Group (pp. 4-13, 4-14)
-  src/i8085/                    model-owned Registers, Flags/PSW, Latches, Inputs and I8085 reset; execution pending (decisions 10–12)
+  src/i8085/                    model-owned state, six completing instruction groups and five interrupt sources (decisions 10–12)
   tests/boundary.rs             zero-dependency and model-neutral root tripwires
   tests/support/                recording test bus, sample state, unsupported check
   tests/i8080_run.rs            budget, boundary sequence, exit precedence, step, determinism
@@ -87,7 +87,7 @@ never crate helpers.
 `x80-core`: a CP/M-style host that runs the pinned 8080 exercisers and gives a verdict
 only for their pinned SHA-256 digests (commands.md, "Oracle runs").
 
-Any future dependency-bearing oracle harness will also be separate and unpublished;
-8085 execution and the Z80 module wait for their milestone beads.
+Any future dependency-bearing oracle harness will also be separate and unpublished.
+The Z80 module waits for its milestone beads.
 The V20 adapter belongs to the embedder; x80 will expose only agreed boundaries.
 Keep this map current when modules change.

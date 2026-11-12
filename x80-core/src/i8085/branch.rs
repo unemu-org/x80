@@ -63,15 +63,15 @@ pub(super) const ENCODINGS: &[Encoding] = &[
 
 /// Executes after opcode fetch; every listed encoding returns a path.
 /// No instruction changes flags (205775-002 §5.6.4 p. 5-13).
-/// An unmatched byte declines without effects (decision-5 item 7).
+/// The opcode map guarantees that the byte belongs to this group.
 pub(super) fn execute<S: Bus>(
     cpu: &mut I8085,
     system: &mut S,
     opcode: u8,
     _instruction: Instruction,
-) -> Option<Path> {
+) -> Path {
     let pc = cpu.registers().pc;
-    let path = match opcode {
+    match opcode {
         // JMP/Jcond: 205775-002 p. 5-13 (PDF 98); 9800301-04 Ch. 3
         // pp. 3-26..3-32 (PDF 80..86). Table 5-1: F R / F R R for Jcond,
         // F R R for JMP. Untaken skips only the high operand read.
@@ -127,9 +127,8 @@ pub(super) fn execute<S: Bus>(
             cpu.registers_mut().pc = cpu.registers().hl();
             Path::Taken
         }
-        _ => return None,
-    };
-    Some(path)
+        _ => unreachable!("opcode map dispatches only this group's encodings"),
+    }
 }
 
 /// CCC bits 5..3: 205775-002 condition table p. 5-13; second witness

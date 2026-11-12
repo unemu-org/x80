@@ -59,13 +59,13 @@ pub(super) const ENCODINGS: &[Encoding] = &[
     Encoding::new(b"00100111", 1, States::single(4)),
 ];
 
-/// Executes every encoding in this group; declines other bytes without effects.
+/// Executes an encoding that the opcode map assigns to this group.
 pub(super) fn execute<S: Bus>(
     cpu: &mut I8085,
     system: &mut S,
     opcode: u8,
     instruction: Instruction,
-) -> Option<Path> {
+) -> Path {
     let registers = cpu.registers_mut();
     match opcode {
         // 205775-002 §5.6.2 p. 5-9 (PDF 94); second witness
@@ -169,12 +169,12 @@ pub(super) fn execute<S: Bus>(
             registers.set_hl(value);
             registers.flags.carry = carry;
         }
-        _ => return None,
+        _ => unreachable!("opcode map dispatches only this group's encodings"),
     }
     // Sequential execution: §5.4 p. 5-3 (PDF 88); 16-bit PC wrap
     // is derived, not stated there. Dispatch does not advance PC.
     registers.pc = registers.pc.wrapping_add(u16::from(instruction.length));
-    Some(Path::Taken)
+    Path::Taken
 }
 
 // Register fields: 205775-002 §5.2 p. 5-1 and Table 5-1 p. 5-19;

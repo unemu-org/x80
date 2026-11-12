@@ -59,13 +59,13 @@ pub(super) const ENCODINGS: &[Encoding] = &[
 ];
 
 /// Executes only encodings dispatched to this group (decision-10).
-/// A declined byte leaves state and bus untouched (decision-5 item 7).
+/// The opcode map guarantees that the byte belongs to this group.
 pub(super) fn execute<S: Bus>(
     cpu: &mut I8085,
     system: &mut S,
     opcode: u8,
     instruction: Instruction,
-) -> Option<Path> {
+) -> Path {
     let registers = cpu.registers_mut();
     match opcode {
         // 205775-002 §5.6.3 pp. 5-9 to 5-11: A is sampled before
@@ -130,13 +130,13 @@ pub(super) fn execute<S: Bus>(
         // Complement/set CY only.
         0x3F => registers.flags.carry = !registers.flags.carry,
         0x37 => registers.flags.carry = true,
-        _ => return None,
+        _ => unreachable!("opcode map dispatches only this group's encodings"),
     }
     // Consecutive instruction bytes: 205775-002 §5.4 p. 5-3.
     // DERIVED wrap from PC's 16-bit width (§2.2.1 p. 2-2).
     // decision-5 item 8 exposes completed writeback at this boundary.
     registers.pc = registers.pc.wrapping_add(u16::from(instruction.length));
-    Some(Path::Taken)
+    Path::Taken
 }
 
 /// 8085 ANA/ANI: "The CY flag is cleared and AC is set (8085)."
