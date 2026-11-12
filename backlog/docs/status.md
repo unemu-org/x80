@@ -16,7 +16,7 @@ Ch. 4 documents, with their lengths and groups, witnessed against the summaries
 on 98-153B p. 4-15 and 9800301-04 p. A-5. The other 12 (08, 10, 18, 20, 28, 30,
 38, CB, D9, DD, ED, FD) return `Unsupported` (decision-3).
 
-Implemented instruction groups (decision-5 item 7), each with cited state
+Implemented instruction groups, each with cited state
 totals and bus traces:
 
 - Data Transfer: all (98-153B pp. 4-4, 4-5).
@@ -30,8 +30,19 @@ totals and bus traces:
 - Logical: all (pp. 4-8 to 4-11); AC after ANA and ANI is the interim
   reading of decision-7.
 
-Every documented 8080 opcode now executes; only the 12 undocumented bytes
-return `Unsupported` (decision-3).
+Every documented 8080 opcode has required state totals and a completing group
+executor; the interim documented-but-unimplemented path of decision-5 item 7
+is removed. `tests/i8080_coverage.rs` independently enumerates all 244 documented
+bytes and the 12 undocumented bytes: every documented byte completes a step,
+and every undocumented byte returns `Unsupported` without state change
+(decision-3). Non-RST interrupt acknowledges are also unsupported, as below.
+
+`tests/i8080_determinism.rs` runs a mixed program with a scripted interrupt
+twice, comparing registers, latches, memory, reports and the full bus/poll trace.
+The same program produces identical state, actual step/cycle totals and trace
+across step and cycle budget splits, including one-step slices and overshoot.
+`tests/boundary.rs` checks that the root contract has no manual citations or
+model-specific items beyond model module declarations (decision-6).
 
 Timing: each instruction reports its T-state total, with separate untaken and
 taken totals for conditional instructions. The totals are witnessed three ways:

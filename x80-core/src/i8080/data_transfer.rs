@@ -19,51 +19,50 @@ use crate::{Bus, MemoryAccess};
 pub(super) const ENCODINGS: &[Encoding] = &[
     // MOV r1,r2: 5 states, 98-153B Ch. 4 p. 4-4;
     // 9800301-04 Ch. 3 p. 3-36 (8080 total).
-    Encoding::new(b"01DDDSSS", 1).with_states(States::single(5)),
+    Encoding::new(b"01DDDSSS", 1, States::single(5)),
     // MOV r,M: 7 states, 98-153B p. 4-4; 9800301-04 p. 3-37.
-    Encoding::new(b"01DDD110", 1).with_states(States::single(7)),
+    Encoding::new(b"01DDD110", 1, States::single(7)),
     // MOV M,r: 7 states, 98-153B p. 4-4; 9800301-04 p. 3-36.
-    Encoding::new(b"01110SSS", 1).with_states(States::single(7)),
+    Encoding::new(b"01110SSS", 1, States::single(7)),
     // MVI r,data: 7 states, opcode and data byte, 98-153B p. 4-4;
     // 9800301-04 p. 3-37.
-    Encoding::new(b"00DDD110", 2).with_states(States::single(7)),
+    Encoding::new(b"00DDD110", 2, States::single(7)),
     // MVI M,data: 10 states, 98-153B p. 4-4; 9800301-04 p. 3-38.
-    Encoding::new(b"00110110", 2).with_states(States::single(10)),
+    Encoding::new(b"00110110", 2, States::single(10)),
     // LXI rp,data 16: 10 states; opcode, low data, high data,
     // 98-153B p. 4-4; 9800301-04 p. 3-35.
-    Encoding::new(b"00RP0001", 3).with_states(States::single(10)),
+    Encoding::new(b"00RP0001", 3, States::single(10)),
     // LDA addr: 13 states; opcode, low address, high address,
     // 98-153B p. 4-5; 9800301-04 pp. 3-32/3-33.
-    Encoding::new(b"00111010", 3).with_states(States::single(13)),
+    Encoding::new(b"00111010", 3, States::single(13)),
     // STA addr: 13 states, 98-153B p. 4-5; 9800301-04 pp. 3-61/3-62.
-    Encoding::new(b"00110010", 3).with_states(States::single(13)),
+    Encoding::new(b"00110010", 3, States::single(13)),
     // LHLD addr: 16 states, 98-153B p. 4-5; 9800301-04 p. 3-34.
-    Encoding::new(b"00101010", 3).with_states(States::single(16)),
+    Encoding::new(b"00101010", 3, States::single(16)),
     // SHLD addr: 16 states, 98-153B p. 4-5; 9800301-04 pp. 3-58/3-59.
-    Encoding::new(b"00100010", 3).with_states(States::single(16)),
+    Encoding::new(b"00100010", 3, States::single(16)),
     // LDAX rp, 00RP1010: "only register pairs rp=B (registers B and C) or
     // rp=D (registers D and E) may be specified", 7 states, 98-153B p. 4-5;
     // 9800301-04 p. 3-33.
-    Encoding::new(b"00001010", 1).with_states(States::single(7)),
-    Encoding::new(b"00011010", 1).with_states(States::single(7)),
+    Encoding::new(b"00001010", 1, States::single(7)),
+    Encoding::new(b"00011010", 1, States::single(7)),
     // STAX rp, 00RP0010, same restriction, 7 states, 98-153B p. 4-5;
     // 9800301-04 p. 3-62.
-    Encoding::new(b"00000010", 1).with_states(States::single(7)),
-    Encoding::new(b"00010010", 1).with_states(States::single(7)),
+    Encoding::new(b"00000010", 1, States::single(7)),
+    Encoding::new(b"00010010", 1, States::single(7)),
     // XCHG: 4 states, 98-153B p. 4-5; 9800301-04 p. 3-65.
-    Encoding::new(b"11101011", 1).with_states(States::single(4)),
+    Encoding::new(b"11101011", 1, States::single(4)),
 ];
 
 /// Executes `opcode`, an instruction of this group.
 ///
-/// Returns `None`, having changed nothing and accessed nothing, for an opcode
-/// outside this group (decision-5 item 7).
+/// The opcode map guarantees that `opcode` belongs to this group.
 pub(super) fn execute<S: Bus>(
     cpu: &mut I8080,
     system: &mut S,
     opcode: u8,
     instruction: Instruction,
-) -> Option<Path> {
+) -> Path {
     let registers = cpu.registers_mut();
     match opcode {
         // MOV: 98-153B Ch. 4 p. 4-4. Ch. 2 p. 2-16: memory variants
@@ -128,14 +127,14 @@ pub(super) fn execute<S: Bus>(
             core::mem::swap(&mut registers.h, &mut registers.d);
             core::mem::swap(&mut registers.l, &mut registers.e);
         }
-        _ => return None,
+        _ => unreachable!("opcode map dispatches only this group's encodings"),
     }
     // Ch. 4 p. 4-2: sequential execution over the instruction's bytes;
     // Ch. 2 pp. 2-16/2-17: PC increments at each instruction-byte read.
     // PC is 16-bit (p. 2-2); wrap is derived, not explicitly stated there.
     // Flags are untouched: Ch. 4 p. 4-4, Data Transfer Group introduction.
     registers.pc = registers.pc.wrapping_add(u16::from(instruction.length));
-    Some(Path::Taken)
+    Path::Taken
 }
 
 // Design: decision-5 item 3. 98-153B Ch. 2 pp. 2-16/2-17 puts instruction

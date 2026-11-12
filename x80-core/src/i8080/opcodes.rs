@@ -2,7 +2,7 @@
 //!
 //! For each of the 256 opcode bytes the map says whether 98-153B documents it
 //! as an instruction and, if so, its length in bytes, its instruction group
-//! and, once cited, its state totals.
+//! and its state totals.
 //!
 //! Primary source: Intel 8080 Microcomputer Systems User's Manual, 98-153B
 //! (September 1975), Chapter 4, checked against the page images. p. 4-1 names
@@ -71,10 +71,6 @@ impl States {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum Path {
     /// The condition of a conditional instruction was not met.
-    #[allow(
-        dead_code,
-        reason = "returned by the conditional instructions of the branch group"
-    )]
     Untaken,
     /// The condition was met, or the instruction has one execution time; its
     /// two totals are then equal.
@@ -96,25 +92,17 @@ pub(super) struct Encoding {
     /// The opcode byte and its data or address bytes (p. 4-2, "Instruction
     /// and Data Formats").
     length: u8,
-    /// `None` until the group's bead cites the totals from the entry.
-    states: Option<States>,
+    /// Cited state totals from the instruction entry.
+    states: States,
 }
 
 impl Encoding {
-    /// An encoding without cited state totals.
-    pub(super) const fn new(bits: &[u8; 8], length: u8) -> Self {
+    /// An encoding with its required, cited state totals.
+    pub(super) const fn new(bits: &[u8; 8], length: u8, states: States) -> Self {
         Self {
             bits: *bits,
             length,
-            states: None,
-        }
-    }
-
-    /// The same encoding with its cited state totals.
-    pub(super) const fn with_states(self, states: States) -> Self {
-        Self {
-            states: Some(states),
-            ..self
+            states,
         }
     }
 
@@ -148,8 +136,8 @@ pub(super) struct Instruction {
     pub(super) group: Group,
     /// Length in bytes, 1 to 3.
     pub(super) length: u8,
-    /// `None` until cited; the instruction does not execute before then.
-    pub(super) states: Option<States>,
+    /// Required state totals for this documented instruction.
+    pub(super) states: States,
 }
 
 /// The opcode map, indexed by opcode byte; `None` is not documented.

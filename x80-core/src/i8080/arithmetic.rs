@@ -15,55 +15,55 @@ use crate::{Bus, MemoryAccess};
 /// "States:" value on the cited printed page (PDF page = 44 + printed page).
 pub(super) const ENCODINGS: &[Encoding] = &[
     // ADD r, p. 4-6.
-    Encoding::new(b"10000SSS", 1).with_states(States::single(4)),
+    Encoding::new(b"10000SSS", 1, States::single(4)),
     // ADD M, p. 4-6.
-    Encoding::new(b"10000110", 1).with_states(States::single(7)),
+    Encoding::new(b"10000110", 1, States::single(7)),
     // ADI data: opcode and data byte, p. 4-6.
-    Encoding::new(b"11000110", 2).with_states(States::single(7)),
+    Encoding::new(b"11000110", 2, States::single(7)),
     // ADC r, p. 4-6.
-    Encoding::new(b"10001SSS", 1).with_states(States::single(4)),
+    Encoding::new(b"10001SSS", 1, States::single(4)),
     // ADC M, p. 4-6.
-    Encoding::new(b"10001110", 1).with_states(States::single(7)),
+    Encoding::new(b"10001110", 1, States::single(7)),
     // ACI data, p. 4-6.
-    Encoding::new(b"11001110", 2).with_states(States::single(7)),
+    Encoding::new(b"11001110", 2, States::single(7)),
     // SUB r, p. 4-6.
-    Encoding::new(b"10010SSS", 1).with_states(States::single(4)),
+    Encoding::new(b"10010SSS", 1, States::single(4)),
     // SUB M, p. 4-7.
-    Encoding::new(b"10010110", 1).with_states(States::single(7)),
+    Encoding::new(b"10010110", 1, States::single(7)),
     // SUI data, p. 4-7.
-    Encoding::new(b"11010110", 2).with_states(States::single(7)),
+    Encoding::new(b"11010110", 2, States::single(7)),
     // SBB r, p. 4-7.
-    Encoding::new(b"10011SSS", 1).with_states(States::single(4)),
+    Encoding::new(b"10011SSS", 1, States::single(4)),
     // SBB M, p. 4-7.
-    Encoding::new(b"10011110", 1).with_states(States::single(7)),
+    Encoding::new(b"10011110", 1, States::single(7)),
     // SBI data, p. 4-7.
-    Encoding::new(b"11011110", 2).with_states(States::single(7)),
+    Encoding::new(b"11011110", 2, States::single(7)),
     // INR r, p. 4-7.
-    Encoding::new(b"00DDD100", 1).with_states(States::single(5)),
+    Encoding::new(b"00DDD100", 1, States::single(5)),
     // INR M, p. 4-7.
-    Encoding::new(b"00110100", 1).with_states(States::single(10)),
+    Encoding::new(b"00110100", 1, States::single(10)),
     // DCR r, p. 4-7.
-    Encoding::new(b"00DDD101", 1).with_states(States::single(5)),
+    Encoding::new(b"00DDD101", 1, States::single(5)),
     // DCR M, p. 4-8.
-    Encoding::new(b"00110101", 1).with_states(States::single(10)),
+    Encoding::new(b"00110101", 1, States::single(10)),
     // INX rp, p. 4-8.
-    Encoding::new(b"00RP0011", 1).with_states(States::single(5)),
+    Encoding::new(b"00RP0011", 1, States::single(5)),
     // DCX rp, p. 4-8.
-    Encoding::new(b"00RP1011", 1).with_states(States::single(5)),
+    Encoding::new(b"00RP1011", 1, States::single(5)),
     // DAD rp, p. 4-8.
-    Encoding::new(b"00RP1001", 1).with_states(States::single(10)),
+    Encoding::new(b"00RP1001", 1, States::single(10)),
     // DAA, p. 4-8.
-    Encoding::new(b"00100111", 1).with_states(States::single(4)),
+    Encoding::new(b"00100111", 1, States::single(4)),
 ];
 
 /// Executes the arithmetic instructions.
-/// An opcode outside this group returns before any access or state change.
+/// The opcode map guarantees that `opcode` belongs to this group.
 pub(super) fn execute<S: Bus>(
     cpu: &mut I8080,
     system: &mut S,
     opcode: u8,
     instruction: Instruction,
-) -> Option<Path> {
+) -> Path {
     let registers = cpu.registers_mut();
     match opcode {
         // DAA: plan §2.2; decision-5 items 3/8. Intel 98-153B Ch. 4
@@ -148,14 +148,14 @@ pub(super) fn execute<S: Bus>(
             registers.set_hl(value);
             registers.flags.carry = carry;
         }
-        _ => return None,
+        _ => unreachable!("opcode map dispatches only this group's encodings"),
     }
     // Sequential instruction bytes: p. 4-2; fetch increments PC:
     // p. 2-16. Wrapping follows its 16-bit width (p. 2-2), as for NOP.
     // The API exposes the completed result at this boundary (decision-5 §8);
     // the hardware's overlapped writeback in p. 2-20 note 9 adds no bus read.
     registers.pc = registers.pc.wrapping_add(u16::from(instruction.length));
-    Some(Path::Taken)
+    Path::Taken
 }
 
 /// Derived CY rule, maintainer decision (2026-11-12), plan §2.2:

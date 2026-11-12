@@ -88,8 +88,7 @@ impl I8080 {
     /// 4. If the CPU is halted, return [`Exit::Halt`] without fetching.
     /// 5. Read the opcode at PC as [`MemoryAccess::OpcodeFetch`] and execute
     ///    the instruction. An opcode that the 8080 manual does not document
-    ///    (decision-3), or that is documented but not implemented yet
-    ///    (decision-5 item 7), returns
+    ///    (decision-3) returns
     ///    [`Exit::Unsupported`] with `acknowledge` false. That exit adds no
     ///    step and no cycle and changes no state: only the opcode read has
     ///    reached the bus.
@@ -230,8 +229,9 @@ impl I8080 {
     /// Boundary step 5: reads the opcode at PC and executes its instruction.
     ///
     /// Returns the states spent and opcode, or the unsupported exit with no state
-    /// changed. Every check happens before the group's executor runs, and an
-    /// executor that returns `None` has changed and accessed nothing.
+    /// changed. Every documented opcode has mandatory state totals and an
+    /// executor that completes it; only an undocumented byte is unsupported
+    /// (decision-5 item 7's interim path is removed).
     fn execute<S: Bus>(&mut self, system: &mut S) -> Result<(u8, u8), Unsupported> {
         let pc = self.registers.pc;
         let opcode = system.read(pc, MemoryAccess::OpcodeFetch);
@@ -244,11 +244,6 @@ impl I8080 {
         let Some(instruction) = OPCODES[usize::from(opcode)] else {
             return Err(unsupported);
         };
-        // Documented, but its state totals are not cited yet, so it does not
-        // execute (decision-5 item 7).
-        let Some(states) = instruction.states else {
-            return Err(unsupported);
-        };
         let path = match instruction.group {
             Group::DataTransfer => data_transfer::execute(self, system, opcode, instruction),
             Group::Arithmetic => arithmetic::execute(self, system, opcode, instruction),
@@ -256,10 +251,7 @@ impl I8080 {
             Group::Branch => branch::execute(self, system, opcode, instruction),
             Group::StackIoControl => stack_io_control::execute(self, system, opcode, instruction),
         };
-        // `None`: documented, but its group does not execute it yet
-        // (decision-5 item 7).
-        path.map(|path| (states.of(path), opcode))
-            .ok_or(unsupported)
+        Ok((instruction.states.of(path), opcode))
     }
 }
 

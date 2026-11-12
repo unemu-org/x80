@@ -1,9 +1,8 @@
 # Architecture — layout
 
 The design sketch is [plan §2](plan.md#2-architecture-sketch). The types of
-decision-5 exist, and `step` and `run` execute under a budget; only NOP
-executes so far ([status](status.md)). Items marked planned are not
-implemented APIs.
+decision-5 exist, and `step` and budgeted `run` execute every documented 8080
+instruction and accept RST interrupts ([status](status.md)).
 
 ```text
 x80-core/
@@ -16,19 +15,29 @@ x80-core/
   src/i8080/state.rs            Registers (BC, DE, HL and PSW accessors) and Latches
   src/i8080/flags.rs            Flags and the cited flag byte of the PSW
   src/i8080/interrupt.rs        Inputs: the INT line
-  src/i8080/cpu.rs              I8080: run/step, boundary sequence, fetch and dispatch; planned reset
+  src/i8080/cpu.rs              I8080: run/step, reset, interrupt acceptance, fetch and dispatch
   src/i8080/opcodes.rs          private opcode map: documented, length, group, state totals
   src/i8080/opcodes/tests.rs    map witness against 98-153B p. 4-15 and 9800301-04 p. A-5
   src/i8080/data_transfer.rs    Data Transfer Group: encodings and executor (pp. 4-4, 4-5)
+  src/i8080/alu.rs              arithmetic primitives and shared flag calculation
   src/i8080/arithmetic.rs       Arithmetic Group (pp. 4-6 to 4-8)
   src/i8080/logical.rs          Logical Group (pp. 4-8 to 4-11)
   src/i8080/branch.rs           Branch Group (pp. 4-11, 4-12)
   src/i8080/stack_io_control.rs Stack, I/O and Machine Control Group (pp. 4-13, 4-14)
-  tests/boundary.rs             zero-dependency tripwire
+  tests/boundary.rs             zero-dependency and model-neutral root tripwires
   tests/support/                recording test bus, sample state, unsupported check
   tests/i8080_run.rs            budget, boundary sequence, exit precedence, step, determinism
   tests/i8080_<group>.rs        one witness file per instruction group
-  tests/*.rs                    other witnesses and API tests
+  tests/i8080_daa.rs            decimal-adjust witnesses
+  tests/i8080_timing.rs         independent whole-set T-state witness
+  tests/i8080_interrupts.rs     interrupt acceptance, acknowledge and halt traces
+  tests/i8080_machine_control.rs EI delay, DI, HLT and reset
+  tests/i8080_coverage.rs       literal whole-set execution and unsupported witnesses
+  tests/i8080_determinism.rs    mixed-program replay and budget-split witnesses
+  tests/i8080_model.rs          construction and ownership
+  tests/i8080_registers.rs      register pairs and PSW layout
+  tests/recording_bus.rs        8080 test-bus and input-default witnesses
+  tests/arithmetic_reference/  independent 8080 arithmetic reference
 backlog/docs/                   design and guides
 backlog/decisions/              durable decisions
 ```
@@ -46,14 +55,14 @@ Flow: `I8080` (owned registers and latches) + an embedder value that implements
 totals and a typed `Report`. Execution latches persist across runs. No
 core-owned machine, loader, OS or device.
 
-Dispatch: `run` checks the budget, polls the inputs and checks halt, then
-`cpu.rs` reads the opcode and looks it up in the opcode map. Each group module
-owns its `ENCODINGS` (bit patterns as printed in 98-153B Ch. 4, lengths and,
-once cited, state totals) and its `execute`; `opcodes.rs` builds the 256-entry
-map from the five lists at compile time. An opcode returns `Unsupported` with
-nothing changed when it is undocumented, when its state totals are not cited
-yet, or when its group's `execute` returns `None` (not implemented yet). A
-group bead changes its own module and its own `tests/i8080_<group>.rs`.
+Dispatch: `run` checks the budget, polls the inputs, accepts an eligible
+interrupt or checks halt, then fetches an opcode. `cpu.rs` looks it up in the
+opcode map. Each group module owns its `ENCODINGS` (bit patterns as printed in
+98-153B Ch. 4, lengths and required state totals) and its `execute`, which
+returns the completed timing path. `opcodes.rs` builds the 256-entry map from
+the five lists at compile time. Only undocumented fetched bytes or non-RST
+acknowledge bytes return `Unsupported`, with no architectural state change.
+There is no documented-but-unimplemented dispatch path (decision-5 item 7).
 
 An integration test that needs a bus includes `tests/support` with
 `mod support;`. Its `RecordingBus` logs every access and input poll for trace

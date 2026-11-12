@@ -352,11 +352,7 @@ fn length_counts_by_size() {
 fn cited_state_totals_match_the_summary() {
     let summary = summary_by_opcode();
     for byte in 0..=u8::MAX {
-        let Some(Instruction {
-            states: Some(states),
-            ..
-        }) = OPCODES[usize::from(byte)]
-        else {
+        let Some(Instruction { states, .. }) = OPCODES[usize::from(byte)] else {
             continue;
         };
         let (.., untaken, taken) = summary[usize::from(byte)].expect("documented");
@@ -373,10 +369,10 @@ fn nop_is_one_byte_of_four_states() {
         Some(Instruction {
             group: Group::StackIoControl,
             length: 1,
-            states: Some(States {
+            states: States {
                 untaken: 4,
                 taken: 4,
-            }),
+            },
         })
     );
 }

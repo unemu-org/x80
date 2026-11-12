@@ -22,48 +22,47 @@ pub(super) const ENCODINGS: &[Encoding] = &[
     // PUSH rp, 11RP0101: "Register pair rp = SP may not be specified",
     // p. 4-13: 11 states. Listed for B, D and H.
     // Second witness: 9800301-04 Ch. 3 p. 3-44, PUSH.
-    Encoding::new(b"11000101", 1).with_states(States::single(11)),
-    Encoding::new(b"11010101", 1).with_states(States::single(11)),
-    Encoding::new(b"11100101", 1).with_states(States::single(11)),
+    Encoding::new(b"11000101", 1, States::single(11)),
+    Encoding::new(b"11010101", 1, States::single(11)),
+    Encoding::new(b"11100101", 1, States::single(11)),
     // PUSH PSW, p. 4-13: 11 states; 9800301-04 Ch. 3 p. 3-45.
-    Encoding::new(b"11110101", 1).with_states(States::single(11)),
+    Encoding::new(b"11110101", 1, States::single(11)),
     // POP rp, 11RP0001, with the same restriction, p. 4-13: 10 states;
     // 9800301-04 Ch. 3 p. 3-43.
-    Encoding::new(b"11000001", 1).with_states(States::single(10)),
-    Encoding::new(b"11010001", 1).with_states(States::single(10)),
-    Encoding::new(b"11100001", 1).with_states(States::single(10)),
+    Encoding::new(b"11000001", 1, States::single(10)),
+    Encoding::new(b"11010001", 1, States::single(10)),
+    Encoding::new(b"11100001", 1, States::single(10)),
     // POP PSW, p. 4-13: 10 states; 9800301-04 Ch. 3 p. 3-43.
-    Encoding::new(b"11110001", 1).with_states(States::single(10)),
+    Encoding::new(b"11110001", 1, States::single(10)),
     // XTHL, p. 4-14: 18 states; 9800301-04 Ch. 3 p. 3-69.
-    Encoding::new(b"11100011", 1).with_states(States::single(18)),
+    Encoding::new(b"11100011", 1, States::single(18)),
     // SPHL, p. 4-14: 5 states; 9800301-04 Ch. 3 p. 3-61.
-    Encoding::new(b"11111001", 1).with_states(States::single(5)),
+    Encoding::new(b"11111001", 1, States::single(5)),
     // IN port: opcode and port byte, p. 4-14: 10 states;
     // 9800301-04 Ch. 3 pp. 3-24, 3-25.
-    Encoding::new(b"11011011", 2).with_states(States::single(10)),
+    Encoding::new(b"11011011", 2, States::single(10)),
     // OUT port, p. 4-14: 10 states; 9800301-04 Ch. 3 p. 3-41.
-    Encoding::new(b"11010011", 2).with_states(States::single(10)),
+    Encoding::new(b"11010011", 2, States::single(10)),
     // EI, p. 4-14: 4 states; 9800301-04 Ch. 3 p. 3-23.
-    Encoding::new(b"11111011", 1).with_states(States::single(4)),
+    Encoding::new(b"11111011", 1, States::single(4)),
     // DI, p. 4-14: 4 states; 9800301-04 Ch. 3 pp. 3-22/3-23.
-    Encoding::new(b"11110011", 1).with_states(States::single(4)),
+    Encoding::new(b"11110011", 1, States::single(4)),
     // HLT, p. 4-14: 7 states; 9800301-04 Ch. 3 p. 3-24 (8080).
-    Encoding::new(b"01110110", 1).with_states(States::single(7)),
+    Encoding::new(b"01110110", 1, States::single(7)),
     // NOP, p. 4-14: "Cycles: 1, States: 4". Second witness: 9800301-04
     // p. A-4, NOP, 8080 column: 4.
-    Encoding::new(b"00000000", 1).with_states(States::single(4)),
+    Encoding::new(b"00000000", 1, States::single(4)),
 ];
 
 /// Executes `opcode`, an instruction of this group.
 ///
-/// Returns `None`, having changed nothing and accessed nothing, for an opcode
-/// the group does not execute yet (decision-5 item 7).
+/// The opcode map guarantees that `opcode` belongs to this group.
 pub(super) fn execute<S: Bus>(
     cpu: &mut I8080,
     system: &mut S,
     opcode: u8,
     instruction: Instruction,
-) -> Option<Path> {
+) -> Path {
     let registers = cpu.registers_mut();
     match opcode {
         // 98-153B Ch. 4 p. 4-13 PUSH rp/PSW: high byte at SP-1, low at
@@ -156,12 +155,12 @@ pub(super) fn execute<S: Bus>(
         // 98-153B Ch. 4 p. 4-14 NOP: no operation; registers and flags
         // unaffected, apart from sequential PC advancement below.
         NOP => {}
-        _ => return None,
+        _ => unreachable!("opcode map dispatches only this group's encodings"),
     }
     // Sequential PC advancement: 98-153B Ch. 4 p. 4-2 and the fetch cycles
     // in Ch. 2 pp. 2-16, 2-18. PC/SP arithmetic wraps by their 16-bit width
     // (Ch. 2 p. 2-2); wrapping itself is derived, not stated explicitly.
     let registers = cpu.registers_mut();
     registers.pc = registers.pc.wrapping_add(u16::from(instruction.length));
-    Some(Path::Taken)
+    Path::Taken
 }

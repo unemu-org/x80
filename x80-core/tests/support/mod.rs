@@ -1,4 +1,4 @@
-//! Host-side test support shared by the integration tests (std, no
+//! Host-side 8080 test support shared by the integration tests (std, no
 //! dependencies). A test file includes it with `mod support;`.
 //!
 //! [`RecordingBus`] is a flat 64 KiB memory with scripted port input, scripted

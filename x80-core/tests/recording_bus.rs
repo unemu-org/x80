@@ -1,4 +1,4 @@
-//! The recording test bus, driven only through the `Bus`, `Control` and
+//! The 8080 recording test bus, driven only through the `Bus`, `Control` and
 //! `i8080::Inputs` traits, and the default input-line methods (decision-5
 //! items 3 and 4).
 

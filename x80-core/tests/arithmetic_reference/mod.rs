@@ -1,4 +1,4 @@
-//! Independent arithmetic witness, using only public model types.
+//! Independent 8080 arithmetic witness, using only public model types.
 //!
 //! Design: plan §2.2; decision-5 items 3, 8; decision-6. Sources checked against
 //! images: 98-153B (September 1975), "Condition Flags", pp. 4-2/4-3 and

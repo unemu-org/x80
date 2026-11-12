@@ -100,9 +100,14 @@ independently derived expectations. The register pairs and the flag-byte layout
 of the processor status word are cited from 98-153B pp. 2-2, 2-3, 4-2, 4-3 and
 4-13 and 9800301-04 p. 3-45. Interrupt acceptance cites pp. 2-11, 2-13,
 2-18 to 2-20 and 5-14. Interim and derived readings are listed in §1.
+Whole-set execution is witnessed by `tests/i8080_coverage.rs`, with literal
+sets independent of the opcode map. `tests/i8080_determinism.rs` compares
+mixed-program replays and budget splits, including a scripted interrupt and
+all bus/input polls. `tests/boundary.rs` checks the model-neutral source boundary
+of decision-6 as well as the dependency boundary.
 The V20 mapping in [plan §3](backlog/docs/plan.md#3-v20v30-integration-contract-sketch)
 is explicitly unverified. Glossary definitions are orientation, not implementation
-authority. Ordinary tests will pin derived values in code and run without manuals,
+authority. Ordinary tests pin derived values in code and run without manuals,
 corpus downloads or network access.
 
 ## 4. License surface and boundary

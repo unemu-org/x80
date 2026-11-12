@@ -18,54 +18,54 @@ use crate::{Bus, MemoryAccess};
 /// value on the cited printed page (PDF page = 44 + printed page).
 pub(super) const ENCODINGS: &[Encoding] = &[
     // ANA r, p. 4-8.
-    Encoding::new(b"10100SSS", 1).with_states(States::single(4)),
+    Encoding::new(b"10100SSS", 1, States::single(4)),
     // ANA M, p. 4-8.
-    Encoding::new(b"10100110", 1).with_states(States::single(7)),
+    Encoding::new(b"10100110", 1, States::single(7)),
     // ANI data: opcode and data byte, p. 4-9.
-    Encoding::new(b"11100110", 2).with_states(States::single(7)),
+    Encoding::new(b"11100110", 2, States::single(7)),
     // XRA r, p. 4-9.
-    Encoding::new(b"10101SSS", 1).with_states(States::single(4)),
+    Encoding::new(b"10101SSS", 1, States::single(4)),
     // XRA M, p. 4-9.
-    Encoding::new(b"10101110", 1).with_states(States::single(7)),
+    Encoding::new(b"10101110", 1, States::single(7)),
     // XRI data, p. 4-9.
-    Encoding::new(b"11101110", 2).with_states(States::single(7)),
+    Encoding::new(b"11101110", 2, States::single(7)),
     // ORA r, p. 4-9.
-    Encoding::new(b"10110SSS", 1).with_states(States::single(4)),
+    Encoding::new(b"10110SSS", 1, States::single(4)),
     // ORA M, p. 4-9.
-    Encoding::new(b"10110110", 1).with_states(States::single(7)),
+    Encoding::new(b"10110110", 1, States::single(7)),
     // ORI data, p. 4-9.
-    Encoding::new(b"11110110", 2).with_states(States::single(7)),
+    Encoding::new(b"11110110", 2, States::single(7)),
     // CMP r, p. 4-9.
-    Encoding::new(b"10111SSS", 1).with_states(States::single(4)),
+    Encoding::new(b"10111SSS", 1, States::single(4)),
     // CMP M, p. 4-10.
-    Encoding::new(b"10111110", 1).with_states(States::single(7)),
+    Encoding::new(b"10111110", 1, States::single(7)),
     // CPI data, p. 4-10.
-    Encoding::new(b"11111110", 2).with_states(States::single(7)),
+    Encoding::new(b"11111110", 2, States::single(7)),
     // RLC, p. 4-10.
-    Encoding::new(b"00000111", 1).with_states(States::single(4)),
+    Encoding::new(b"00000111", 1, States::single(4)),
     // RRC, p. 4-10.
-    Encoding::new(b"00001111", 1).with_states(States::single(4)),
+    Encoding::new(b"00001111", 1, States::single(4)),
     // RAL, p. 4-10.
-    Encoding::new(b"00010111", 1).with_states(States::single(4)),
+    Encoding::new(b"00010111", 1, States::single(4)),
     // RAR, p. 4-10.
-    Encoding::new(b"00011111", 1).with_states(States::single(4)),
+    Encoding::new(b"00011111", 1, States::single(4)),
     // CMA, p. 4-10.
-    Encoding::new(b"00101111", 1).with_states(States::single(4)),
+    Encoding::new(b"00101111", 1, States::single(4)),
     // CMC, p. 4-11.
-    Encoding::new(b"00111111", 1).with_states(States::single(4)),
+    Encoding::new(b"00111111", 1, States::single(4)),
     // STC, p. 4-11.
-    Encoding::new(b"00110111", 1).with_states(States::single(4)),
+    Encoding::new(b"00110111", 1, States::single(4)),
 ];
 
 /// Executes `opcode`, an instruction of this group.
 ///
-/// Returns `None` without effects for an opcode outside this group.
+/// The opcode map guarantees that `opcode` belongs to this group.
 pub(super) fn execute<S: Bus>(
     cpu: &mut I8080,
     system: &mut S,
     opcode: u8,
     instruction: Instruction,
-) -> Option<Path> {
+) -> Path {
     let registers = cpu.registers_mut();
     match opcode {
         // 98-153B Ch. 4 pp. 4-8 to 4-10: register, M and immediate
@@ -133,14 +133,14 @@ pub(super) fn execute<S: Bus>(
         // CMC/STC, p. 4-11: complement/set CY; all other flags unchanged.
         0x3F => registers.flags.carry = !registers.flags.carry,
         0x37 => registers.flags.carry = true,
-        _ => return None,
+        _ => unreachable!("opcode map dispatches only this group's encodings"),
     }
     // Sequential bytes: 98-153B Ch. 4 p. 4-2; Ch. 2 pp. 2-16/2-18.
     // Wrap derives from PC's 16-bit width (Ch. 2 p. 2-2). decision-5 item 8
     // exposes completed results here; overlapped writeback (p. 2-20 note 9)
     // does not add another bus read.
     registers.pc = registers.pc.wrapping_add(u16::from(instruction.length));
-    Some(Path::Taken)
+    Path::Taken
 }
 
 /// UNVERIFIED, provisional until x80-ecy.2 resolves the source disagreement
