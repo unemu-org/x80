@@ -75,6 +75,12 @@ pub mod i8085 {
      After acceptance it is not recognized again until the line goes low and then high again
      (DS p. 16-15). The pending latch persists across `run`/`step` calls and through the
      boundary that follows EI or DI (rule 6).
+   - Clarification (x80-4gk.9 review, 2026-11-12; it applies decision-5 item 6 and the
+     rule above, no change of substance): a boundary that exits with Stop or Unsupported
+     leaves `Latches` as they were before its samples (the `Control` contract), so a pulse
+     seen only there is sampled again next run only if the embedder still holds it. A Halt
+     exit keeps its samples. During the EI/DI inhibition (rule 6) a low TRAP re-arms but
+     does not clear the pending latch, since TRAP is not eligible there.
    - RST 7.5: a rising edge sets the RST 7.5 flip-flop whatever the mask and the interrupt
      enable (Fig. 2-6; p. 5-18, to confirm). The flip-flop stays set until RST 7.5 is
      accepted, SIM with bit 4 set clears it, or RESET (p. 5-18; p. 2-18). The embedder may

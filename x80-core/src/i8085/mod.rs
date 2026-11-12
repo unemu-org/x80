@@ -1,5 +1,6 @@
 //! The Intel 8085 model's register file, execution latches, input contract and
-//! reset (decision-6, decision-10, decision-11 and decision-12).
+//! reset and boundary execution (decision-6, decision-10, decision-11 and
+//! decision-12).
 //!
 //! Primary source: Intel MCS-80/85 Family User's Manual, 205775-002 (January
 //! 1983). Second sources: Intel 8085AH data sheet 231718-001 (September 1987),
@@ -8,9 +9,14 @@
 //! Treating the 8085A and 8085AH as one model is an assumption (decision-10).
 //!
 //! [`I8085`] owns its [`Registers`] and [`Latches`]; the embedder supplies the
-//! [`Inputs`]. Construction and reset are available; instruction execution and
-//! boundary sampling are not implemented yet. The input documentation fixes
-//! their future call order under decision-12.
+//! [`Inputs`]. [`I8085::run`] and [`I8085::step`] follow the full decision-12
+//! boundary sequence, including persistent TRAP/RST 7.5 edge sampling.
+//! Stop preserves CPU state ([`crate::Control`]); Unsupported restores the
+//! latches from before sampling (decision-5 item 6). A pulse seen only at
+//! either boundary is sampled again next run only if the embedder still holds it.
+//! Only NOP executes. All other instructions return Unsupported for now,
+//! including the documented map entries awaiting executors (decision-5
+//! item 7). Interrupt acceptance seams decline without effects.
 //!
 //! The five flags occupy PSW bits 7, 6, 4, 2 and 0. Bits 5, 3 and 1 are
 //! undefined (205775-002 §5.6.5, p. 5-15, FLAG WORD). Their stored image is
@@ -27,11 +33,20 @@
 //! assert!(cpu.latches().mask7_5);
 //! ```
 
+mod acknowledge;
 mod alu;
+mod arithmetic;
+mod branch;
 mod cpu;
+mod data_transfer;
 mod flags;
 mod interrupt;
+mod logical;
+mod opcodes;
+mod rim_sim;
+mod stack_io_control;
 mod state;
+mod vectored;
 
 pub use cpu::I8085;
 pub use flags::Flags;

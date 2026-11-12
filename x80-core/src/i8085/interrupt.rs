@@ -13,7 +13,11 @@ use crate::Control;
 /// the budget check, regardless of results or CPU state (rule 1). Polls should
 /// read levels without changing the emulated device. Consecutive samples detect
 /// TRAP/RST 7.5 edges; shorter pulses can be missed, so hold them until polled
-/// (rule 2, an API choice). Sampling is not implemented yet.
+/// (rule 2, an API choice). Sampling persists across run/step calls, including
+/// Halt boundaries. Stop preserves CPU state per [`Control`]; Unsupported
+/// restores the latches from before sampling per decision-5 item 6. A pulse
+/// seen only at a Stop or Unsupported boundary is sampled again next run only
+/// if the embedder still holds it.
 ///
 /// RIM calls `sid`, `rst6_5`, `rst5_5` once each in that order inside the
 /// instruction (rule 8; 205775-002 §2.3.8 p. 2-19 and RIM p. 5-17).
