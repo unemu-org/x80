@@ -65,9 +65,9 @@ states (98-153B p. 2-11 Figure 2-8, pp. 2-18, 2-19) and wakes a halted CPU. Any
 other acknowledged byte returns `Unsupported` with no state change
 (decision-5).
 
-Two Intel 8080 manuals are pinned as fetch-only sources in the shared `oracles/`
-submodule, with two 8080 CPU exercisers, 8080PRE and 8080EXM, as fetch-only oracles
-(pin 2b3b0a1; PROVENANCE.md §2). The unpublished `x80-oracle` crate runs them
+Two Intel 8080 manuals and, for M3, two 8085 sources (205775-002 and the 8085AH data
+sheet) are pinned as fetch-only sources in the shared `oracles/` submodule, with two 8080 CPU exercisers, 8080PRE and 8080EXM, as fetch-only oracles
+(pin 07776c0; PROVENANCE.md §2). The unpublished `x80-oracle` crate runs them
 offline ([commands](commands.md)); on 2026-11-12 8080PRE passed and 8080EXM passed
 all 25 groups, about 16 s for 2.9 billion instructions in a release build.
 M2–M4 have not started. M2 waits on x86jit's V20/V30 bead (C4) and the NEC manual

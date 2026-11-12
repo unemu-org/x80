@@ -232,8 +232,10 @@ and claims. Do not turn this draft into a second task tracker.
 Decided items cite their record; the rest stay open.
 
 1. Decided for the 8080: 98-153B (primary) and 9800301-04 (second witness), pinned
-   fetch-only in the shared `unemu-org/oracles` repository (PROVENANCE.md). 8085,
-   Z80 and NEC V20/V30 sources stay open until their milestones.
+   fetch-only in the shared `unemu-org/oracles` repository (PROVENANCE.md). Decided
+   for the 8085 (2026-11-12): 205775-002 (primary) and the 8085AH data sheet
+   231718-001, with 9800301-04 as second witness for states. Z80 and NEC V20/V30
+   sources stay open until their milestones.
 2. Decided in decision-1: synchronous, infallible bus; no wait states;
    instruction-boundary timing for M1.
 3. Decided in decision-2: overshoot at completed instruction boundaries; prompt

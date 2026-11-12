@@ -10,18 +10,23 @@ witness test with expected values derived from that citation.
 
 ### Pinned sources
 
-Both are fetch-only and cite-only (© Intel, no redistribution grant). Their rows in
+All are fetch-only and cite-only (© Intel, no redistribution grant). Their rows in
 `oracles/MANIFEST.md` carry the URL, page count and page-to-PDF map; fetch them with
-`./oracles/fetch-oracles.sh fetch` and check them with `verify`. Both are scans with
+`./oracles/fetch-oracles.sh fetch` and check them with `verify`. All are scans with
 a noisy OCR text layer: check every cited value against the page image.
 
 | Path in `oracles/` | Title | Order number, date | SHA-256 | Role |
 | --- | --- | --- | --- | --- |
 | `intel/i8080-um.pdf` | Intel 8080 Microcomputer Systems User's Manual | 98-153B, September 1975 | `d5982f96536b1dbecbeff409d2370970638716296dce7b318624d86221597a9e` | Primary: CPU chapter (interrupt, halt, start-up, per-instruction machine-cycle/state table), instruction set and flags, 8080A data sheet |
-| `intel/i8080-alpm.pdf` | Intel 8080/8085 Assembly Language Programming Manual | 9800301-04 (title page; mirror file name says 9800301D), May 1981 (printing code 581 on p. ii) | `c2f17d613159b624cf7226b0b9200192a49ff172147d88f56d50f45e94691643` | Second witness: per-opcode cycles and states, flags, interrupts |
+| `intel/i8080-alpm.pdf` | Intel 8080/8085 Assembly Language Programming Manual | 9800301-04 (title page; mirror file name says 9800301D), May 1981 (printing code 581 on p. ii) | `c2f17d613159b624cf7226b0b9200192a49ff172147d88f56d50f45e94691643` | Second witness: per-opcode cycles and states, flags, interrupts; for the 8085 too |
+| `intel/i8085-um.pdf` | Intel MCS-80/85 Family User's Manual | 205775-002 (cover), January 1983 (title page) | `5d08f75c75605fbda22afb5071c6a6a93f3e797aa7aa980fa658098ab0651325` | Primary for the 8085A (M3): Ch. 2 functional description (interrupts, RIM/SIM, SID/SOD, machine cycles, reset/halt/hold), Ch. 5 instruction set with 8085A and 8080A states (Table 5-1) |
+| `intel/intel-embedded-controller-handbook-1988-v1.pdf` | Intel Embedded Controller Handbook, Volume I, 8-bit (1988) | contains the 8085AH data sheet 231718-001, September 1987, printed pp. 16-11 to 16-30 (PDF 958 to 977) | `796ba5e7273bd4bfbe745b771062e4be8666037af0cc1742a69d61c1476941fb` | Second source for the 8085 (M3): pins, interrupt table, machine-cycle chart, instruction summary (new instructions: RIM, SIM); no per-instruction states |
 
-Both are Intel documents: the second is independent in authorship, not a hardware
-witness. Where they disagree, an oracle may falsify one reading; record the case
+All are Intel documents: the second of each pair is independent in authorship, not a
+hardware witness. The 8085AH data sheet (p. 16-11) states "100% Software Compatible with 8080A"
+and lower power than the 8085A, but no instruction-level difference from the 8085A.
+Treating the 8085A and 8085AH as one model is an assumption (decision-6: no variant
+without a pinned source documenting a difference), not a stated equivalence. Where they disagree, an oracle may falsify one reading; record the case
 below and in a bead.
 
 | Disagreement | Citations | Status |
@@ -39,8 +44,8 @@ The list below is **not a set of pinned sources**. Unknown metadata is marked
 
 | Candidate title | Order number | Year | Public source URL | Intended role |
 | --- | --- | --- | --- | --- |
-| MCS-80 User's Manual; MCS-80/85 Family User's Manual | 98-153D; 205775-00x | 1977; 1983 | bitsavers mirror (not pinned) | Not pinned: later editions that repeat the 98-153B CPU chapters; a possible check for corrections |
-| Intel 8085AH datasheet | source to find | source to find | source to find | 8085-specific signals and timing |
+| MCS-80 User's Manual | 98-153D | 1977 | bitsavers mirror (not pinned) | Not pinned: a later edition that repeats the 98-153B CPU chapters; a possible check for corrections |
+| MCS-85 User's Manual | 9800366E | September 1978 | not on bitsavers (not pinned) | Not pinned: its 8085A chapters carry the same text as 205775-002, so not an independent witness |
 | Zilog Z80 CPU User Manual | source to find | source to find | source to find | Z80 state, instruction set, interrupts and timing |
 | NEC V20/V30 user's manual (exact title to verify) | source to find | source to find | source to find | Emulation-mode entry/exit, mapping, CALLN and native interrupt handoff |
 
