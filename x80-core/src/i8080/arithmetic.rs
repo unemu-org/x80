@@ -5,8 +5,7 @@
 //! images. Field letters are those of `Encoding` in `opcodes`.
 //!
 //! Design: plan §2.2; decision-5 items 3 and 8; decision-6. Arithmetic
-//! executes except DAA, which remains deferred to its own bead (decision-5
-//! item 7). Flag definitions live in `alu`.
+//! executes including DAA. Flag definitions live in `alu`.
 
 use super::opcodes::{Encoding, Instruction, Path, States};
 use super::{alu, Registers, I8080};
@@ -57,8 +56,8 @@ pub(super) const ENCODINGS: &[Encoding] = &[
     Encoding::new(b"00100111", 1).with_states(States::single(4)),
 ];
 
-/// Executes the arithmetic instructions except deferred DAA (decision-5 §7).
-/// An unimplemented opcode returns before any access or state change.
+/// Executes the arithmetic instructions.
+/// An opcode outside this group returns before any access or state change.
 pub(super) fn execute<S: Bus>(
     cpu: &mut I8080,
     system: &mut S,
@@ -67,6 +66,34 @@ pub(super) fn execute<S: Bus>(
 ) -> Option<Path> {
     let registers = cpu.registers_mut();
     match opcode {
+        // DAA: plan §2.2; decision-5 items 3/8. Intel 98-153B Ch. 4
+        // DAA p. 4-8 (PDF 52); Intel 9800301-04 Ch. 3 DAA p. 3-19
+        // (PDF 73): low adjustment first, then test the adjusted high digit.
+        // AC is the low adjustment's carry out of bit 3 (98-153B Ch. 4
+        // "Auxiliary Carry" p. 4-3, PDF 47; 9800301-04 Ch. 1 p. 1-11,
+        // PDF 21). The high adjustment preserves it: p. 3-19's worked
+        // 9BH -> A1H -> 01H example ends with AC=1.
+        0x27 => {
+            let low_correction = if registers.a & 0x0F > 9 || registers.flags.auxiliary_carry {
+                6
+            } else {
+                0
+            };
+            let (after_low, low_flags) = alu::add(registers.a, low_correction, false);
+            // A carry from the low adjustment also triggers the high step.
+            let carry_for_high =
+                daa_carry_retained_from_decimal_routine(registers.flags.carry, low_flags.carry);
+            let (value, high_carry) = if after_low >> 4 > 9 || carry_for_high {
+                after_low.overflowing_add(0x60)
+            } else {
+                (after_low, false)
+            };
+            let carry = daa_carry_retained_from_decimal_routine(carry_for_high, high_carry);
+            registers.a = value;
+            // All flags affected, p. 4-8; S/Z/P from the final result,
+            // 98-153B Ch. 4 "Condition Flags" p. 4-2 (PDF 46).
+            registers.flags = alu::result_flags(value, low_flags.auxiliary_carry, carry);
+        }
         // ADD/ADC/SUB/SBB: 98-153B pp. 4-6/4-7. Register sources are
         // unchanged, including A sampled before the result replaces it.
         0x80..=0x9F | 0xC6 | 0xCE | 0xD6 | 0xDE => {
@@ -129,6 +156,23 @@ pub(super) fn execute<S: Bus>(
     // the hardware's overlapped writeback in p. 2-20 note 9 adds no bus read.
     registers.pc = registers.pc.wrapping_add(u16::from(instruction.length));
     Some(Path::Taken)
+}
+
+/// Derived CY rule, maintainer decision (2026-11-12), plan §2.2:
+/// CY after = CY before OR step-1 carry out of bit 7 OR step-2 carry out
+/// of bit 7. Both retention and step-1 carry propagation are derived, not
+/// stated; falsifiable by the oracle run (x80-ecy.17).
+/// Intel 98-153B Ch. 4 "Carry", p. 4-2 (PDF 46), is read per step:
+/// step 1's +6 carry sets CY before step 2 tests CY (DAA p. 4-8, PDF 52).
+/// Thus FAH + 6 = 00H with CY=1, then +60H = 60H with CY=1.
+/// Intel 9800301-04 Ch. 6 "Decimal Addition", p. 6-13 (PDF 179),
+/// requires the correct two-digit decimal result and carry for higher bytes;
+/// pp. 6-12 to 6-14 (PDF 178-180) require retention for 0099 + 0099.
+/// Contrary readings: apply p. 4-2's "otherwise it is reset" once to the
+/// whole instruction, or use literal CY in OR high-adjustment carry,
+/// excluding step 1's carry. Neither is the adopted per-step reading.
+fn daa_carry_retained_from_decimal_routine(before: bool, adjustment_carry: bool) -> bool {
+    before || adjustment_carry
 }
 
 /// Register codes, 98-153B p. 4-3; M2 data read at HL, pp. 2-16/2-17,

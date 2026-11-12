@@ -6,7 +6,7 @@ mod arithmetic_reference;
 mod support;
 
 use arithmetic_reference::arithmetic;
-use support::{assert_unsupported, sample_latches, sample_registers, Event, RecordingBus};
+use support::{sample_latches, sample_registers, Event, RecordingBus};
 use x80_core::i8080::{Flags, Registers, I8080};
 use x80_core::{Exit, MemoryAccess, Report};
 
@@ -460,12 +460,6 @@ fn dad_all_pairs_changes_only_hl_and_carry() {
             }
         }
     }
-}
-
-#[test]
-fn daa_remains_deferred_without_effects() {
-    // DAA (98-153B p. 4-8) belongs to the following bead, decision-5 item 7.
-    assert_unsupported(0x27, 0x4567);
 }
 
 #[test]
