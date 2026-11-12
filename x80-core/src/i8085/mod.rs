@@ -27,6 +27,7 @@
 //! assert!(cpu.latches().mask7_5);
 //! ```
 
+mod alu;
 mod cpu;
 mod flags;
 mod interrupt;
