@@ -20,11 +20,45 @@ cargo tree --offline --locked -p x80-core --all-features --target all --edges no
 `cargo test` is the fallback when nextest is absent; it also runs doctests.
 The boundary test invokes offline, locked `cargo tree` and rejects every dependency
 kind, including optional and target-specific dependencies. The library is `no_std`
-now, not a feature toggle. No binary or emulator CLI exists.
+now, not a feature toggle. The separate unpublished `x80-oracle` crate supplies
+the offline exerciser CLI.
 
 Use `cargo fmt --all` to format. Add release-profile runs when optimization could
 change behavior. Serialize heavy campaigns; no perf, fuzz or cross-target gate
 exists yet.
+
+## Oracle runs
+
+Fetch the pinned artifacts first with `./oracles/fetch-oracles.sh fetch`.
+The GPL-2.0-or-later exerciser programs and sources stay in the fetch-only oracle
+stash; the harness does not embed or download them. See [provenance](../../PROVENANCE.md#2-oracles).
+These runs are optional campaigns, outside the ordinary gates, and require no
+network once the artifacts are present. Run the preliminary program first:
+
+```sh
+cargo run -p x80-oracle --release --offline --locked -- oracles/8080-exercisers/8080PRE.COM
+cargo run -p x80-oracle --release --offline --locked -- oracles/8080-exercisers/8080EXM.COM --cycle-cap 100000000000
+```
+
+The CLI identifies the program bytes by SHA-256, using the two pinned digests
+from `oracles/SHA256SUMS.fetched` (oracles commit `c84b982`), then echoes the
+program's console output and reports total steps, cycles, exit reason and verdict.
+Only those digests can receive a PASS/FAIL verdict. Exit 0 requires a known digest,
+a halt after the boot-entry stub (PC 0001h), and the preliminary completion message
+or exactly 25 exerciser group results, all PASS, with no duplicates or ERROR.
+Unknown programs still run, report `unknown program, no verdict`, and exit 1.
+Exit 1 also covers a failing or absent verdict,
+unexpected halt, unsupported instruction (with PC/opcode), timeout, invalid input
+or host error. Exit 2 means a missing program file and prints the fetch command;
+missing artifacts never pass.
+
+`--cycle-cap N` sets the overall cycle limit (default 100000000000);
+`--slice-cycles N` sets the nonzero per-run budget (default 1000000).
+Budgets stop at instruction boundaries, so totals can overshoot by the final
+instruction. The exerciser can take a long time. The digest selects the verdict
+protocol regardless of filename. Optional `--oracle pre` or `--oracle exm` checks
+the expected identity of a known program; it cannot give an unknown digest a
+verdict. No interrupts or host stop are requested.
 
 ## MSRV
 

@@ -1,0 +1,12 @@
+[package]
+name = "x80-oracle"
+publish = false
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+description = "Offline host for the pinned 8080 exerciser oracles"
+
+[dependencies]
+# A version beside the path keeps cargo-deny's wildcard ban satisfied (deny.toml).
+x80-core = { path = "../x80-core", version = "0.1.0" }
