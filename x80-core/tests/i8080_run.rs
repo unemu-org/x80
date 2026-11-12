@@ -2,13 +2,12 @@
 //! sequence and exit precedence (decision-5 items 4, 5 and 8) and the
 //! unsupported exit for undocumented opcodes (decision-3, decision-5 item 6).
 //!
-//! Expected values are literals. The only instruction that executes is NOP:
+//! Expected values are literals. These fetch witnesses use NOP:
 //! 00000000, one byte, 4 states (98-153B p. 4-14). The undocumented opcodes
 //! are the complement of the 98-153B Ch. 4 entries (pp. 4-4 to 4-14), worked
 //! out by hand.
 //!
-//! Interrupt acceptance is not implemented yet (bead x80-ecy.14), so no test
-//! here depends on whether an eligible interrupt is accepted.
+//! Acknowledged RST instructions are witnessed in `i8080_interrupts.rs`.
 
 mod support;
 
@@ -225,8 +224,7 @@ fn the_cycle_limit_is_checked_at_boundaries_and_may_be_overshot() {
     }
 }
 
-// Exit precedence (decision-5 item 5, worked pairs reachable without
-// interrupt acceptance).
+// Exit precedence (decision-5 item 5).
 
 #[test]
 fn a_zero_budget_wins_over_stop_interrupt_halt_and_unsupported() {

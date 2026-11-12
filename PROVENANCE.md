@@ -70,17 +70,16 @@ every family member. No oracle artifacts are currently included.
 ## 3. Witnesses and current scope
 
 The core types, the run loop and the 8080 opcode map exist; every documented
-instruction executes, and interrupts are not yet accepted
-(see backlog/docs/status.md). The opcode map (which bytes are documented, their
+instruction executes, and eligible interrupts are accepted with an acknowledged
+RST (see backlog/docs/status.md). The opcode map (which bytes are documented, their
 lengths and groups) is cited from 98-153B pp. 4-1 and 4-4 to 4-14 and witnessed
 against the summaries on p. 4-15 and 9800301-04 p. A-5. Each implemented
 instruction cites its behaviour, state totals and bus order in its group module
 (98-153B Ch. 4 and pp. 2-16 to 2-20) and has witnesses with literal or
 independently derived expectations. The register pairs and the flag-byte layout
 of the processor status word are cited from 98-153B pp. 2-2, 2-3, 4-2, 4-3 and
-4-13 and 9800301-04 p. 3-45. Structural facts without behaviour yet: one INT
-line (p. 5-14) and the interrupt-enable, EI-delay and halt latches (pp. 2-13,
-4-14, 5-14). Interim and derived readings are listed in §1.
+4-13 and 9800301-04 p. 3-45. Interrupt acceptance cites pp. 2-11, 2-13,
+2-18 to 2-20 and 5-14. Interim and derived readings are listed in §1.
 The V20 mapping in [plan §3](backlog/docs/plan.md#3-v20v30-integration-contract-sketch)
 is explicitly unverified. Glossary definitions are orientation, not implementation
 authority. Ordinary tests will pin derived values in code and run without manuals,

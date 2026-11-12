@@ -33,8 +33,12 @@ totals and bus traces:
 Every documented 8080 opcode now executes; only the 12 undocumented bytes
 return `Unsupported` (decision-3).
 
-Interim gap: interrupts are polled at every boundary but never accepted until
-`x80-ecy.14`; a halted CPU with an eligible interrupt still returns `Halt`.
+Interrupts: an eligible request (INT high, interrupts enabled, EI delay
+expired) is accepted at an instruction boundary. The acknowledge is a bus read
+at PC without incrementing it; an acknowledged RST n executes as one step of 11
+states (98-153B p. 2-11 Figure 2-8, pp. 2-18, 2-19) and wakes a halted CPU. Any
+other acknowledged byte returns `Unsupported` with no state change
+(decision-5).
 
 Two Intel 8080 manuals are pinned as fetch-only sources in the shared `oracles/`
 submodule (pin ddef3b6). No ROMs or oracle corpora are pinned yet.

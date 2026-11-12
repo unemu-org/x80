@@ -2,7 +2,8 @@
 //! dependencies). A test file includes it with `mod support;`.
 //!
 //! [`RecordingBus`] is a flat 64 KiB memory with scripted port input, scripted
-//! interrupt-acknowledge bytes and settable stop and INT levels. It implements
+//! interrupt-acknowledge bytes, per-poll INT levels and settable stop and INT
+//! levels. It implements
 //! [`Bus`], [`Control`] and [`Inputs`] and appends every call, with its
 //! arguments and result, to [`RecordingBus::log`], so a test can compare the
 //! whole trace with a literal list of [`Event`]s.
@@ -49,10 +50,11 @@ pub enum Event {
 /// - Memory reads of every kind except [`MemoryAccess::InterruptAcknowledge`]
 ///   return `memory[address]`; writes store into it.
 /// - An acknowledge read returns the next byte of `acknowledges` and leaves
-///   memory alone.
+///   memory alone. It also lowers `interrupt` if `lower_interrupt_on_acknowledge`
+///   is set.
 /// - [`Bus::input`] returns the next byte of `inputs`, whatever the port.
-/// - The polls return `stop` and `interrupt`, which a test may change between
-///   calls.
+/// - Stop polls return `stop`. INT polls consume `interrupt_levels`, falling
+///   back to `interrupt` when the script is empty.
 ///
 /// A read from an empty script panics: the test did not expect that access.
 pub struct RecordingBus {
@@ -66,6 +68,10 @@ pub struct RecordingBus {
     pub stop: bool,
     /// Level returned by [`Inputs::interrupt_requested`].
     pub interrupt: bool,
+    /// Optional levels returned by successive INT polls, before `interrupt`.
+    pub interrupt_levels: VecDeque<bool>,
+    /// Lower the fallback INT level when an acknowledge read occurs.
+    pub lower_interrupt_on_acknowledge: bool,
     /// Every call so far, oldest first.
     pub log: Vec<Event>,
 }
@@ -79,6 +85,8 @@ impl RecordingBus {
             acknowledges: VecDeque::new(),
             stop: false,
             interrupt: false,
+            interrupt_levels: VecDeque::new(),
+            lower_interrupt_on_acknowledge: false,
             log: Vec::new(),
         }
     }
@@ -108,6 +116,9 @@ impl Default for RecordingBus {
 impl Bus for RecordingBus {
     fn read(&mut self, address: u16, kind: MemoryAccess) -> u8 {
         let value = if kind == MemoryAccess::InterruptAcknowledge {
+            if self.lower_interrupt_on_acknowledge {
+                self.interrupt = false;
+            }
             self.acknowledges
                 .pop_front()
                 .unwrap_or_else(|| panic!("unscripted interrupt acknowledge at {address:#06x}"))
@@ -154,8 +165,9 @@ impl Control for RecordingBus {
 
 impl Inputs for RecordingBus {
     fn interrupt_requested(&mut self) -> bool {
-        self.log.push(Event::InterruptPoll(self.interrupt));
-        self.interrupt
+        let level = self.interrupt_levels.pop_front().unwrap_or(self.interrupt);
+        self.log.push(Event::InterruptPoll(level));
+        level
     }
 }
 
