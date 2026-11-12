@@ -292,7 +292,7 @@ Decided items cite their record; the rest stay open.
    the `msrv` dev shell gate ([commands](commands.md#msrv)).
 9. Decided by the maintainer, recorded in decision-6: per-model types with a
    model-neutral core, variants as construction-time values, integration
-   profiles as a separate axis (§2.6). Still open: should the crate offer a
-   run-time wrapper over models at M3?
+   profiles as a separate axis (§2.6). Decided for M3 in decision-10: no crate run-time
+   wrapper; the oracle harness keeps its own enum.
 10. Which parts beyond the 8080, 8085 and Z80, if any, enter scope, and with
     which primary sources?

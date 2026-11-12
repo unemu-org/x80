@@ -26,7 +26,15 @@ All are Intel documents: the second of each pair is independent in authorship, n
 hardware witness. The 8085AH data sheet (p. 16-11) states "100% Software Compatible with 8080A"
 and lower power than the 8085A, but no instruction-level difference from the 8085A.
 Treating the 8085A and 8085AH as one model is an assumption (decision-6: no variant
-without a pinned source documenting a difference), not a stated equivalence. Where they disagree, an oracle may falsify one reading; record the case
+without a pinned source documenting a difference), not a stated equivalence.
+
+Page maps for the 8085 sources: 205775-002 printed 2-n = PDF 23+n and 5-n = PDF 85+n
+(Table 5-1 is p. 5-19, Table 5-2 is p. 5-20); the 1988 handbook printed 16-n = PDF 947+n.
+205775-002 p. 5-10 is a third Intel statement of the 8080 rule that decision-8 settled:
+"The CY flag is cleared and AC is set (8085). The CY flag is cleared and AC is set to the
+OR'ing of bits 3 of the operands (8080)."
+
+Where they disagree, an oracle may falsify one reading; record the case
 below and in a bead.
 
 | Disagreement | Citations | Status |
