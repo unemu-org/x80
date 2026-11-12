@@ -67,11 +67,13 @@ other acknowledged byte returns `Unsupported` with no state change
 
 Two Intel 8080 manuals and, for M3, two 8085 sources (205775-002 and the 8085AH data
 sheet) are pinned as fetch-only sources in the shared `oracles/` submodule, with two 8080 CPU exercisers, 8080PRE and 8080EXM, as fetch-only oracles
-(pin 07776c0; PROVENANCE.md §2). The unpublished `x80-oracle` crate runs them
+(pin 1431bbc; PROVENANCE.md §2). The NEC V20/V30 user's manual, pinned by x86jit in the
+same stash, is recorded for M2 in PROVENANCE.md §1. The unpublished `x80-oracle` crate runs them
 offline ([commands](commands.md)); on 2026-11-12 8080PRE passed and 8080EXM passed
 all 25 groups, about 16 s for 2.9 billion instructions in a release build.
-M2–M4 have not started. M2 waits on x86jit's V20/V30 bead (C4) and the NEC manual
-pin; see [plan §5](plan.md#5-milestones).
+M2 and M3 are in progress: M2's x80-side work (beads `x80-pzp.1` to `.5`) runs from the
+pinned NEC manual, and its joint witnesses wait on x86jit's V20/V30 bead (C4); M3 (8085)
+has its sources pinned. M4 has not started. See [plan §5](plan.md#5-milestones).
 
 This is a capability snapshot, not the task board. Consult beads for claims and
 priorities. Update this file when a milestone advances.

@@ -37,6 +37,63 @@ below and in a bead.
 | Machine cycles of HLT | 98-153B p. 2-18 state table: M1 and M2; 9800301-04 p. 3-24: one machine cycle; both give 7 states | No effect on x80, which counts states only; HLT takes 7 states, witnessed |
 | Auxiliary carry after 8080 logical AND (ANA, ANI) | 98-153B p. 4-9: ANI clears CY and AC; 9800301-04 p. 1-12: AND sets AC to the logical OR of bit 3 of the operands | Settled by decision-8: AC = bit 3 of (A OR operand), per 9800301-04 p. 1-12. Oracle evidence, MEASURED 2026-11-12: 8080EXM's two ALU groups pass with this reading and fail with "AC cleared" (7799ea9d, b3491c2a); the pinned results page (`oracles/8080-exercisers/8080-8085-cpu-exerciser-results.pdf` pp. 3-4) reports the expected CRCs for Intel 8080A and other parts and the failing ones for AMD 9080A/8080A |
 
+### NEC V20/V30 8080 emulation mode (M2)
+
+Pinned by the x86jit project in the shared stash (oracles 1431bbc, bead xj-vao (x86jit)) and
+used by x80 for M2: `nec/v20-v30-um.pdf`, NEC uPD70108/uPD70116 (V20/V30) User's Manual,
+Stock No. 500350, October 1986, 228 pp, sha256
+`8252fe5ddc0623380b7f28819009e6bb7d2b8e345ef347d9e6f2d299ce97865f`, © NEC, cite-only.
+Page map: printed 8-n = PDF 31+n; 3-3 = PDF 16; 6-1 = PDF 26; 9-1 = PDF 38;
+12-151 = PDF 196; 12-168 = PDF 213; 12-169 = PDF 214; 12-176 = PDF 221; 12-177 = PDF 222.
+A scan with an OCR text layer: check every value against the page image.
+
+Facts read from the page images (M2 analysis, 2026-11-12):
+
+- Register mapping (p. 8-1, Figs 8-1, 8-2): the 8080 A is the low byte of AW; HL, BC and
+  DE are BW, CW and DW; the 8080 SP is BP; PC is PC. The 8080 flags are the low eight bits
+  of the PSW, S Z 0 AC 0 P 1 CY. AH, the native SP, IX, IY and the segment registers PS,
+  SS, DS0, DS1 are not addressable from emulation mode. Which byte of BW is H is drawn in
+  Fig. 8-1 only.
+- Segments (p. 8-1): "the segment base of the program is determined by the PS register";
+  "the segment base of the memory operands (including the stack) is determined by the DS0
+  register". In x80 terms: OpcodeFetch and OperandFetch use PS, Data and Stack use DS0.
+- Instruction set (p. 8-1): 8080 mode executes "the instruction set for the uPD8080AF and
+  the RETEM and CALLN instructions"; native mode executes all instructions except RETEM
+  and CALLN. BUSLOCK and POLL are unavailable; I/O and memory bus operation is as in native
+  mode.
+- Encodings: CALLN = ED ED imm8 (p. 12-176); RETEM = ED FD (p. 12-177); BRKEM = 0F FF imm8
+  (p. 12-169). Clocks given by NEC (V20 / V30 odd / V30 even): CALLN 58/58/38, RETEM
+  39/39/27, BRKEM 50/50/38, RETI 39/39/27 (p. 12-168); NMI and INT in Table 6-1 (p. 6-1).
+- Interrupts (p. 8-4, Fig. 8-6; p. 6-1): NMI and INT in emulation mode are serviced as in
+  native mode; the routine runs native and RETI returns to emulation. The frame (PSW with
+  MD = 0, PS, PC) goes on the native stack.
+- HLT (pp. 8-2, 9-1): standby; INT with interrupts disabled leaves standby and resumes 8080
+  mode after the HLT without service; NMI is unconditional; RESET is a native reset and
+  ends emulation.
+- BRKEM (p. 12-169, p. 8-2) and RETEM (p. 12-177, Fig. 8-7): BRKEM pushes PSW, PS, PC and
+  enters emulation with PS:PC from the vector; RETEM pops PC, PS, PSW, so the 8080 flags do
+  not carry back to native mode; registers do. CALLN (p. 12-176) calls native code, which
+  returns with RETI. BRKEM inside a native routine reached from emulation is not allowed
+  (p. 8-5).
+- Interrupt-routine entry (p. 6-1): the general sequence pushes PSW, PS, PC, then
+  "IE <- 0, BRK <- 0, MD <- 1", and lists BRKEM and CALLN among the vectored sources. For
+  CALLN this agrees with p. 12-176 (MD <- 1), so CALLN clears IE and BRK. The 8080 interrupt
+  enable is PSW.IE: Fig. 8-2 shows IE as PSW bit 9, and p. 9-1 uses IE for the emulation-mode
+  INT and HLT rules.
+
+Not stated in the manual, so not modelled as facts:
+
+- No 8080 instruction clocks for the V20 and no 8080 flag rules (AC after AND, DAA,
+  parity); under the V20 x80 reports Intel 98-153B T-states, which are not V20 clocks.
+- ASSUMED: the uPD8080AF behaves as the Intel 8080A, including decision-8 and the derived
+  DAA carry rule. No uPD8080AF source is pinned.
+- To confirm jointly with x86jit: IE after BRKEM (p. 6-1's general sequence would clear it
+  but sets MD <- 1, while p. 12-169 sets MD <- 0 and lists only MD, so the general sequence
+  does not describe BRKEM exactly); whether the native EI delay (p. 6-4; p. 12-172) applies
+  to the 8080 EI in emulation mode; the PC that CALLN pushes; the high address byte during
+  8080 IN/OUT.
+- Misprints noticed: p. 12-176 "SP <- PS - 6"; p. 12-177 refers to BRKEM where RETEM is meant.
+
 ### Discovery inventory
 
 The list below is **not a set of pinned sources**. Unknown metadata is marked
@@ -47,7 +104,6 @@ The list below is **not a set of pinned sources**. Unknown metadata is marked
 | MCS-80 User's Manual | 98-153D | 1977 | bitsavers mirror (not pinned) | Not pinned: a later edition that repeats the 98-153B CPU chapters; a possible check for corrections |
 | MCS-85 User's Manual | 9800366E | September 1978 | not on bitsavers (not pinned) | Not pinned: its 8085A chapters carry the same text as 205775-002, so not an independent witness |
 | Zilog Z80 CPU User Manual | source to find | source to find | source to find | Z80 state, instruction set, interrupts and timing |
-| NEC V20/V30 user's manual (exact title to verify) | source to find | source to find | source to find | Emulation-mode entry/exit, mapping, CALLN and native interrupt handoff |
 
 Sources live in the organisation's shared oracle stash, `unemu-org/oracles`, included here
 as x80's own `oracles/` submodule with its own pin (maintainer decision, 2026-11-11; x86jit
