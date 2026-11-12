@@ -166,6 +166,14 @@ P8085AH-2 (2023 forum report) gives different CRCs for the ALU, DAA and INR/DCR 
 whether that reflects a different build, mask or part is unresolved. 8080PRE also serves as
 the 8085's preliminary test (the results page).
 
+Results, 2026-11-13, MEASURED: the release `--model 8085` commands in
+[commands.md, Oracle runs](backlog/docs/commands.md#oracle-runs) pass: 8080PRE
+exits 0 at 1,060 steps / 7,740 cycles; 8085EXM exits 0 at 2,919,050,442 steps /
+23,955,337,676 cycles, with all 24 judged groups PASS. The long ALU register group
+(`alu8r`, 8085EXM.MAC:136,201–207) prints PASS, CRC 0cfd75b5; its result is
+reported, not judged, because the expected CRC remains unverified. Both programs
+halt at the boot-entry stub (PC 0001h); no core change was needed.
+
 Rejected or not chosen: the Microcosm 8080/8085 CPU diagnostic (CPUDIAG/TST8080, 1980;
 licence unclear, so fetch-only would be the most it could be), the SuperSoft CPU test
 (commercial, binary only). No hardware-captured single-step corpus for the 8080 was

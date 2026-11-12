@@ -18,10 +18,17 @@ fn synthetic_25_passes_are_unknown_even_with_oracle_names_and_overrides() {
     ];
     program.extend_from_slice(output.as_bytes());
     program.push(b'$');
-    for name in ["8080EXM.COM", "8080PRE.COM", "renamed.COM"] {
+    for name in ["8080EXM.COM", "8080PRE.COM", "8085EXM.COM", "renamed.COM"] {
         let path = directory.join(name);
         std::fs::write(&path, &program).unwrap();
-        for options in [vec![], vec!["--oracle", "exm"], vec!["--oracle", "pre"]] {
+        for options in [
+            vec![],
+            vec!["--oracle", "exm"],
+            vec!["--oracle", "pre"],
+            vec!["--model", "8085"],
+            vec!["--oracle", "exm", "--model", "8085"],
+            vec!["--model", "8085", "--oracle", "pre"],
+        ] {
             let result = Command::new(env!("CARGO_BIN_EXE_x80-oracle"))
                 .arg(&path)
                 .args(options)
@@ -52,4 +59,35 @@ fn missing_file_exits_two_with_fetch_prerequisite() {
     let error = String::from_utf8(result.stderr).unwrap();
     assert!(error.contains("./oracles/fetch-oracles.sh fetch"));
     assert!(error.contains("steps=0 cycles=0 exit=missing-file verdict=FAIL"));
+}
+
+#[test]
+fn help_describes_model_pairing_and_invalid_model_is_rejected() {
+    let result = Command::new(env!("CARGO_BIN_EXE_x80-oracle"))
+        .arg("--help")
+        .output()
+        .unwrap();
+    assert!(result.status.success());
+    let help = String::from_utf8(result.stdout).unwrap();
+    for message in [
+        "--model 8080|8085",
+        "defaults to 8080",
+        "8080EXM requires 8080",
+        "8085EXM requires 8085",
+        "8080PRE supports either",
+        "before execution",
+    ] {
+        assert!(help.contains(message));
+    }
+    for arguments in [vec!["--model"], vec!["--model", "z80"]] {
+        let result = Command::new(env!("CARGO_BIN_EXE_x80-oracle"))
+            .args(arguments)
+            .output()
+            .unwrap();
+        assert_eq!(result.status.code(), Some(1));
+        assert!(result.stdout.is_empty());
+        assert!(String::from_utf8(result.stderr)
+            .unwrap()
+            .contains("--model requires 8080 or 8085"));
+    }
 }

@@ -38,14 +38,40 @@ network once the artifacts are present. Run the preliminary program first:
 ```sh
 cargo run -p x80-oracle --release --offline --locked -- oracles/8080-exercisers/8080PRE.COM
 cargo run -p x80-oracle --release --offline --locked -- oracles/8080-exercisers/8080EXM.COM --cycle-cap 100000000000
+cargo run -p x80-oracle --release --offline --locked -- --model 8085 oracles/8080-exercisers/8080PRE.COM
+cargo run -p x80-oracle --release --offline --locked -- --model 8085 oracles/8080-exercisers/8085EXM.COM --cycle-cap 100000000000
 ```
 
-The CLI identifies the program bytes by SHA-256, using the two pinned digests
-from `oracles/SHA256SUMS.fetched` (oracles commit `c84b982`), then echoes the
-program's console output and reports total steps, cycles, exit reason and verdict.
-Only those digests can receive a PASS/FAIL verdict. Exit 0 requires a known digest,
-a halt after the boot-entry stub (PC 0001h), and the preliminary completion message
-or exactly 25 exerciser group results, all PASS, with no duplicates or ERROR.
+`--model 8080|8085` selects the CPU (default 8080). Known programs must use their
+intended model: 8080EXM requires 8080, 8085EXM requires 8085, and 8080PRE supports
+either. A mismatch is an error before execution. Both models share the CP/M host,
+including the undocumented 08h BDOS rendezvous (decisions 3 and 11).
+
+The CLI identifies the program bytes by SHA-256, using the three pinned digests
+from `oracles/SHA256SUMS.fetched` (8085EXM added at oracles commit `f379261`), then
+echoes the program's console output and reports total steps, cycles, exit reason
+and verdict. Only those digests can receive a PASS/FAIL verdict. Exit 0 requires
+a known digest, a halt after the boot-entry stub (PC 0001h), and the preliminary
+completion message or the exerciser's model-specific banner, exactly 25 complete
+group results in the pinned order, and completion message, in that sequence.
+Framing and descriptors are matched by length and FNV-1a fingerprint; result
+fields require their exact labels. Every nonempty line must match a framing or result
+line, with no unconsumed text. CRCs contain exactly eight lowercase hexadecimal
+digits, with both expected and found fields required on ERROR. Partial results,
+unknown lines, extra markers and trailing text fail. The grammar follows
+8080EXM.MAC:114–130,436–481,898–959 and
+8085EXM.MAC:115–131,437–482,899–960.
+8080EXM requires all 25 to PASS with no ERROR. 8085EXM requires 24 judged groups
+to PASS with no ERROR; the third group, the long ALU register group (`alu8r`,
+8085EXM.MAC:136,201–207), has an unverified expected CRC. Its descriptor fingerprint
+and third position must both match. Its printed result and
+CRC are repeated as `reported, not judged` and excluded from the verdict, even
+if the program prints ERROR for it. All 25 results must still be present with
+complete CRCs, with no unknown, duplicated, reordered, missing or extra groups
+(group tables: 8080EXM.MAC:132–158;
+8085EXM.MAC:133–159). A whole-output ERROR check permits only the complete,
+exempt third result; unknown lines also reject markers split across lines.
+Rejected output includes a verdict failure reason.
 Unknown programs still run, report `unknown program, no verdict`, and exit 1.
 Exit 1 also covers a failing or absent verdict,
 unexpected halt, unsupported instruction (with PC/opcode), timeout, invalid input
@@ -57,8 +83,9 @@ missing artifacts never pass.
 Budgets stop at instruction boundaries, so totals can overshoot by the final
 instruction. The exerciser can take a long time. The digest selects the verdict
 protocol regardless of filename. Optional `--oracle pre` or `--oracle exm` checks
-the expected identity of a known program; it cannot give an unknown digest a
-verdict. No interrupts or host stop are requested.
+the expected identity of a known program for the selected model; it cannot give
+an unknown digest a verdict. No interrupts or host stop are requested; on the
+8085, SID is low and SOD notifications are ignored.
 
 ## V20 contract fixtures
 

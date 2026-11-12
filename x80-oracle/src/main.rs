@@ -5,7 +5,7 @@ use std::io::{self, Write};
 use std::path::PathBuf;
 use std::process::ExitCode;
 
-use x80_oracle::{run, Config, Oracle, Reason};
+use x80_oracle::{run, Config, Model, Oracle, Reason};
 
 fn main() -> ExitCode {
     match execute(std::env::args_os().skip(1).collect()) {
@@ -35,15 +35,23 @@ fn execute(args: Vec<OsString>) -> Result<u8, String> {
                     config.slice_cycles = value;
                 }
             }
+            Some("--model") => {
+                config.model = match args.next().as_deref().and_then(|v| v.to_str()) {
+                    Some("8080") => Model::I8080,
+                    Some("8085") => Model::I8085,
+                    _ => return Err("--model requires 8080 or 8085".into()),
+                };
+            }
             Some("--oracle") => {
                 oracle = Some(match args.next().as_deref().and_then(|v| v.to_str()) {
-                    Some("pre") => Oracle::Preliminary,
-                    Some("exm") => Oracle::Exerciser,
+                    Some("pre") => false,
+                    Some("exm") => true,
                     _ => return Err("--oracle requires pre or exm".into()),
                 });
             }
             Some("--help" | "-h") => {
-                println!("Usage: x80-oracle [--cycle-cap N] [--slice-cycles N] [--oracle pre|exm] <program.COM>");
+                println!("Usage: x80-oracle [--model 8080|8085] [--cycle-cap N] [--slice-cycles N] [--oracle pre|exm] <program.COM>");
+                println!("Model defaults to 8080. 8080EXM requires 8080; 8085EXM requires 8085; 8080PRE supports either. A known program/model mismatch is an error before execution.");
                 return Ok(0);
             }
             Some(value) if value.starts_with('-') => {
@@ -63,6 +71,11 @@ fn execute(args: Vec<OsString>) -> Result<u8, String> {
         }
         Err(error) => return Err(format!("cannot read program: {error}")),
     };
+    let oracle = oracle.map(|exm| match (exm, config.model) {
+        (false, _) => Oracle::Preliminary,
+        (true, Model::I8080) => Oracle::Exerciser,
+        (true, Model::I8085) => Oracle::Exerciser8085,
+    });
     if let (Some(expected), Some(actual)) = (oracle, Oracle::identify(&program)) {
         if expected != actual {
             return Err("--oracle does not match the program digest".into());
@@ -72,6 +85,15 @@ fn execute(args: Vec<OsString>) -> Result<u8, String> {
     let mut console = stdout.lock();
     let outcome = run(&program, config, &mut console).map_err(|error| error.to_string())?;
     console.flush().map_err(|error| error.to_string())?;
+    if let Some(oracle) = Oracle::identify(&program) {
+        let output = String::from_utf8_lossy(&outcome.output);
+        if let Some(line) = oracle.reported_not_judged(&output) {
+            eprintln!("\nreported, not judged: {}", line.trim());
+        }
+    }
+    if let Some(error) = &outcome.verdict_error {
+        eprintln!("\nverdict failure: {error}");
+    }
     let reason = match &outcome.reason {
         Reason::NormalExit => "normal-exit (Halt PC=0001)".into(),
         Reason::UnexpectedHalt { pc } => format!("unexpected-halt PC={pc:04X}"),

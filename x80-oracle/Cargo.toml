@@ -5,7 +5,7 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 rust-version.workspace = true
-description = "Offline host for the pinned 8080 exerciser oracles"
+description = "Offline host for the pinned 8080/8085 exerciser oracles"
 
 [dependencies]
 # A version beside the path keeps cargo-deny's wildcard ban satisfied (deny.toml).
