@@ -6,8 +6,10 @@
 //! with its [`Unsupported`] payload. Each CPU model is a concrete type in its
 //! own module (decision-6); the only model is the Intel 8080, [`i8080::I8080`].
 //!
-//! Status: the types of decision-5 exist, but nothing executes yet. There is
-//! no decoder, no instruction behaviour and no `step`, `run` or `reset`.
+//! Status: [`i8080::I8080`] has `run` and `step` with the decision-2 budget,
+//! the decision-5 boundary sequence and the documented 8080 opcode map. Only
+//! NOP executes; every other opcode returns [`Exit::Unsupported`]. Interrupts
+//! are polled but not accepted yet, and there is no `reset`.
 //!
 //! Memory, devices, interrupt sources, file formats and scheduling belong to
 //! the embedder. The crate is `no_std`, allocates nothing and has no

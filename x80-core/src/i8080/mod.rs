@@ -1,10 +1,20 @@
 //! The Intel 8080 model (decision-6): its register file, execution latches,
-//! input lines and CPU type.
+//! input lines, CPU type, opcode map and instruction groups.
 //!
 //! Primary source: Intel 8080 Microcomputer Systems User's Manual, 98-153B;
 //! second witness: Intel 8080/8085 Assembly Language Programming Manual,
 //! 9800301-04 (PROVENANCE.md §1). Every hardware fact in this module cites its
-//! page. Status: the types exist; nothing executes yet.
+//! page.
+//!
+//! [`I8080::run`] and [`I8080::step`] execute under a [`Budget`](crate::Budget)
+//! with the boundary sequence of decision-5. The private opcode map records the
+//! 244 opcode bytes that 98-153B Ch. 4 documents; the other 12 return
+//! [`Exit::Unsupported`](crate::Exit::Unsupported). Each Ch. 4 instruction
+//! group has its own module.
+//!
+//! Status: only NOP executes. Every other documented opcode also returns
+//! `Unsupported` until its group lands (decision-5 item 7). Interrupts are
+//! polled but not accepted (bead x80-ecy.14), and there is no `reset` yet.
 //!
 //! ```
 //! use x80_core::i8080::{I8080, Latches, Registers};
@@ -18,9 +28,15 @@
 //! assert!(!cpu.latches().halted);
 //! ```
 
+mod arithmetic;
+mod branch;
 mod cpu;
+mod data_transfer;
 mod flags;
 mod interrupt;
+mod logical;
+mod opcodes;
+mod stack_io_control;
 mod state;
 
 pub use cpu::I8080;

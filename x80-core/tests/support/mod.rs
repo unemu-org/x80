@@ -6,14 +6,18 @@
 //! [`Bus`], [`Control`] and [`Inputs`] and appends every call, with its
 //! arguments and result, to [`RecordingBus::log`], so a test can compare the
 //! whole trace with a literal list of [`Event`]s.
+//!
+//! [`sample_registers`] and [`sample_latches`] give a CPU state with a
+//! distinct value everywhere, and [`assert_unsupported`] checks the
+//! unsupported exit of decision-5 items 5 and 6 for one opcode.
 
 // Each integration test is its own crate and uses only part of this module.
 #![allow(dead_code)]
 
 use std::collections::VecDeque;
 
-use x80_core::i8080::Inputs;
-use x80_core::{Bus, Control, MemoryAccess};
+use x80_core::i8080::{Flags, Inputs, Latches, Registers, I8080};
+use x80_core::{Bus, Control, Exit, MemoryAccess, Unsupported};
 
 /// One call into the test bus, in call order.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -153,4 +157,97 @@ impl Inputs for RecordingBus {
         self.log.push(Event::InterruptPoll(self.interrupt));
         self.interrupt
     }
+}
+
+/// Distinct values in every register and a mixed flag pattern, so a stray
+/// change is visible. `pc` is where the next opcode is read.
+pub fn sample_registers(pc: u16) -> Registers {
+    Registers {
+        a: 0xA1,
+        flags: Flags {
+            sign: true,
+            zero: false,
+            auxiliary_carry: true,
+            parity: false,
+            carry: true,
+        },
+        b: 0xB2,
+        c: 0xC3,
+        d: 0xD4,
+        e: 0xE5,
+        h: 0xF6,
+        l: 0x07,
+        sp: 0x8F90,
+        pc,
+    }
+}
+
+/// Latches with interrupts enabled and an EI delay pending, not halted, so a
+/// stray change to either is visible.
+pub fn sample_latches() -> Latches {
+    Latches {
+        interrupt_enable: true,
+        ei_delay: true,
+        halted: false,
+    }
+}
+
+/// Whether `exit` is the unsupported exit of an opcode fetch (decision-5
+/// item 6): `pc` and `opcode` as given, `acknowledge` false.
+pub fn is_fetch_unsupported(exit: Exit, pc: u16, opcode: u8) -> bool {
+    matches!(
+        exit,
+        Exit::Unsupported(Unsupported {
+            pc: at,
+            opcode: read,
+            acknowledge: false,
+            ..
+        }) if at == pc && read == opcode
+    )
+}
+
+/// Steps once over `opcode` at `pc` and checks the unsupported exit of
+/// decision-5 items 5 and 6: no step and no cycle, registers, flags, latches
+/// and memory unchanged, and a trace of exactly the two polls and one opcode
+/// fetch at `pc`.
+pub fn assert_unsupported(opcode: u8, pc: u16) {
+    let mut bus = RecordingBus::new();
+    // Distinct bytes around the opcode, so a stray operand read or write is
+    // visible in the trace or in memory.
+    bus.load(pc.wrapping_sub(1), &[0x5A, opcode, 0xA5, 0x3C]);
+    let memory = bus.memory.clone();
+    let mut cpu = I8080::new(sample_registers(pc), sample_latches());
+
+    let report = cpu.step(&mut bus);
+
+    assert_eq!(
+        (report.steps, report.cycles),
+        (0, 0),
+        "opcode {opcode:#04x}"
+    );
+    assert!(
+        is_fetch_unsupported(report.exit, pc, opcode),
+        "opcode {opcode:#04x}: {:?}",
+        report.exit
+    );
+    assert_eq!(
+        *cpu.registers(),
+        sample_registers(pc),
+        "opcode {opcode:#04x}"
+    );
+    assert_eq!(*cpu.latches(), sample_latches(), "opcode {opcode:#04x}");
+    assert!(bus.memory == memory, "opcode {opcode:#04x}: memory changed");
+    assert_eq!(
+        bus.take_log(),
+        [
+            Event::StopPoll(false),
+            Event::InterruptPoll(false),
+            Event::Read {
+                address: pc,
+                kind: MemoryAccess::OpcodeFetch,
+                value: opcode,
+            },
+        ],
+        "opcode {opcode:#04x}"
+    );
 }

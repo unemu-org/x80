@@ -5,13 +5,28 @@ are in place. Decisions 1-5 settle the M1 API, decision-6 the CPU model layout a
 decision-7 an interim flag reading. The 8080 primary
 sources are pinned (see [PROVENANCE.md](../../PROVENANCE.md)).
 
-**M1: in progress.** `x80-core` has the passive types of decision-5: the
+**M1: in progress.** `x80-core` has the types of decision-5: the
 model-neutral `Bus`, `MemoryAccess`, `Control`, `Budget`, `Report`, `Exit` and
 `Unsupported` at the crate root, and the `i8080` model with `Registers`, `Flags`,
 `Latches`, `Inputs` and `I8080`. The BC, DE and HL pair and PSW accessors and the
-PSW flag-byte layout are cited and witnessed. Nothing executes: there is no
-decoder, no instruction behaviour and no `step`, `run` or `reset`, so no
-instruction group is implemented yet (decision-5 item 7).
+PSW flag-byte layout are cited and witnessed.
+
+`I8080::run` and `I8080::step` implement the decision-2 budget and the
+decision-5 boundary sequence. The opcode map holds the 244 opcodes that 98-153B
+Ch. 4 documents, with their lengths and groups, witnessed against the summaries
+on 98-153B p. 4-15 and 9800301-04 p. A-5. The other 12 (08, 10, 18, 20, 28, 30,
+38, CB, D9, DD, ED, FD) return `Unsupported` (decision-3).
+
+Implemented instruction groups (decision-5 item 7): none. NOP is the only
+instruction that executes; every other documented opcode returns
+`Unsupported`, and only NOP has cited state totals.
+
+Interim gaps:
+
+- Interrupts are polled at every boundary but never accepted until
+  `x80-ecy.14`; a halted CPU with an eligible interrupt still returns `Halt`.
+- The EI delay latch is not advanced by executed instructions yet.
+- There is no `reset` yet (`x80-ecy.13`).
 
 Two Intel 8080 manuals are pinned as fetch-only sources in the shared `oracles/`
 submodule (pin ddef3b6). No ROMs or oracle corpora are pinned yet.
