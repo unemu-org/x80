@@ -47,7 +47,8 @@ other acknowledged byte returns `Unsupported` with no state change
 (decision-5).
 
 Two Intel 8080 manuals are pinned as fetch-only sources in the shared `oracles/`
-submodule (pin ddef3b6). No ROMs or oracle corpora are pinned yet.
+submodule, with two 8080 CPU exercisers, 8080PRE and 8080EXM, as fetch-only oracles
+(pin c84b982; PROVENANCE.md §2). No harness runs them yet (x80-ecy.17).
 M2–M4 have not started. See [plan §5](plan.md#5-milestones).
 
 This is a capability snapshot, not the task board. Consult beads for claims and

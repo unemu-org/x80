@@ -62,11 +62,30 @@ emulator's source. When an oracle disagrees, record initial state, bytes, measur
 result, artifact pin and the primary citation resolving the discrepancy. Do not
 silently mask a divergence.
 
-8080 diagnostics/8080EXM-family programs, Z80 ZEX-family programs and available
-hardware-captured single-step corpora are candidates only. Their origin,
-licenses, exact versions and checksums must be checked before any vendoring or
-execution harness is added. Hardware captures describe the measured silicon, not
-every family member. No oracle artifacts are currently included.
+### Pinned oracles
+
+Chosen by the maintainer (2026-11-12, bead x80-ecy.3), pinned FETCH-ONLY in the shared
+`oracles/` submodule (`8080-exercisers/`, URL and sha256 in its `MANIFEST.md` and
+`SHA256SUMS.fetched`), run locally and never committed:
+
+| Program | Origin | Licence | Role |
+| --- | --- | --- | --- |
+| 8080PRE (.COM, .MAC source) | Frank D. Cringle's preliminary test (1994), modified for the 8080 by Ian Bartholomew (undated) | GPL-2.0-or-later | Sanity pass before the exerciser |
+| 8080EXM (.COM, .MAC source) | Cringle's instruction exerciser (1994), modified for the 8080 by Bartholomew (February 2009); Mike Douglas (May 2013) added the success CRCs shown on Bartholomew's website | GPL-2.0-or-later | 25 CRC groups comparing all eight PSW bits; falsifies flag readings, including decision-7 (AND auxiliary carry) and the derived DAA carry rule |
+
+Both are CP/M programs: they load at 0100h, print through BDOS 2 and 9 via `CALL 0005h`
+and exit with `JMP 0000h`. 8080EXM sets SP from the word at 0006h; 8080PRE never sets SP
+before its first `CALL`, so the host must start it with a usable SP. Neither executes an
+undocumented opcode. No harness exists yet (bead x80-ecy.17). Which parts 8080EXM's
+expected CRCs were measured on is not established by the pinned files; x80 records the
+provenance of any CRC it relies on before treating a mismatch as a defect.
+
+Rejected or not chosen: the Microcosm 8080/8085 CPU diagnostic (CPUDIAG/TST8080, 1980;
+licence unclear, so fetch-only would be the most it could be), the SuperSoft CPU test
+(commercial, binary only). No hardware-captured single-step corpus for the 8080 was
+identified (searched 2026-11-12: the SingleStepTests and ProcessorTests collections);
+emulator-generated corpora are not hardware witnesses. Hardware
+captures describe the measured silicon, not every family member.
 
 ## 3. Witnesses and current scope
 

@@ -244,8 +244,9 @@ Decided items cite their record; the rest stay open.
 6. Who recognizes RETEM/CALLN, and what exact bytes, state, timing and event
    precedence apply to each native handoff, including masked external interrupts?
 7. Decided for the 8080 in decision-3: undocumented encodings return a typed
-   unsupported exit; 8085 and Z80 revisit it at M3 and M4. Still open: which
-   diagnostic/capture licenses permit oracle use?
+   unsupported exit; 8085 and Z80 revisit it at M3 and M4. Oracle licences
+   decided for the 8080 (PROVENANCE.md §2): 8080PRE and 8080EXM, GPL-2.0-or-later,
+   pinned fetch-only and run locally.
 8. Decided in decision-4: keep no_std and no allocation; MSRV 1.95, tested by
    the `msrv` dev shell gate ([commands](commands.md#msrv)).
 9. Decided by the maintainer, recorded in decision-6: per-model types with a
