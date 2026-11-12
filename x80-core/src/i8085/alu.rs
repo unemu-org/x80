@@ -16,14 +16,6 @@
 //! operations affecting AC. Both sources checked against rendered images;
 //! their hashes match PROVENANCE.md §1.
 
-#![cfg_attr(
-    not(test),
-    expect(
-        dead_code,
-        reason = "Consumers arrive in the arithmetic and logical group beads."
-    )
-)]
-
 use super::Flags;
 
 /// S/Z/P from the byte result; AC/CY supplied by the operation.
