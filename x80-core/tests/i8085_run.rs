@@ -143,9 +143,9 @@ fn stop_polls_every_line_preserves_latches_then_held_edges_are_sampled() {
 }
 
 #[test]
-fn halt_follows_all_polls_and_declined_interrupts_without_fetch() {
-    // Acceptance is a stub even for enabled, unmasked sources. Each priority
-    // candidate is exercised; no acknowledge, stack access or wake occurs.
+fn halt_follows_polls_and_declined_vectored_sources_but_intr_wakes() {
+    // Vectored acceptance still declines. Eligible INTR now acknowledges
+    // RST 0 and wakes: decision-12 rules 5/7; 205775-002 pp. 2-13/2-16.
     for source in 0..6 {
         let mut cpu = cpu_at(0x1000);
         cpu.latches_mut().halted = true;
@@ -159,13 +159,18 @@ fn halt_follows_all_polls_and_declined_interrupts_without_fetch() {
         bus.rst6_5 = source == 2;
         bus.rst5_5 = source == 3;
         bus.intr = source == 4;
+        bus.acknowledges.push_back(0xC7);
         bus.load(0x1000, &[0x08]);
         assert_eq!(
             cpu.step(&mut bus),
             Report {
-                steps: 0,
-                cycles: 0,
-                exit: Exit::Halt
+                steps: if source == 4 { 1 } else { 0 },
+                cycles: if source == 4 { 12 } else { 0 },
+                exit: if source == 4 {
+                    Exit::Budget
+                } else {
+                    Exit::Halt
+                }
             }
         );
         let expected_polls = match source {
@@ -211,10 +216,33 @@ fn halt_follows_all_polls_and_declined_interrupts_without_fetch() {
             ],
             _ => low_polls(),
         };
-        assert_eq!(bus.take_log(), expected_polls);
-        assert_eq!(cpu.registers(), cpu_at(0x1000).registers());
-        assert!(cpu.latches().halted);
-        assert!(cpu.latches().interrupt_enable);
+        let mut trace = expected_polls.to_vec();
+        let mut expected_registers = *cpu_at(0x1000).registers();
+        if source == 4 {
+            trace.extend([
+                Event::Read {
+                    address: 0x1000,
+                    kind: MemoryAccess::InterruptAcknowledge,
+                    value: 0xC7,
+                },
+                Event::Write {
+                    address: 0xDEEF,
+                    kind: MemoryAccess::Stack,
+                    value: 0x10,
+                },
+                Event::Write {
+                    address: 0xDEEE,
+                    kind: MemoryAccess::Stack,
+                    value: 0x00,
+                },
+            ]);
+            expected_registers.pc = 0;
+            expected_registers.sp = 0xDEEE;
+        }
+        assert_eq!(bus.take_log(), trace);
+        assert_eq!(*cpu.registers(), expected_registers);
+        assert_eq!(cpu.latches().halted, source != 4);
+        assert_eq!(cpu.latches().interrupt_enable, source != 4);
     }
 }
 
@@ -781,20 +809,31 @@ fn cleared_rst7_5_flip_flop_needs_a_new_rising_sample() {
 }
 
 #[test]
-fn declined_eligible_intr_falls_through_to_nop_without_acknowledging() {
+fn eligible_intr_acknowledges_instead_of_fetching_nop() {
+    // Decision-12 rule 5; 205775-002 pp. 2-13/2-14, 5-14: RST 7,
+    // unchanged boundary PC saved, derived 6+3+3=12 states.
     let mut cpu = cpu_at(0x5000);
     cpu.latches_mut().interrupt_enable = true;
     let mut bus = RecordingBus::new();
     bus.intr = true;
+    bus.acknowledges.push_back(0xFF);
     assert_eq!(
         cpu.step(&mut bus),
         Report {
             steps: 1,
-            cycles: 4,
+            cycles: 12,
             exit: Exit::Budget
         }
     );
-    assert!(cpu.latches().interrupt_enable);
+    assert!(!cpu.latches().interrupt_enable);
+    assert_eq!(
+        *cpu.registers(),
+        Registers {
+            pc: 0x0038,
+            sp: 0xDEEE,
+            ..*cpu_at(0x5000).registers()
+        }
+    );
     assert_eq!(
         bus.take_log(),
         [
@@ -806,9 +845,19 @@ fn declined_eligible_intr_falls_through_to_nop_without_acknowledging() {
             Event::IntrPoll(true),
             Event::Read {
                 address: 0x5000,
-                kind: MemoryAccess::OpcodeFetch,
-                value: 0
-            }
+                kind: MemoryAccess::InterruptAcknowledge,
+                value: 0xFF
+            },
+            Event::Write {
+                address: 0xDEEF,
+                kind: MemoryAccess::Stack,
+                value: 0x50,
+            },
+            Event::Write {
+                address: 0xDEEE,
+                kind: MemoryAccess::Stack,
+                value: 0x00,
+            },
         ]
     );
 }
