@@ -2,10 +2,10 @@
 id: decision-11
 title: 8085 unsupported encodings and undefined PSW bits
 date: '2026-11-12'
-status: proposed
+status: accepted
 ---
 
-Decider: maintainer. The 8085 counterpart of decision-3 (each model has its own
+Decider: maintainer (2026-11-12). The 8085 counterpart of decision-3 (each model has its own
 unsupported-encoding record, decision-6); bead `x80-4gk.4`.
 
 ## Context
