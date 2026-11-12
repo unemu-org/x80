@@ -148,12 +148,16 @@ impl I8085 {
             if self.latches.halted {
                 return progress.report(Exit::Halt);
             }
+            // Expire the preceding EI/DI inhibition only after its boundary
+            // checks. EI or DI can then re-arm it during execution, so their
+            // own completion does not consume the new delay (decision-12
+            // rule 6; 205775-002 p. 5-17; 9800301-04 p. 3-23).
+            // Suppression after DI, TRAP included, and re-arming edge cases
+            // are unverified readings. Unsupported restores boundary_latches;
+            // Budget, Stop and Halt never reach this advance.
+            self.latches.ei_delay = false;
             match self.execute(system) {
                 Ok(states) => {
-                    // Only NOP completes here. EI's one-instruction delay:
-                    // 205775-002 p. 5-17; decision-12 rule 6. Unsupported
-                    // does not advance it. EI/DI executors land later.
-                    self.latches.ei_delay = false;
                     progress.retire(states);
                 }
                 Err(unsupported) => {

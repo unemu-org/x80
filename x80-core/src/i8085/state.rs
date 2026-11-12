@@ -94,7 +94,9 @@ impl Registers {
 pub struct Latches {
     /// Interrupt enable (205775-002 p. 5-17, EI/DI; rule 6).
     pub interrupt_enable: bool,
-    /// One-instruction EI delay (205775-002 p. 5-17, EI; rule 6).
+    /// Suppresses interrupt acceptance at the next boundary after EI or DI
+    /// (205775-002 p. 5-17; decision-12 rule 6, unverified reading, TRAP
+    /// included). Expires after the next completed instruction unless re-armed.
     /// Reset clearing it is unverified (rule 9).
     pub ei_delay: bool,
     /// Halt state (205775-002 §2.3.6 p. 2-16; rule 7).
