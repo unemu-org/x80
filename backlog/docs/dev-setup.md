@@ -2,19 +2,26 @@
 
 ## Toolchain
 
-The flake selects Rust **1.98.1**, matching x86jit, with rust-src, rust-analyzer,
-clippy and rustfmt. `flake.lock` preserves its generic input pins. The shell adds
-nextest, cargo-deny, pre-commit and Backlog.md; no cross targets, emulator libraries
-or bindgen tools. No Nix package output is defined yet.
+The default flake shell selects Rust **1.98.1**, matching x86jit, with rust-src,
+rust-analyzer, clippy and rustfmt. `flake.lock` preserves its generic input pins.
+The shell adds nextest, cargo-deny, pre-commit and Backlog.md; no cross targets,
+emulator libraries or bindgen tools. No Nix package output is defined yet.
 
 ```sh
 nix develop --no-update-lock-file
 ```
 
-Initial provisioning may require network access.
-Declared MSRV 1.95 is inherited provisionally and needs a dedicated check before
-release. Host Rust 1.98.1 can run the dependency-free gates without Nix; see
-[commands](commands.md).
+Initial provisioning may require network access. Host Rust 1.98.1 can run the
+dependency-free gates without Nix; see [commands](commands.md).
+
+A second shell, `msrv`, pins Rust **1.95.0**, the declared MSRV (decision-4), from
+the same `flake.lock` pins. It uses the minimal profile (rustc, cargo and the
+standard library) and only builds and tests `x80-core`; use the default shell for
+everything else. The [MSRV gate](commands.md#msrv) runs it non-interactively.
+
+```sh
+nix develop .#msrv --no-update-lock-file
+```
 
 ## Local activation
 

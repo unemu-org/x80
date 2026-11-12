@@ -24,6 +24,8 @@
         rustToolchain = pkgs.rust-bin.stable."1.98.1".default.override {
           extensions = [ "rust-src" "rust-analyzer" "clippy" "rustfmt" ];
         };
+        # Declared MSRV (workspace rust-version); builds and tests only.
+        msrvToolchain = pkgs.rust-bin.stable."1.95.0".minimal;
       in
       {
         devShells.default = pkgs.mkShell {
@@ -37,6 +39,12 @@
           RUST_SRC_PATH = "${rustToolchain}/lib/rustlib/src/rust/library";
           shellHook = ''
             echo "x80 dev shell — rust $(rustc --version)"
+          '';
+        };
+        devShells.msrv = pkgs.mkShell {
+          packages = [ msrvToolchain ];
+          shellHook = ''
+            echo "x80 MSRV shell — rust $(rustc --version)"
           '';
         };
         formatter = pkgs.nixpkgs-fmt;

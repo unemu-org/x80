@@ -26,6 +26,21 @@ Use `cargo fmt --all` to format. Add release-profile runs when optimization coul
 change behavior. Serialize heavy campaigns; no perf, fuzz or cross-target gate
 exists at this skeleton stage.
 
+## MSRV
+
+The declared MSRV is Rust 1.95 (`rust-version` in `Cargo.toml`). The `msrv` dev
+shell pins Rust 1.95.0; this command enters it, so run it from the workspace root
+in any shell:
+
+```sh
+nix develop .#msrv --no-update-lock-file -c cargo test -p x80-core --offline --locked
+```
+
+It builds `x80-core` and runs its unit, boundary and doc tests with Rust 1.95.0;
+the boundary test's nested `cargo tree` uses the same Cargo. First use may download
+the toolchain. Clippy, rustfmt, nextest and deny stay on the default shell.
+Without Nix, any Rust 1.95.0 toolchain can run the same cargo command.
+
 ## Tooling
 
 ```sh
@@ -51,6 +66,7 @@ posts custom commit statuses. It is not generic enough to copy safely; no
 
 Once hosting and runner provisioning are chosen, CI should check out without
 persisted credentials, enter the pinned shell, then run fmt, clippy, workspace
-nextest, doctests and deny using the commands above. Ordinary tests need no
-manuals or oracle downloads. Keep failed gates visible; missing tools/data must
-not become successful checks. No remote or publication is configured here.
+nextest, doctests, deny and the MSRV test using the commands above. Ordinary
+tests need no manuals or oracle downloads. Keep failed gates visible; missing
+tools/data must not become successful checks. No remote or publication is
+configured here.

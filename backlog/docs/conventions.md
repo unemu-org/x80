@@ -1,8 +1,9 @@
 # Conventions
 
 Rust edition 2021. Development toolchain: Rust 1.98.1, matching x86jit. Declared
-MSRV: 1.95, provisional until tested. `x80-core` uses `no_std`, no allocation, no
-dependencies and `forbid(unsafe_code)`; host integration tests may use `std`.
+MSRV: 1.95, tested by the [MSRV gate](commands.md#msrv). `x80-core` uses
+`no_std`, no allocation, no dependencies and `forbid(unsafe_code)`; host
+integration tests may use `std`.
 
 - Use snake_case modules, one primary concept per file; update the architecture
   map on structural changes. Cross-crate consumers use deliberate public APIs.

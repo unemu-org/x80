@@ -20,6 +20,7 @@ is Rust 1.98.1. An embedder may build x80 and x86jit together with one toolchain
   not forced onto a newer toolchain.
 - Rust 1.95 must build and test `x80-core` in the gates before the first public
   API lands (bead `x80-ecy.1`). Until then the MSRV is declared, not verified.
+  The [MSRV gate](../docs/commands.md#msrv) now tests it.
 - Host-side integration tests may use `std` without adding dependencies
   (unchanged from plan §2.5).
 

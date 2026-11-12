@@ -115,9 +115,9 @@ Identical initial state, bus responses and input-poll responses must produce
 identical state, accesses, exits and cycle counts. No wall clock, host randomness
 or hidden worker threads. Timing and events advance only through explicit inputs.
 Accepted in decision-4: the library stays `#![no_std]`, forbids unsafe code and
-does not allocate. MSRV stays 1.95 to match x86jit; bead `x80-ecy.1` adds the
-gate that tests it. Host-side integration tests may use `std` without adding
-crate dependencies.
+does not allocate. MSRV stays 1.95 to match x86jit; the `msrv` dev shell
+tests it ([commands](commands.md#msrv)). Host-side integration tests may use
+`std` without adding crate dependencies.
 
 ### 2.6. CPU models and variants
 
@@ -247,7 +247,7 @@ Decided items cite their record; the rest stay open.
    unsupported exit; 8085 and Z80 revisit it at M3 and M4. Still open: which
    diagnostic/capture licenses permit oracle use?
 8. Decided in decision-4: keep no_std and no allocation; MSRV 1.95, tested by
-   bead `x80-ecy.1` before the first API lands.
+   the `msrv` dev shell gate ([commands](commands.md#msrv)).
 9. Decided by the maintainer, recorded in decision-6: per-model types with a
    model-neutral core, variants as construction-time values, integration
    profiles as a separate axis (§2.6). Still open: should the crate offer a

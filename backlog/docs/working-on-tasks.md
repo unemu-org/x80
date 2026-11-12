@@ -64,7 +64,8 @@ Before landing, the supervisor verifies:
    and `-D warnings` pass.
 3. Workspace nextest and doctests pass, including the zero-dependency boundary.
 4. `cargo deny --all-features check licenses bans sources` passes.
-5. A fresh session reviews the final change. Small changes need a fresh read-only
+5. The [MSRV gate](commands.md#msrv) passes.
+6. A fresh session reviews the final change. Small changes need a fresh read-only
    reviewer; larger changes need correctness, provenance and test review. Verify
    findings against evidence; uncertain claims remain unconfirmed. Fixes receive
    fresh review. Multiple agents require session authorization.
