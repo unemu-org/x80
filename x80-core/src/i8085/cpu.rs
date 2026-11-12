@@ -19,7 +19,7 @@ enum Interrupt {
 /// An Intel 8085 CPU's registers and execution latches (decision-10).
 ///
 /// `Default` uses the library-chosen register and latch defaults, not a
-/// hardware power-up state. Only NOP executes so far.
+/// hardware power-up state. Group executors land per bead (decision-5 item 7).
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct I8085 {
     registers: Registers,
@@ -94,9 +94,9 @@ impl I8085 {
     ///
     /// After stop, the highest eligible interrupt goes through its acceptance
     /// seam. Both seams currently decline without effects. Halt follows,
-    /// then opcode fetch. Only NOP executes; every other fetched byte returns
-    /// [`Exit::Unsupported`] with no instruction effects or progress, including
-    /// documented instructions awaiting their executor (decision-5 item 7).
+    /// then opcode fetch. Undocumented bytes, and documented instructions whose
+    /// group executor has not landed yet (decision-5 item 7), return
+    /// [`Exit::Unsupported`] with no instruction effects or progress.
     /// Boundary sampling is retained on Halt, interrupt acceptance and
     /// instruction completion. Stop leaves CPU state unchanged ([`crate::Control`]);
     /// Unsupported restores the latches from before sampling (decision-5 item 6).

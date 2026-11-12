@@ -14,9 +14,9 @@
 //! Stop preserves CPU state ([`crate::Control`]); Unsupported restores the
 //! latches from before sampling (decision-5 item 6). A pulse seen only at
 //! either boundary is sampled again next run only if the embedder still holds it.
-//! Only NOP executes. All other instructions return Unsupported for now,
-//! including the documented map entries awaiting executors (decision-5
-//! item 7). Interrupt acceptance seams decline without effects.
+//! Undocumented bytes, and documented instructions whose group executor has
+//! not landed yet, return Unsupported (decision-5 item 7). Interrupt
+//! acceptance seams decline without effects.
 //!
 //! The five flags occupy PSW bits 7, 6, 4, 2 and 0. Bits 5, 3 and 1 are
 //! undefined (205775-002 §5.6.5, p. 5-15, FLAG WORD). Their stored image is

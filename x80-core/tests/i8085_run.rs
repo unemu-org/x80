@@ -271,20 +271,6 @@ fn ten_undocumented_bytes_are_unsupported_without_state_change() {
 }
 
 #[test]
-fn every_documented_byte_except_nop_uses_the_interim_unsupported_path() {
-    // Complement of the ten Table 5-2 dashes above. Includes every executor
-    // group, HLT, EI, DI, RIM/SIM; no operand, SID read or SOD notification.
-    let mut count = 0;
-    for opcode in 1..=u8::MAX {
-        if ![0x08, 0x10, 0x18, 0x28, 0x38, 0xCB, 0xD9, 0xDD, 0xED, 0xFD].contains(&opcode) {
-            unsupported_byte_has_no_instruction_effects(opcode);
-            count += 1;
-        }
-    }
-    assert_eq!(count, 245);
-}
-
-#[test]
 fn nop_is_one_step_four_states_and_only_advances_pc_and_ei_delay() {
     // 205775-002 p. 5-17 NOP, sequential execution p. 5-3;
     // 9800301-04 p. A-4. Delay advances only on completion (rule 6).
