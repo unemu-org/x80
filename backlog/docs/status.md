@@ -33,6 +33,12 @@ totals and bus traces:
 Every documented 8080 opcode now executes; only the 12 undocumented bytes
 return `Unsupported` (decision-3).
 
+Timing: each instruction reports its T-state total, with separate untaken and
+taken totals for conditional instructions. The totals are witnessed three ways:
+the Ch. 4 entries, the p. 4-15 summary, and an independent transcription of the
+Ch. 2 state table (pp. 2-16 to 2-20) cross-read with 9800301-04 Ch. 3. No
+bus-waveform, wait-state or READY timing is claimed (deferred.md).
+
 Interrupts: an eligible request (INT high, interrupts enabled, EI delay
 expired) is accepted at an instruction boundary. The acknowledge is a bus read
 at PC without incrementing it; an acknowledged RST n executes as one step of 11
