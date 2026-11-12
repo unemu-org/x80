@@ -25,8 +25,12 @@ enum Operation {
 // the carry across bit 3 of the two's-complement addition (p. 4-6), equivalent
 // to no borrow between the low nibbles. Unlike the crate this uses comparisons
 // and a signed difference, not complemented addition.
-// PROVISIONAL AND AC: decision-7; unverified x80-ecy.2. 9800301-04 Ch. 1
-// p. 1-12 says OR of the operand bit 3s; 98-153B p. 4-9 says ANI clears AC.
+// Settled AND AC: decision-8; 9800301-04 Ch. 1 p. 1-12 says bit 3 of
+// (A OR operand), despite 98-153B p. 4-9's contrary ANI wording (AC cleared).
+// 8080EXM's two "aluop" groups pass with this rule and fail with AC cleared;
+// expected CRCs match reported Intel 8080A measurements on the pinned
+// oracles/8080-exercisers/8080-8085-cpu-exerciser-results.pdf pp. 3-4.
+// The oracle distinguishes the readings; 9800301-04 supplies the rule.
 fn reference(operation: Operation, a: u8, operand: u8) -> (u8, Flags) {
     let value = if matches!(operation, Operation::Compare) {
         (i16::from(a) - i16::from(operand)).rem_euclid(256) as u8
@@ -194,10 +198,11 @@ fn exhaustive(operation: Operation, base: u8, immediate: u8) {
 }
 
 #[test]
-fn provisional_ana_ani_exhaustive_every_encoding_and_trace() {
+fn ana_ani_exhaustive_every_encoding_and_trace() {
     // 98-153B Ch. 4 p. 4-8 ANA r/M: 4/7 states, CY cleared; p. 4-9
-    // ANI: 7 states. AC is PROVISIONAL (decision-7, unverified x80-ecy.2),
-    // following 9800301-04 Ch. 1 p. 1-12 rather than ANI's earlier AC text.
+    // ANI: 7 states. AC follows 9800301-04 Ch. 1 p. 1-12, settled by
+    // decision-8 despite 98-153B p. 4-9's contrary ANI text. See reference
+    // above for the 8080EXM "aluop" and pinned results p. 3 evidence.
     exhaustive(Operation::And, 0xA0, 0xE6);
 }
 
@@ -290,7 +295,8 @@ fn literal_cases_guard_reference_and_cpu() {
             0x3E,
             flags(false, true, true, true, false),
         ),
-        // PROVISIONAL decision-7 / x80-ecy.2: 9800301-04 Ch. 1 p. 1-12.
+        // Settled decision-8: 9800301-04 Ch. 1 p. 1-12; see reference above
+        // for contrary ANI wording and 8080EXM / pinned results evidence.
         // Zero result with AC set when either input's bit 3 is set; also
         // nonzero results with AC clear/set. 98-153B pp. 4-8/4-9: AND, CY=0.
         (
@@ -446,8 +452,9 @@ fn cma_cmc_stc_exhaustive_values_and_flags() {
 fn memory_operand_can_alias_opcode_or_immediate_byte() {
     // 98-153B Ch. 4 pp. 4-8 to 4-10: M uses H/L, immediate uses byte 2.
     // Ch. 2 pp. 2-16/2-18: fetch precedes the data read; no writes.
-    // AND expectations are PROVISIONAL decision-7 / x80-ecy.2 (9800301-04
-    // Ch. 1 p. 1-12), as for the exhaustive witness above.
+    // AND expectations follow decision-8 and 9800301-04 Ch. 1 p. 1-12,
+    // as for the exhaustive witness above. See reference for contrary ANI
+    // wording and 8080EXM / pinned results p. 3 evidence.
     for (base, immediate, operation) in [
         (0xA0, 0xE6, Operation::And),
         (0xA8, 0xEE, Operation::Xor),

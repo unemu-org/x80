@@ -5,10 +5,11 @@
 //! the last entry before "Branch Group" on p. 4-11), checked against the page
 //! images. Field letters are those of `Encoding` in `opcodes`.
 //!
-//! Design: plan §2.2; decision-5 items 3/8; decision-7 (provisional AND AC).
+//! Design: plan §2.2; decision-5 items 3/8; decision-8 (settled AND AC).
 //! Source revisions and hashes are pinned in PROVENANCE.md §1. Standard
-//! result flags and subtraction live in `alu`; the unverified AND AC rule
-//! is isolated below pending x80-ecy.2.
+//! result flags and subtraction live in `alu`. AND AC follows 9800301-04
+//! p. 1-12 despite the contrary ANI wording in 98-153B p. 4-9; see
+//! `and_auxiliary_carry` below for the 8080EXM and pinned results evidence.
 
 use super::opcodes::{Encoding, Instruction, Path, States};
 use super::{alu, Registers, I8080};
@@ -81,14 +82,13 @@ pub(super) fn execute<S: Bus>(
             let a = registers.a;
             match opcode & 0x18 {
                 // ANA/ANI, Ch. 4 pp. 4-8/4-9: AND, CY cleared.
-                // AC follows decision-7's isolated unverified rule below.
+                // AC = bit 3 of (A OR operand), 9800301-04 p. 1-12;
+                // decision-8 resolves 98-153B p. 4-9's contrary ANI text.
+                // See and_auxiliary_carry for the oracle evidence.
                 0x00 => {
                     registers.a = a & operand;
-                    registers.flags = alu::result_flags(
-                        registers.a,
-                        provisional_and_auxiliary_carry(a, operand),
-                        false,
-                    );
+                    registers.flags =
+                        alu::result_flags(registers.a, and_auxiliary_carry(a, operand), false);
                 }
                 // XRA/XRI, p. 4-9: exclusive OR, CY and AC cleared.
                 0x08 => {
@@ -143,12 +143,15 @@ pub(super) fn execute<S: Bus>(
     Path::Taken
 }
 
-/// UNVERIFIED, provisional until x80-ecy.2 resolves the source disagreement
-/// (decision-7). Intel 9800301-04 (May 1981), Ch. 1 p. 1-12: 8080 AND AC
-/// is the OR of the operand bit 3s. Intel 98-153B (September 1975), Ch. 4
-/// p. 4-8 ANA specifies CY cleared, but p. 4-9 ANI says CY and AC cleared.
-/// The accepted interim reading applies the later rule to both ANA and ANI.
-const fn provisional_and_auxiliary_carry(a: u8, operand: u8) -> bool {
+/// ANA r, ANA M and ANI set AC to bit 3 of (A OR operand): Intel
+/// 9800301-04 (May 1981), Ch. 1 p. 1-12. Intel 98-153B (September 1975),
+/// Ch. 4 p. 4-9 instead says ANI clears AC; decision-8 settles the rule.
+/// 8080EXM's two "aluop" groups pass with this rule and fail with AC cleared.
+/// The expected CRCs match reported Intel 8080A measurements on the pinned
+/// oracles/8080-exercisers/8080-8085-cpu-exerciser-results.pdf pp. 3-4.
+/// This oracle evidence distinguishes the readings; the primary source
+/// 9800301-04 p. 1-12 supplies the rule (decision-8).
+const fn and_auxiliary_carry(a: u8, operand: u8) -> bool {
     (a | operand) & 0x08 != 0
 }
 

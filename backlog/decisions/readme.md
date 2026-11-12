@@ -2,7 +2,8 @@
 
 Architecture and durable project decisions, not tasks. Records are named
 `decision-<n> - <Title>.md`. decision-1 to decision-5 settle the M1 API,
-decision-6 the CPU model layout and decision-7 an interim flag reading.
+decision-6 the CPU model layout; decision-8 (superseding decision-7) settles the
+auxiliary carry after AND.
 
 ```sh
 backlog decision create "<title>"

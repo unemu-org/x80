@@ -2,8 +2,11 @@
 id: decision-7
 title: Interim auxiliary carry after 8080 AND
 date: '2026-11-12'
-status: accepted
+status: superseded
 ---
+
+Superseded by decision-8 (2026-11-12), which settles the same reading with oracle
+evidence.
 
 Decider: maintainer (2026-11-12). Interim reading for the open disagreement in
 [PROVENANCE.md](../../PROVENANCE.md) §1; part (a) of bead `x80-ecy.2`. Needed by

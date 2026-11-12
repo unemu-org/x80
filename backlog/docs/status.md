@@ -2,7 +2,8 @@
 
 **M0: done.** Tracking, the pinned shell, hooks, local gates and the first commit
 are in place. Decisions 1-5 settle the M1 API, decision-6 the CPU model layout and
-decision-7 an interim flag reading. The 8080 primary sources are pinned (see [PROVENANCE.md](../../PROVENANCE.md)).
+decision-8 the auxiliary carry after AND (superseding decision-7). The 8080 primary
+sources are pinned (see [PROVENANCE.md](../../PROVENANCE.md)).
 
 **M1: in progress.** `x80-core` has the types of decision-5: the
 model-neutral `Bus`, `MemoryAccess`, `Control`, `Budget`, `Report`, `Exit` and
@@ -27,8 +28,8 @@ totals and bus traces:
   one-instruction delay, DI and HLT. `I8080::reset` clears PC, the
   interrupt-enable latch and halt (pp. 2-13, 5-14). The EI-delay edge cases
   are an unverified model (PROVENANCE.md §1).
-- Logical: all (pp. 4-8 to 4-11); AC after ANA and ANI is the interim
-  reading of decision-7.
+- Logical: all (pp. 4-8 to 4-11); AC after ANA and ANI follows decision-8
+  (9800301-04 p. 1-12, confirmed against 8080EXM).
 
 Every documented 8080 opcode has required state totals and a completing group
 executor; the interim documented-but-unimplemented path of decision-5 item 7
@@ -59,7 +60,7 @@ other acknowledged byte returns `Unsupported` with no state change
 
 Two Intel 8080 manuals are pinned as fetch-only sources in the shared `oracles/`
 submodule, with two 8080 CPU exercisers, 8080PRE and 8080EXM, as fetch-only oracles
-(pin c84b982; PROVENANCE.md §2). The unpublished `x80-oracle` crate runs them
+(pin 2b3b0a1; PROVENANCE.md §2). The unpublished `x80-oracle` crate runs them
 offline ([commands](commands.md)); on 2026-11-12 8080PRE passed and 8080EXM passed
 all 25 groups, about 16 s for 2.9 billion instructions in a release build.
 M2–M4 have not started. See [plan §5](plan.md#5-milestones).

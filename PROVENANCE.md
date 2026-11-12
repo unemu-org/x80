@@ -30,7 +30,7 @@ below and in a bead.
 | CY after DAA when CY was set before DAA, or when the low adjustment carries out of bit 7 | 98-153B p. 4-8: two-step rule, "All flags are affected"; p. 4-2 general rule: CY set on a carry out of the high-order bit, "otherwise it is reset"; 9800301-04 p. 6-13: DAA's carry is needed "for adding the higher-order bytes" (MADD routine, pp. 6-12 to 6-14; subtraction routine pp. 6-14 to 6-17) | Not stated explicitly. Derived (maintainer, 2026-11-12): CY is kept from before DAA and set by a carry out of bit 7 from either step, which then triggers the high adjustment; the documented decimal routines are correct only this way. Not falsified: 8080EXM's "daa,cma,stc,cmc" group passes (2026-11-12), subject to the CRC provenance noted in §2 |
 | EI delay edge cases: EI followed by EI, DI after EI, and RESET during the delay | 98-153B p. 4-14: EI enables "following the execution of the next instruction", DI disables "immediately following the execution of the DI instruction"; 9800301-04 pp. 3-22, 3-23 say the same; p. 5-14: RESET clears INTE. None addresses a second EI, DI cancelling a pending delay, or RESET clearing the delay | Unverified model (x80-ecy.13): a second EI re-arms the delay, DI clears it, RESET clears it. Labelled in code and tests |
 | Machine cycles of HLT | 98-153B p. 2-18 state table: M1 and M2; 9800301-04 p. 3-24: one machine cycle; both give 7 states | No effect on x80, which counts states only; HLT takes 7 states, witnessed |
-| Auxiliary carry after 8080 logical AND (ANA, ANI) | 98-153B p. 4-9: ANI clears CY and AC; 9800301-04 p. 1-12: AND sets AC to the logical OR of bit 3 of the operands | Interim (decision-7): ANA and ANI set AC to bit 3 of (A OR operand). Oracle evidence, 2026-11-12, MEASURED: with this reading 8080EXM's two ALU groups pass; with "AC cleared" they fail (found 7799ea9d and b3491c2a instead of 9e922f9e and cf762c86), so 8080EXM falsifies "AC cleared" if its expected CRCs reflect Intel silicon, whose provenance is not pinned (§2). Bead x80-ecy.2 |
+| Auxiliary carry after 8080 logical AND (ANA, ANI) | 98-153B p. 4-9: ANI clears CY and AC; 9800301-04 p. 1-12: AND sets AC to the logical OR of bit 3 of the operands | Settled by decision-8: AC = bit 3 of (A OR operand), per 9800301-04 p. 1-12. Oracle evidence, MEASURED 2026-11-12: 8080EXM's two ALU groups pass with this reading and fail with "AC cleared" (7799ea9d, b3491c2a); the pinned results page (`oracles/8080-exercisers/8080-8085-cpu-exerciser-results.pdf` pp. 3-4) reports the expected CRCs for Intel 8080A and other parts and the failing ones for AMD 9080A/8080A |
 
 ### Discovery inventory
 
@@ -71,15 +71,16 @@ Chosen by the maintainer (2026-11-12, bead x80-ecy.3), pinned FETCH-ONLY in the 
 | Program | Origin | Licence | Role |
 | --- | --- | --- | --- |
 | 8080PRE (.COM, .MAC source) | Frank D. Cringle's preliminary test (1994), modified for the 8080 by Ian Bartholomew (undated) | GPL-2.0-or-later | Sanity pass before the exerciser |
-| 8080EXM (.COM, .MAC source) | Cringle's instruction exerciser (1994), modified for the 8080 by Bartholomew (February 2009); Mike Douglas (May 2013) added the success CRCs shown on Bartholomew's website | GPL-2.0-or-later | 25 CRC groups comparing all eight PSW bits; falsifies flag readings, including decision-7 (AND auxiliary carry) and the derived DAA carry rule |
+| 8080EXM (.COM, .MAC source) | Cringle's instruction exerciser (1994), modified for the 8080 by Bartholomew (February 2009); Mike Douglas (May 2013) added the success CRCs shown on Bartholomew's website | GPL-2.0-or-later | 25 CRC groups comparing all eight PSW bits; falsifies flag readings; it settled the AND auxiliary carry (decision-8) and does not falsify the derived DAA carry rule |
 
 Both are CP/M programs: they load at 0100h, print through BDOS 2 and 9 via `CALL 0005h`
 and exit with `JMP 0000h`. 8080EXM sets SP from the word at 0006h; 8080PRE never sets SP
 before its first `CALL`, so the host must start it with a usable SP. Neither executes an
 undocumented opcode. The `x80-oracle` crate runs them (commands.md, "Oracle runs").
-Results, 2026-11-12, MEASURED: 8080PRE passes; 8080EXM passes all 25 groups. Which parts 8080EXM's
-expected CRCs were measured on is not established by the pinned files; x80 records the
-provenance of any CRC it relies on before treating a mismatch as a defect.
+Results, 2026-11-12, MEASURED: 8080PRE passes; 8080EXM passes all 25 groups. The parts
+8080EXM's expected CRCs were reported for are recorded on the author's results page, pinned
+as `8080-exercisers/8080-8085-cpu-exerciser-results.pdf` (pp. 3-4: contributor measurements per
+part, not Intel documentation); x80 cites it before treating a mismatch as a defect.
 
 Rejected or not chosen: the Microcosm 8080/8085 CPU diagnostic (CPUDIAG/TST8080, 1980;
 licence unclear, so fetch-only would be the most it could be), the SuperSoft CPU test
