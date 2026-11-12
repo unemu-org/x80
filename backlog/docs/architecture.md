@@ -11,12 +11,14 @@ x80-core/
   src/control.rs                Control: the host stop request
   src/budget.rs                 Budget and Report
   src/exit.rs                   Exit and its Unsupported payload
+  src/decode.rs                 private pattern matcher, generic opcode-map builder and cost slots
+  src/progress.rs               private run counters, saturation and budget check
   src/i8080/mod.rs              the 8080 model module and its re-exports
   src/i8080/state.rs            Registers (BC, DE, HL and PSW accessors) and Latches
   src/i8080/flags.rs            Flags and the cited flag byte of the PSW
   src/i8080/interrupt.rs        Inputs: the INT line
   src/i8080/cpu.rs              I8080: run/step, reset, interrupt acceptance, fetch and dispatch
-  src/i8080/opcodes.rs          private opcode map: documented, length, group, state totals
+  src/i8080/opcodes.rs          private model groups, field restrictions and opcode-map assembly
   src/i8080/opcodes/tests.rs    map witness against 98-153B p. 4-15 and 9800301-04 p. A-5
   src/i8080/data_transfer.rs    Data Transfer Group: encodings and executor (pp. 4-4, 4-5)
   src/i8080/alu.rs              arithmetic primitives and shared flag calculation
@@ -50,6 +52,14 @@ manuals. Each CPU model is its own module and type; the only one is
 Hardware facts live in the model and cite the pinned manuals by page. There is
 no family-wide CPU or register type and no model trait.
 
+Private machinery is shared under decision-10: `decode.rs` matches bit patterns
+using model-supplied field restrictions and builds maps generic over the model's
+group type. It stores lengths and two cost slots, selecting a slot by the
+executor's reported path. `progress.rs` counts completed steps and supplied costs,
+saturates the counters and checks the budget. Neither module carries hardware
+facts; both cite decisions only. The 8080 keeps its group enum, encoding lists,
+timing values, executors, ALU, flags, state, interrupts, reset and map witness.
+
 Flow: `I8080` (owned registers and latches) + an embedder value that implements
 `Bus` and `i8080::Inputs` → `step`/`run` → state updates, bus effects, cycle
 totals and a typed `Report`. Execution latches persist across runs. No
@@ -59,9 +69,11 @@ Dispatch: `run` checks the budget, polls the inputs, accepts an eligible
 interrupt or checks halt, then fetches an opcode. `cpu.rs` looks it up in the
 opcode map. Each group module owns its `ENCODINGS` (bit patterns as printed in
 98-153B Ch. 4, lengths and required state totals) and its `execute`, which
-returns the completed timing path. `opcodes.rs` builds the 256-entry map from
-the five lists at compile time. Only undocumented fetched bytes or non-RST
-acknowledge bytes return `Unsupported`, with no architectural state change.
+returns the completed timing path. `opcodes.rs` supplies the five lists and
+its cited field restrictions to the shared builder at compile time. In
+particular, excluding 110 from DDD/SSS remains 8080 data, not a matcher rule.
+Only undocumented fetched bytes or non-RST acknowledge bytes return
+`Unsupported`, with no architectural state change.
 There is no documented-but-unimplemented dispatch path (decision-5 item 7).
 
 An integration test that needs a bus includes `tests/support` with

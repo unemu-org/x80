@@ -51,8 +51,10 @@
 mod budget;
 mod bus;
 mod control;
+mod decode;
 mod exit;
 pub mod i8080;
+mod progress;
 
 pub use budget::{Budget, Report};
 pub use bus::{Bus, MemoryAccess};

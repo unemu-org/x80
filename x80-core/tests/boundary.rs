@@ -50,10 +50,18 @@ fn core_has_no_dependencies() {
 
 #[test]
 fn crate_root_sources_cite_no_manual() {
-    // Scope: literal manual identifiers in these five crate-root source files,
+    // Scope: literal manual identifiers in these crate-root source files,
     // including comments and strings. This does not parse Rust or follow modules.
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src");
-    for file in ["lib.rs", "bus.rs", "control.rs", "budget.rs", "exit.rs"] {
+    for file in [
+        "lib.rs",
+        "bus.rs",
+        "control.rs",
+        "budget.rs",
+        "exit.rs",
+        "decode.rs",
+        "progress.rs",
+    ] {
         let source = std::fs::read_to_string(root.join(file)).expect("read crate-root source");
         for citation in ["98-153B", "9800301"] {
             assert!(

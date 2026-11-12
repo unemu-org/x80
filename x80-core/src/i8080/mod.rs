@@ -12,9 +12,9 @@
 //! [`Exit::Unsupported`](crate::Exit::Unsupported). Each Ch. 4 instruction
 //! group has its own module.
 //!
-//! Status: only NOP executes. Every other documented opcode also returns
-//! `Unsupported` until its group lands (decision-5 item 7). Interrupts are
-//! polled but not accepted (bead x80-ecy.14), and there is no `reset` yet.
+//! All documented instructions execute. Eligible interrupts accept an
+//! acknowledged RST, and [`I8080::reset`] applies the model's reset behavior
+//! (decision-5 items 4, 7 and 9).
 //!
 //! ```
 //! use x80_core::i8080::{I8080, Latches, Registers};
