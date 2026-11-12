@@ -5,7 +5,14 @@ are in place. Decisions 1-5 settle the M1 API, decision-6 the CPU model layout a
 decision-8 the auxiliary carry after AND (superseding decision-7). The 8080 primary
 sources are pinned (see [PROVENANCE.md](../../PROVENANCE.md)).
 
-**M1: in progress.** `x80-core` has the types of decision-5: the
+**M1: done (2026-11-12, epic `x80-ecy`).** Every documented 8080 instruction and
+RST interrupt acceptance run with manual-derived T-states and per-opcode
+witnesses; halt and `reset` are implemented and witnessed. The licensed oracles
+pass in a measured, optional run outside the ordinary gates (8080PRE, and 8080EXM
+in all 25 groups; [commands](commands.md#oracle-runs)). Residual unverified or
+derived facts are listed in PROVENANCE.md §3.
+
+`x80-core` has the types of decision-5: the
 model-neutral `Bus`, `MemoryAccess`, `Control`, `Budget`, `Report`, `Exit` and
 `Unsupported` at the crate root, and the `i8080` model with `Registers`, `Flags`,
 `Latches`, `Inputs` and `I8080`. The BC, DE and HL pair and PSW accessors and the
@@ -42,8 +49,8 @@ and every undocumented byte returns `Unsupported` without state change
 twice, comparing registers, latches, memory, reports and the full bus/poll trace.
 The same program produces identical state, actual step/cycle totals and trace
 across step and cycle budget splits, including one-step slices and overshoot.
-`tests/boundary.rs` checks that the root contract has no manual citations or
-model-specific items beyond model module declarations (decision-6).
+`tests/boundary.rs` checks that the root contract cites no manual, and
+`compile_fail` doctests keep the model's types off the crate root (decision-6).
 
 Timing: each instruction reports its T-state total, with separate untaken and
 taken totals for conditional instructions. The totals are witnessed three ways:
@@ -63,7 +70,8 @@ submodule, with two 8080 CPU exercisers, 8080PRE and 8080EXM, as fetch-only orac
 (pin 2b3b0a1; PROVENANCE.md §2). The unpublished `x80-oracle` crate runs them
 offline ([commands](commands.md)); on 2026-11-12 8080PRE passed and 8080EXM passed
 all 25 groups, about 16 s for 2.9 billion instructions in a release build.
-M2–M4 have not started. See [plan §5](plan.md#5-milestones).
+M2–M4 have not started. M2 waits on x86jit's V20/V30 bead (C4) and the NEC manual
+pin; see [plan §5](plan.md#5-milestones).
 
 This is a capability snapshot, not the task board. Consult beads for claims and
 priorities. Update this file when a milestone advances.

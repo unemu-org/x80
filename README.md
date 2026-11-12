@@ -4,11 +4,13 @@ A guest-agnostic Intel 8080-family interpreter in a pure-Rust library:
 8080 first, then 8085 and Z80. Embedders provide memory, port I/O and interrupts;
 machines, devices and file formats live outside the core.
 
-**M1 in progress:** `x80-core` has zero dependencies and executes all 244
+**M1 (Intel 8080) done:** `x80-core` has zero dependencies and executes all 244
 documented 8080 opcodes through `step` and budgeted `run`, with instruction
-T-state totals, RST interrupt acceptance and reset. Undocumented bytes return
-a typed `Unsupported` exit. Interim and derived readings and remaining M1 work
-are recorded in [status](backlog/docs/status.md) and [provenance](PROVENANCE.md).
+T-state totals, RST interrupt acceptance, halt and reset. Undocumented bytes
+return a typed `Unsupported` exit. The pinned 8080PRE and 8080EXM exercisers pass
+in an optional, measured run outside the ordinary gates
+([oracle runs](backlog/docs/commands.md#oracle-runs)). Derived and unverified readings are recorded in
+[status](backlog/docs/status.md) and [provenance](PROVENANCE.md).
 Read the [draft plan](backlog/docs/plan.md),
 [architecture](backlog/docs/architecture.md) and [provenance rules](PROVENANCE.md).
 

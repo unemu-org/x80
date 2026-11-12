@@ -21,9 +21,11 @@ x86jit and its embedder; x80 executes only the emulation-mode instruction stream
 
 ### 2.1. Crate layout
 
-One workspace member now: `x80-core`, edition 2021, zero normal, build or dev
-dependencies. `tests/boundary.rs` enforces that boundary, including optional and
-target-specific dependencies. The core types exist; nothing executes yet.
+Two workspace members: `x80-core`, edition 2021, with zero normal, build or dev
+dependencies, and the unpublished `x80-oracle` harness, which depends only on
+`x80-core`. `tests/boundary.rs` enforces the core's boundary, including optional
+and target-specific dependencies. The 8080 model executes every documented
+instruction (M1).
 
 Model-neutral types (bus, budget, report, exits, host stop) live at the crate
 root. Each CPU model has its own module and type, starting with `i8080` in M1;
@@ -79,7 +81,8 @@ one instruction; `run` repeats it under a budget. Both are methods of the model
 type and take the embedder's bus and input lines. Budgets carry
 instruction steps and T-states; reports include actual progress and a typed return
 reason (budget, halt, stop request or unsupported encoding, decision-3; handoff
-exits for an integration profile come with M2). No `step` or `run` is implemented yet.
+exits for an integration profile come with M2). `step` and `run` are implemented
+for the 8080 model.
 Budget, report and exit reasons are model-neutral. The exit enum and the
 unsupported-encoding payload are non-exhaustive so that later models and the M2
 handoff can extend them. Each model has its own unsupported-encoding policy
@@ -216,7 +219,7 @@ no 8080 corpus is pinned yet.
 | Milestone | Completion criterion |
 | --- | --- |
 | M0 — skeleton and tooling | Review scaffold, initialize tracking, verify the pinned shell and local gates, settle source pins and initial API decisions. Tracked as epic `x80-2g7`. |
-| M1 — 8080 | Complete documented instruction behavior, interrupts and halt, manual-derived cycle counts, per-opcode witnesses, and a licensed diagnostic run where a licence permits one (decision-5). |
+| M1 — 8080 | Complete documented instruction behavior, interrupts and halt, manual-derived cycle counts, per-opcode witnesses, and a licensed diagnostic run where a licence permits one (decision-5). Done 2026-11-12 (epic `x80-ecy`). |
 | M2 — V20 integration | Agree the shared contract with x86jit; borrowed-state/memory entry, RETEM/CALLN and interrupt handoffs pass joint witnesses. |
 | M3 — 8085 | Pin 8085 sources; record its unsupported-encoding policy; add the `i8085` model, extracting what it shares with the 8080; implement and test model-specific instructions, flags, interrupts and timing without changing 8080 witnesses. |
 | M4 — Z80 | Pin Zilog sources; record its unsupported-encoding policy; add the `z80` model with its own state, prefix decoding, input lines and timing; revisit the port address in the bus contract; model-specific witnesses and licensed oracles. |
@@ -237,12 +240,19 @@ Decided items cite their record; the rest stay open.
    halt exit; interrupt-acceptance cycles count; saturating `u64` counters.
    Exit precedence and the step count of an accepted interrupt: decision-5.
 4. Is a safe borrowed-register trait sufficient for V20, and which execution
-   latches must the embedder retain across native/emulation transitions?
+   latches must the embedder retain across native/emulation transitions? x86jit's
+   view (2026-11-12): by-value copy-in/copy-out through `I8080::new`,
+   `registers_mut` and `latches_mut` suffices, since copies happen only at
+   BRKEM/RETEM/CALLN and interrupt stops. Decided by the maintainer: the V20/V30
+   adapter belongs to the embedder (bead `x80-pzp`).
 5. The joint register/flag/PC/segment/stack and native-context mapping is settled in
    x86jit's C4 bead (xj-50w.7) against the pinned NEC manual; x80's side must be
    reviewed in the same change. Who owns the shared test fixture?
 6. Who recognizes RETEM/CALLN, and what exact bytes, state, timing and event
    precedence apply to each native handoff, including masked external interrupts?
+   Proposed by x86jit: the embedder's adapter recognizes them from an
+   `Unsupported` exit at opcode EDh and serves V20 interrupts natively through the
+   host stop; to verify against the pinned NEC manual at M2.
 7. Decided for the 8080 in decision-3: undocumented encodings return a typed
    unsupported exit; 8085 and Z80 revisit it at M3 and M4. Oracle licences
    decided for the 8080 (PROVENANCE.md §2): 8080PRE and 8080EXM, GPL-2.0-or-later,

@@ -105,8 +105,35 @@ of the processor status word are cited from 98-153B pp. 2-2, 2-3, 4-2, 4-3 and
 Whole-set execution is witnessed by `tests/i8080_coverage.rs`, with literal
 sets independent of the opcode map. `tests/i8080_determinism.rs` compares
 mixed-program replays and budget splits, including a scripted interrupt and
-all bus/input polls. `tests/boundary.rs` checks the model-neutral source boundary
-of decision-6 as well as the dependency boundary.
+all bus/input polls. `tests/boundary.rs` checks the dependency boundary and that
+the model-neutral root files cite no manual; `compile_fail` doctests in `lib.rs`
+keep the model's types off the crate root (decision-6).
+
+### Residual unverified or derived facts at the M1 closure (2026-11-12)
+
+None is presented as a stated fact; where each qualification is recorded is noted.
+
+- Derived, not stated: CY after DAA (kept, and set by a carry out of either step);
+  not falsified by 8080EXM. §1, `arithmetic.rs` and `tests/i8080_daa.rs`.
+- Unverified model: the EI-delay edge cases (a second EI, DI during the delay, RESET
+  during the delay). §1, `cpu.rs`, `stack_io_control.rs` and their tests.
+- Derived from the 16-bit register width, not stated on a page: wrap of PC, SP and
+  16-bit addresses at FFFFh/0000h. Code comments and wrap witnesses.
+- Derived API representation: the 16-bit PSW value with A in the high byte, from the
+  PUSH PSW stack order (98-153B p. 4-13; 9800301-04 p. 3-45). `state.rs` and
+  `tests/i8080_registers.rs`.
+- Library choices, not hardware claims: the `Default` register and latch values;
+  98-153B p. 2-13 says the registers are indeterminate at power-up. `state.rs`,
+  `cpu.rs`.
+- Stated departure: an `Unsupported` interrupt acknowledge keeps the
+  interrupt-enable latch, although p. 5-14 resets INTE at the acknowledge.
+  decision-5 item 6 and `cpu.rs`.
+- API-level, not a status-word distinction: the `OperandFetch` access kind.
+  decision-5 item 3 and `bus.rs`.
+- Not documented, so not modelled: the upper address byte during I/O; the port is
+  the 8-bit device number. decision-5 item 3.
+- The manuals differ on HLT's machine-cycle count (two versus one); no effect on
+  states. §1 and `tests/i8080_timing.rs`.
 The V20 mapping in [plan §3](backlog/docs/plan.md#3-v20v30-integration-contract-sketch)
 is explicitly unverified. Glossary definitions are orientation, not implementation
 authority. Ordinary tests pin derived values in code and run without manuals,
