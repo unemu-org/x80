@@ -231,6 +231,78 @@ cited from the NEC manual (§1); its open items are listed there. Glossary defin
 authority. Ordinary tests pin derived values in code and run without manuals,
 corpus downloads or network access.
 
+### Residual unverified or derived facts at the M3 closure (2026-11-13)
+
+These qualifications concern the 8085 only; none is a stated hardware guarantee.
+Module paths below are under `x80-core/src/i8085/`, witnesses under
+`x80-core/tests/`. Source disagreements remain in the §1 table, including the
+8085 DAA carry derivation; oracle qualifications and results remain in §2.
+
+- Unverified reading: no interrupt, TRAP included, is recognized at the boundary
+  immediately after EI or DI; consecutive EI/DI instructions re-arm that
+  inhibition. decision-12 rule 6, `cpu.rs`, `stack_io_control.rs`,
+  `i8085_machine_control.rs` and `i8085_interrupts_vectored.rs`.
+- Unverified: RIM uses the stored interrupt-enable bit during the EI delay
+  (unless TRAP's saved status applies). `rim_sim.rs` and
+  `i8085_rim_sim.rs::rim_ie_bit_during_pending_ei_delay_is_unverified`.
+- Unverified: reset clears the EI delay. decision-12 rule 9, `cpu.rs`,
+  `i8085_model.rs` and `i8085_machine_control.rs`.
+- Unverified bus detail: XTHL reads SP then SP+1 and writes SP+1 then SP;
+  the cited 8085 sources give RRWW, not the address order within each pair.
+  `stack_io_control.rs` and `i8085_stack_io_control.rs` label and pin the choice.
+- Derived acceptance totals: internally vectored interrupts and INTR RST take
+  12 states (6+3+3); INTR CALL takes 18 (6+3+3+3+3). decision-12 rules 4/5,
+  `vectored.rs`, `acknowledge.rs`, `i8085_interrupts_vectored.rs`,
+  `i8085_interrupts_intr.rs` and the independent `i8085_timing.rs`.
+- Derived DAA carry rule: see the 8085 DAA disagreement row in §1, with its
+  derivation and primary citations. `arithmetic.rs` and `i8085_daa.rs`;
+  the qualified 8085EXM results are in §2.
+- Derived subtraction AC: no low-nibble borrow, from the two's-complement
+  bit-3 carry reading. `alu.rs` (205775-002 §§5.5/5.6.2 pp. 5-3/5-6;
+  9800301-04 Ch. 1 pp. 1-9 to 1-12), its exhaustive tests and
+  `i8085_arithmetic_reference/mod.rs`.
+- Stated timing simplification: SIM updates SOD and notifies every enabled
+  write during SIM itself, including an unchanged level. decision-12 rule 8,
+  `interrupt.rs`, `rim_sim.rs` and `i8085_rim_sim.rs` record the departure from
+  205775-002 §2.3.8 p. 2-19's transfer during the following instruction.
+- API choice: consecutive boundary levels sample TRAP/RST 7.5 edges; shorter
+  pulses can be missed. Stop and Unsupported preserve pre-sampling latches,
+  so a pulse seen only there must still be held to be sampled next run; Halt
+  retains samples. decision-12 rule 2 and its Stop/Unsupported clarification,
+  `cpu.rs`, `interrupt.rs` and `i8085_run.rs`.
+- Library choices: reset preserves working registers, flags and SP; sampler
+  history and TRAP saved-status bookkeeping are reset. Reset has no bus
+  parameter and sends no SOD notification. decision-12 rule 9, `cpu.rs`,
+  `state.rs` and `i8085_model.rs`; the indeterminate hardware reset results
+  are cited there from 205775-002 p. 2-18 and 231718-001 handbook p. 16-13.
+- Library choices, not power-up claims: default registers and flags are zero;
+  default latches set the masks, arm TRAP and clear the other fields.
+  `state.rs`, `flags.rs` and `i8085_model.rs`.
+- Library PSW image: undefined bits 5/3/1 are stored as 0/0/1; hardware
+  expectations use mask D5h. decision-11, `flags.rs`, `i8085_registers.rs`
+  and `i8085_stack_io_control.rs`.
+- Derived API packing: PSW has A high and the flag byte low, from PUSH PSW's
+  stack order. `state.rs` (205775-002 §5.6.5 p. 5-15; 9800301-04 p. 3-45)
+  and `i8085_registers.rs`.
+- Assumption: one model covers the 8085A and 8085AH, not a documented
+  instruction-level equivalence. decision-10, §1, `mod.rs` and `i8085_timing.rs`.
+- Unverified oracle expectation: 8085EXM's long-ALU register CRC is reported,
+  not judged, even though it prints PASS. See §2 for the artifact, provenance
+  limitation and measured result; no hardware equivalence follows from it.
+- Derived, not explicitly stated: 16-bit PC, SP, register-pair and address wrap
+  at FFFFh/0000h. Group comments and wrap witnesses in `i8085_data_transfer.rs`,
+  `i8085_arithmetic.rs`, `i8085_branch.rs`, `i8085_stack_io_control.rs`,
+  `i8085_machine_control.rs`, `i8085_rim_sim.rs` and
+  `i8085_interrupts_vectored.rs`.
+- API scope and stated departure: only RST/CALL INTR acknowledges execute;
+  other bytes restore the boundary state, including interrupt enable despite
+  hardware clearing it. decision-12 rule 5, decision-5 item 6, `acknowledge.rs`
+  and `i8085_interrupts_intr.rs`.
+- API representation: `OperandFetch` distinguishes operand reads; ports carry
+  only an eight-bit device number. decision-5 item 3, decision-12's retained
+  model-neutral contract and `stack_io_control.rs`; no upper I/O address byte
+  is represented by this bus API.
+
 ## 4. License surface and boundary
 
 The library is `MIT OR Apache-2.0`. `x80-core` has zero dependencies of any kind;

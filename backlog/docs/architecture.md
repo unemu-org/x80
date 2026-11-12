@@ -1,8 +1,9 @@
 # Architecture — layout
 
-The design sketch is [plan §2](plan.md#2-architecture-sketch). The types of
-decision-5 exist, and `step` and budgeted `run` execute every documented 8080
-instruction and accept RST interrupts ([status](status.md)).
+The design sketch is [plan §2](plan.md#2-architecture-sketch). The `i8080` and
+`i8085` models execute every documented instruction through `step` and budgeted
+`run`, with their own interrupt paths (decisions 5/10/12;
+`tests/i8080_coverage.rs`, `tests/i8085_coverage.rs`; [status](status.md)).
 
 ```text
 x80-core/
@@ -26,7 +27,22 @@ x80-core/
   src/i8080/logical.rs          Logical Group (pp. 4-8 to 4-11)
   src/i8080/branch.rs           Branch Group (pp. 4-11, 4-12)
   src/i8080/stack_io_control.rs Stack, I/O and Machine Control Group (pp. 4-13, 4-14)
-  src/i8085/                    model-owned state, six completing instruction groups and five interrupt sources (decisions 10–12)
+  src/i8085/mod.rs              the 8085 model module and its re-exports (decisions 10–12)
+  src/i8085/state.rs            Registers, pair/PSW accessors, interrupt and sampler Latches
+  src/i8085/flags.rs            five flags and the decision-11 library PSW image
+  src/i8085/interrupt.rs        Inputs: five interrupt lines, SID and SOD notifications
+  src/i8085/cpu.rs              I8085: run/step, reset, boundary sampling, priority and dispatch
+  src/i8085/opcodes.rs          model groups, field restrictions and shared-builder map assembly
+  src/i8085/opcodes/tests.rs    independent map witness (205775-002 Tables 5-1/5-2 pp. 5-19/5-20)
+  src/i8085/data_transfer.rs    Data Transfer encodings and executor (205775-002 pp. 5-4 to 5-6)
+  src/i8085/alu.rs              model-owned arithmetic primitives and result flags
+  src/i8085/arithmetic.rs       Arithmetic encodings and executor (pp. 5-6 to 5-9)
+  src/i8085/logical.rs          Logical encodings and executor (pp. 5-9 to 5-12)
+  src/i8085/branch.rs           Branch encodings, executor and stack/jump helper (pp. 5-13 to 5-15)
+  src/i8085/stack_io_control.rs Stack, I/O and Machine Control, excluding RIM/SIM (pp. 5-15 to 5-17)
+  src/i8085/rim_sim.rs          RIM/SIM encodings and executor (pp. 5-17/5-18; decision-12 rule 8)
+  src/i8085/vectored.rs         TRAP and RST 5.5/6.5/7.5 acceptance (decision-12 rule 4)
+  src/i8085/acknowledge.rs      INTR RST/CALL acceptance (decision-12 rule 5)
   tests/boundary.rs             zero-dependency and model-neutral root tripwires
   tests/support/                recording test bus, sample state, unsupported check
   tests/i8080_run.rs            budget, boundary sequence, exit precedence, step, determinism
@@ -41,6 +57,18 @@ x80-core/
   tests/i8080_registers.rs      register pairs and PSW layout
   tests/recording_bus.rs        8080 test-bus and input-default witnesses
   tests/arithmetic_reference/  independent 8080 arithmetic reference
+  tests/i8085_<group>.rs        independent per-group execution witnesses, including RIM/SIM
+  tests/i8085_arithmetic_reference/ independent 8085 arithmetic reference
+  tests/i8085_daa.rs            decimal-adjust witnesses
+  tests/i8085_timing.rs         independent whole-set and interrupt T-state witnesses
+  tests/i8085_interrupts_intr.rs INTR acknowledge and priority witnesses
+  tests/i8085_interrupts_vectored.rs vectored acceptance, edge, mask and priority witnesses
+  tests/i8085_machine_control.rs EI/DI inhibition, HLT and reset witnesses
+  tests/i8085_run.rs            boundary sequence, sampling, budgets and exit precedence
+  tests/i8085_coverage.rs       literal whole-set execution and unsupported witnesses
+  tests/i8085_determinism.rs    mixed-program replay and budget-split witnesses
+  tests/i8085_model.rs          construction, ownership and reset
+  tests/i8085_registers.rs      register pairs and PSW layout
 backlog/docs/                   design and guides
 backlog/decisions/              durable decisions
 x80-v20-contract/               unpublished test-only V20 vectors and mock native mode switches (decision-9)
@@ -61,13 +89,15 @@ executor's reported path. `progress.rs` counts completed steps and supplied cost
 saturates the counters and checks the budget. Neither module carries hardware
 facts; both cite decisions only. The 8080 keeps its group enum, encoding lists,
 timing values, executors, ALU, flags, state, interrupts, reset and map witness.
+The 8085 owns the same categories independently, plus `rim_sim`, `vectored`
+and `acknowledge` (decision-10; `i8085/mod.rs`).
 
-Flow: `I8080` (owned registers and latches) + an embedder value that implements
-`Bus` and `i8080::Inputs` → `step`/`run` → state updates, bus effects, cycle
-totals and a typed `Report`. Execution latches persist across runs. No
-core-owned machine, loader, OS or device.
+Flow for either model: CPU (owned registers and latches) + an embedder value
+that implements `Bus` and that model's `Inputs` → `step`/`run` → state updates,
+bus effects, cycle totals and a typed `Report` (decisions 5/12). Execution
+latches persist across runs. No core-owned machine, loader, OS or device.
 
-Dispatch: `run` checks the budget, polls the inputs, accepts an eligible
+8080 dispatch: `run` checks the budget, polls the inputs, accepts an eligible
 interrupt or checks halt, then fetches an opcode. `cpu.rs` looks it up in the
 opcode map. Each group module owns its `ENCODINGS` (bit patterns as printed in
 98-153B Ch. 4, lengths and required state totals) and its `execute`, which
@@ -78,14 +108,26 @@ Only undocumented fetched bytes or non-RST acknowledge bytes return
 `Unsupported`, with no architectural state change.
 There is no documented-but-unimplemented dispatch path (decision-5 item 7).
 
+8085 dispatch follows decision-12: budget; six polls in fixed order; stop;
+edge sampling and highest eligible interrupt; halt; opcode fetch and group
+execution. `opcodes.rs` supplies six encoding lists to `decode.rs`, separating
+RIM/SIM from the five manual groups; executors report paths and `cpu.rs`
+selects the model-owned costs. `vectored.rs` and `acknowledge.rs` use
+`branch::restart` for stack writes and transfer of control (decision-12
+rules 4/5). Stop preserves state,
+Unsupported restores pre-sampling latches, and Halt retains samples; the
+boundary and replay witnesses are `tests/i8085_run.rs` and
+`tests/i8085_determinism.rs`. Residual qualifications are in PROVENANCE.md §3.
+
 An integration test that needs a bus includes `tests/support` with
 `mod support;`. Its `RecordingBus` logs every access and input poll for trace
 witnesses. Witness expectations are literals derived from the cited pages,
 never crate helpers.
 
-`x80-oracle/` is a second, unpublished workspace member with no dependencies beyond
-`x80-core`: a CP/M-style host that runs the pinned 8080 exercisers and gives a verdict
-only for their pinned SHA-256 digests (commands.md, "Oracle runs").
+`x80-oracle/` is an unpublished workspace member with no dependencies beyond
+`x80-core`: a CP/M-style host that runs the pinned 8080/8085 exercisers on the
+selected model and gives a verdict only for their pinned SHA-256 digests
+(commands.md, "Oracle runs"; PROVENANCE.md §2).
 
 Any future dependency-bearing oracle harness will also be separate and unpublished.
 The Z80 module waits for its milestone beads.

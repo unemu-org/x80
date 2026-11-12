@@ -71,17 +71,22 @@ sheet) are pinned as fetch-only sources in the shared `oracles/` submodule, with
 same stash, is recorded for M2 in PROVENANCE.md §1. The unpublished `x80-oracle` crate runs them
 offline ([commands](commands.md)); on 2026-11-12 8080PRE passed and 8080EXM passed
 all 25 groups, about 16 s for 2.9 billion instructions in a release build.
-M2 and M3 are in progress: M2's x80-side work (beads `x80-pzp.1` to `.5`) runs from the
-pinned NEC manual, and its joint witnesses wait on x86jit's V20/V30 bead (C4); M3 (8085)
-has its sources pinned. M4 has not started. See [plan §5](plan.md#5-milestones).
+M2 remains in progress: its x80-side work (beads `x80-pzp.1` to `.5`) runs from the
+pinned NEC manual, and its joint witnesses wait on x86jit's V20/V30 bead (C4).
+M4 has not started. See [plan §5](plan.md#5-milestones).
 
-M3 (8085): all documented 8085 instructions and all five interrupt sources execute
-with 8085 state totals; INTR supports RST and CALL acknowledges. Undocumented
-bytes and other INTR acknowledge bytes return `Unsupported` without state change.
-`run`/`step` perform the full six-poll boundary sequence and persistent TRAP/RST 7.5
-edge sampling (decision-12). Literal whole-set coverage, mixed-program replay and
-step/cycle budget splits witness execution and determinism, including RIM/SIM
-and serial-line notifications. Oracle results are recorded by `x80-4gk.21`.
+**M3: done (2026-11-13, epic `x80-4gk`).** The `i8085` model executes every
+documented instruction, including RIM/SIM, and all five interrupt sources with
+8085 state totals; INTR supports RST/CALL, while undocumented bytes and other
+acknowledge bytes return `Unsupported` with boundary state preserved
+(decisions 11/12; `tests/i8085_coverage.rs`, `tests/i8085_timing.rs`).
+The six-poll boundary sequence, persistent TRAP/RST 7.5 sampling, serial
+notifications and budget splits have replay witnesses (`tests/i8085_run.rs`,
+`tests/i8085_determinism.rs`; decision-12).
+[PROVENANCE.md §2](../../PROVENANCE.md#2-oracles) records the 8080PRE and
+8085EXM passes, including the unjudged long-ALU CRC;
+[§3](../../PROVENANCE.md#residual-unverified-or-derived-facts-at-the-m3-closure-2026-11-13)
+lists the residual unverified readings, derivations and library choices.
 
 This is a capability snapshot, not the task board. Consult beads for claims and
 priorities. Update this file when a milestone advances.

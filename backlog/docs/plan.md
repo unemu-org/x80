@@ -246,7 +246,7 @@ no 8080 corpus is pinned yet.
 | M0 — skeleton and tooling | Review scaffold, initialize tracking, verify the pinned shell and local gates, settle source pins and initial API decisions. Tracked as epic `x80-2g7`. |
 | M1 — 8080 | Complete documented instruction behavior, interrupts and halt, manual-derived cycle counts, per-opcode witnesses, and a licensed diagnostic run where a licence permits one (decision-5). Done 2026-11-12 (epic `x80-ecy`). |
 | M2 — V20 integration | Agree the shared contract with x86jit; borrowed-state/memory entry, RETEM/CALLN and interrupt handoffs pass joint witnesses. |
-| M3 — 8085 | Pin 8085 sources; record its unsupported-encoding policy; add the `i8085` model, extracting what it shares with the 8080; implement and test model-specific instructions, flags, interrupts and timing without changing 8080 witnesses. |
+| M3 — 8085 | Pin 8085 sources; record its unsupported-encoding policy; add the `i8085` model, extracting what it shares with the 8080; implement and test model-specific instructions, flags, interrupts and timing without changing 8080 witnesses. Done 2026-11-13 (epic `x80-4gk`). |
 | M4 — Z80 | Pin Zilog sources; record its unsupported-encoding policy; add the `z80` model with its own state, prefix decoding, input lines and timing; revisit the port address in the bus contract; model-specific witnesses and licensed oracles. |
 
 These are planning landmarks; after setup, beads holds priorities, dependencies
