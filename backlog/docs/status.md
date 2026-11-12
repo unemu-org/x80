@@ -20,12 +20,13 @@ Implemented instruction groups (decision-5 item 7), each with cited state
 totals and bus traces:
 
 - Data Transfer: all (98-153B pp. 4-4, 4-5).
-- Arithmetic: all except DAA (pp. 4-6 to 4-8); DAA's state total is cited,
-  its execution is `x80-ecy.9`.
+- Arithmetic: all, including DAA (pp. 4-6 to 4-8); DAA's carry rule is
+  derived, not stated (PROVENANCE.md §1).
 - Branch: all (pp. 4-11, 4-12).
 - Stack, I/O and Machine Control: PUSH, POP, XTHL, SPHL, IN, OUT and NOP
   (pp. 4-13, 4-14); EI, DI and HLT are `x80-ecy.13`.
-- Logical: none yet (`x80-ecy.10`).
+- Logical: all (pp. 4-8 to 4-11); AC after ANA and ANI is the interim
+  reading of decision-7.
 
 Documented opcodes outside these return `Unsupported` until their bead lands.
 

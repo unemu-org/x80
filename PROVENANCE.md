@@ -27,6 +27,7 @@ below and in a bead.
 | Disagreement | Citations | Status |
 | --- | --- | --- |
 | Length of RET (C9) and JZ (CA) | 98-153B pp. 4-11, 4-12 and 9800301-04 pp. 3-32, 3-48: RET one byte, JZ three bytes; 9800301-04 p. A-5 prints "RET Adr" at C9 and "JZ" without "Adr" at CA | Resolved for the opcode map: p. A-5 misprint (operand marker one row off); the per-instruction pages of both manuals agree. Witness pins both bytes |
+| CY after DAA when CY was set before DAA, or when the low adjustment carries out of bit 7 | 98-153B p. 4-8: two-step rule, "All flags are affected"; p. 4-2 general rule: CY set on a carry out of the high-order bit, "otherwise it is reset"; 9800301-04 p. 6-13: DAA's carry is needed "for adding the higher-order bytes" (MADD routine, pp. 6-12 to 6-14; subtraction routine pp. 6-14 to 6-17) | Not stated explicitly. Derived (maintainer, 2026-11-12): CY is kept from before DAA and set by a carry out of bit 7 from either step, which then triggers the high adjustment; the documented decimal routines are correct only this way. Falsifiable by the oracle run, bead x80-ecy.17 |
 | Auxiliary carry after 8080 logical AND (ANA, ANI) | 98-153B p. 4-9: ANI clears CY and AC; 9800301-04 p. 1-12: AND sets AC to the logical OR of bit 3 of the operands | Unresolved, bead x80-ecy.2. Interim (decision-7, unverified): ANA and ANI set AC to bit 3 of (A OR operand) |
 
 ### Discovery inventory
@@ -67,15 +68,18 @@ every family member. No oracle artifacts are currently included.
 
 ## 3. Witnesses and current scope
 
-The core types, the run loop and the 8080 opcode map exist; NOP is the only
-instruction that executes. The opcode map (which bytes are documented, their
+The core types, the run loop and the 8080 opcode map exist; every documented
+instruction executes except EI, DI and HLT, and interrupts are not yet accepted
+(see backlog/docs/status.md). The opcode map (which bytes are documented, their
 lengths and groups) is cited from 98-153B pp. 4-1 and 4-4 to 4-14 and witnessed
-against the summaries on p. 4-15 and 9800301-04 p. A-5; the only timing
-constant is NOP's 4 states (p. 4-14). The other encoded hardware facts are the 8080 register pairs and the
-flag-byte layout of the processor status word (98-153B pp. 2-2, 2-3, 4-2, 4-3,
-4-13; 9800301-04 p. 3-45), each with a witness test, plus structural facts cited
-in code without behaviour yet: five 1-bit flags (p. 4-2), one INT line (p. 5-14)
-and the interrupt-enable, EI-delay and halt latches (pp. 2-13, 4-14, 5-14).
+against the summaries on p. 4-15 and 9800301-04 p. A-5. Each implemented
+instruction cites its behaviour, state totals and bus order in its group module
+(98-153B Ch. 4 and pp. 2-16 to 2-20) and has witnesses with literal or
+independently derived expectations. The register pairs and the flag-byte layout
+of the processor status word are cited from 98-153B pp. 2-2, 2-3, 4-2, 4-3 and
+4-13 and 9800301-04 p. 3-45. Structural facts without behaviour yet: one INT
+line (p. 5-14) and the interrupt-enable, EI-delay and halt latches (pp. 2-13,
+4-14, 5-14). Interim and derived readings are listed in §1.
 The V20 mapping in [plan §3](backlog/docs/plan.md#3-v20v30-integration-contract-sketch)
 is explicitly unverified. Glossary definitions are orientation, not implementation
 authority. Ordinary tests will pin derived values in code and run without manuals,
