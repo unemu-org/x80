@@ -28,6 +28,7 @@
 //! assert!(!cpu.latches().halted);
 //! ```
 
+mod alu;
 mod arithmetic;
 mod branch;
 mod cpu;
