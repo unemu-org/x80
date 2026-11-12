@@ -26,7 +26,7 @@ below and in a bead.
 
 | Disagreement | Citations | Status |
 | --- | --- | --- |
-| Auxiliary carry after 8080 logical AND (ANA, ANI) | 98-153B p. 4-9: ANI clears CY and AC; 9800301-04 p. 1-12: AND sets AC to the logical OR of bit 3 of the operands | Unresolved, bead x80-ecy.2 |
+| Auxiliary carry after 8080 logical AND (ANA, ANI) | 98-153B p. 4-9: ANI clears CY and AC; 9800301-04 p. 1-12: AND sets AC to the logical OR of bit 3 of the operands | Unresolved, bead x80-ecy.2. Interim (decision-7, unverified): ANA and ANI set AC to bit 3 of (A OR operand) |
 
 ### Discovery inventory
 

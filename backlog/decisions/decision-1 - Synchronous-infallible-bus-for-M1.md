@@ -6,6 +6,7 @@ status: accepted
 ---
 
 Decider: maintainer. Settles [plan](../docs/plan.md) §6 Q2; design in §2.3.
+decision-5 fixes the signatures and extends the access kinds; the rest stands.
 
 ## Context
 

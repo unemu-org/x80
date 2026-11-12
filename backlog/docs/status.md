@@ -1,7 +1,8 @@
 # Status
 
 **M0: done.** Tracking, the pinned shell, hooks, local gates and the first commit
-are in place. Decisions 1-4 settle the initial API choices. The 8080 primary
+are in place. Decisions 1-5 settle the M1 API, decision-6 the CPU model layout and
+decision-7 an interim flag reading. The 8080 primary
 sources are pinned (see [PROVENANCE.md](../../PROVENANCE.md)).
 
 `x80-core` contains empty documented modules and a zero-dependency boundary test.

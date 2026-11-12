@@ -7,6 +7,8 @@ status: accepted
 
 Decider: maintainer. Settles the undocumented-encoding half of [plan](../docs/plan.md)
 §6 Q7 for the 8080; the oracle-licence half stays open.
+decision-5 fixes the exit contents and, for M1 only, extends the exit to
+documented opcodes not yet implemented; decision-6 makes this the 8080's policy.
 
 ## Context
 

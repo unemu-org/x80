@@ -4,7 +4,7 @@ Do not implement these unprompted. Open work is tracked in beads.
 
 | Item | Why deferred | Revisit |
 | --- | --- | --- |
-| Instruction implementations and concrete public APIs | M0 delivers skeleton, tooling and decisions only | M1 after source pins and API decisions |
+| Instruction implementations and concrete public APIs | M0 delivered skeleton, tooling and decisions only | M1: the API and model decisions are accepted (decisions 5-7); beads x80-ecy.5 onward implement them |
 | NEC emulation-mode extensions | Shared mapping and handoff contract unverified | M2 with decision-23 and V20 bead (x86jit) |
 | 8085 and Z80 models | Preserve a narrow first implementation | M3 and M4 respectively |
 | Bus-cycle stepping, pin-level timing and READY behavior | Instruction T-state totals do not establish bus-cycle accuracy | An explicit embedder requirement and cited timing contract |
