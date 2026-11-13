@@ -291,40 +291,8 @@ macro_rules! hole {
     };
 }
 
-hole!(
-    dd_index_half,
-    &[0xDD, 0x44],
-    [0xDD, 0, 0],
-    1,
-    0x44,
-    &[read(0xFFFE, OP, 0xDD), read(0xFFFF, OP, 0x44)]
-);
-hole!(
-    fd_index_half,
-    &[0xFD, 0x44],
-    [0xFD, 0, 0],
-    1,
-    0x44,
-    &[read(0xFFFE, OP, 0xFD), read(0xFFFF, OP, 0x44)]
-);
-hole!(
-    repeated_dd_stops_before_21,
-    &[0xDD, 0xDD, 0x21],
-    [0xDD, 0, 0],
-    1,
-    0xDD,
-    &[read(0xFFFE, OP, 0xDD), read(0xFFFF, OP, 0xDD)]
-);
-hole!(
-    dd_ed,
-    &[0xDD, 0xED],
-    [0xDD, 0, 0],
-    1,
-    0xED,
-    &[read(0xFFFE, OP, 0xDD), read(0xFFFF, OP, 0xED)]
-);
 // Decision-20 §1: ED70 and ED00 now retire; literal witnesses live in
-// z80_undocumented_ed.rs. CB/DD/FD refusals remain until §§2–3.
+// z80_undocumented_ed.rs. Decision-20 §2 admits DD/FD main forms; CB/indexed-CB refusals await §3.
 hole!(
     cb_missing_shift,
     &[0xCB, 0x30],
@@ -359,14 +327,68 @@ hole!(
         read(1, ARG, 0x47)
     ]
 );
-hole!(
-    ignored_index_prefix,
-    &[0xFD, 0x00],
-    [0xFD, 0, 0],
-    1,
-    0x00,
-    &[read(0xFFFE, OP, 0xFD), read(0xFFFF, OP, 0x00)]
-);
+
+// Decision-20 §2: H half load (Young v0.91 §3.2 p. 11;
+// Rak .ld_x_x), L ignored/repeated/ED extension (Young §3.7 p. 14).
+#[test]
+fn former_index_refusals_retire_with_literal_fetches_and_costs() {
+    for (bytes, pc, r, cycles, reads) in [
+        (
+            &[0xDD, 0x44][..],
+            0,
+            0x81,
+            8,
+            vec![read(0xFFFE, OP, 0xDD), read(0xFFFF, OP, 0x44)],
+        ),
+        (
+            &[0xFD, 0x44][..],
+            0,
+            0x81,
+            8,
+            vec![read(0xFFFE, OP, 0xFD), read(0xFFFF, OP, 0x44)],
+        ),
+        (
+            &[0xDD, 0xDD, 0x21, 0xA5, 0x5A][..],
+            3,
+            0x82,
+            18,
+            vec![
+                read(0xFFFE, OP, 0xDD),
+                read(0xFFFF, OP, 0xDD),
+                read(0, OP, 0x21),
+                read(1, ARG, 0xA5),
+                read(2, ARG, 0x5A),
+            ],
+        ),
+        (
+            &[0xDD, 0xED, 0x44][..],
+            1,
+            0x82,
+            12,
+            vec![
+                read(0xFFFE, OP, 0xDD),
+                read(0xFFFF, OP, 0xED),
+                read(0, OP, 0x44),
+            ],
+        ),
+        (
+            &[0xFD, 0x00][..],
+            0,
+            0x81,
+            8,
+            vec![read(0xFFFE, OP, 0xFD), read(0xFFFF, OP, 0x00)],
+        ),
+    ] {
+        let mut cpu = cpu_at(0xFFFE);
+        let mut bus = RecordingBus::new();
+        bus.load(0xFFFE, bytes);
+        assert_eq!(cpu.step(&mut bus), retired(1, cycles));
+        assert_eq!((cpu.registers().pc, cpu.registers().r), (pc, r));
+        let mut trace = Vec::from(polls(false, false, false));
+        trace.extend(reads);
+        assert_eq!(bus.take_log(), trace);
+    }
+}
 
 #[test]
 fn staging_main_load_does_not_fetch_immediate_before_refusal() {
@@ -530,10 +552,10 @@ fn staging_index_cb_bit_reads_displacement_and_key_only() {
 
 #[test]
 fn unsupported_keeps_earlier_retirement_and_restores_that_boundary() {
-    // Decision-20 §1: use DD00 for rollback; ED00 now executes as L NOP.
+    // Decision-20 §2: DD00 executes; CB30 still refuses until §3.
     let mut cpu = cpu_at(0x2000);
     let mut bus = RecordingBus::new();
-    bus.load(0x2000, &[0, 0xDD, 0]);
+    bus.load(0x2000, &[0, 0xCB, 0x30]);
     bus.nmi_levels.extend([false, false]);
     let report = cpu.run(&mut bus, UNLIMITED);
     assert_eq!((report.steps, report.cycles), (1, 4));
@@ -541,8 +563,8 @@ fn unsupported_keeps_earlier_retirement_and_restores_that_boundary() {
         panic!("{report:?}");
     };
     assert_eq!(unsupported.pc, 0x2001);
-    assert_eq!(unsupported.opcode, 0);
-    assert_eq!(unsupported.preceding, [0xDD, 0, 0]);
+    assert_eq!(unsupported.opcode, 0x30);
+    assert_eq!(unsupported.preceding, [0xCB, 0, 0]);
     assert_eq!(unsupported.preceding_len, 1);
     assert!(!unsupported.acknowledge);
     let mut expected = cpu_at(0x2001);
@@ -561,8 +583,8 @@ fn unsupported_keeps_earlier_retirement_and_restores_that_boundary() {
             Event::StopPoll(false),
             Event::NmiPoll(false),
             Event::IntPoll(false),
-            read(0x2001, OP, 0xDD),
-            read(0x2002, OP, 0),
+            read(0x2001, OP, 0xCB),
+            read(0x2002, OP, 0x30),
         ]
     );
 }

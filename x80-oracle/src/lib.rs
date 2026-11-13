@@ -1367,7 +1367,8 @@ mod tests {
     #[test]
     fn z80_remaining_refusals_outside_bdos_keep_preceding_bytes() {
         for (program, opcode, preceding) in [
-            (vec![0xdd, 0x44], 0x44, vec![0xdd]),
+            // Decision-20 §2 admits DD44; SLL remains refused until §3.
+            (vec![0xcb, 0x30], 0x30, vec![0xcb]),
             (vec![0xfd, 0xcb, 0x80, 0x47], 0x47, vec![0xfd, 0xcb, 0x80]),
         ] {
             let outcome = z80_synthetic(&program);

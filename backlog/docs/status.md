@@ -82,7 +82,8 @@ are removed. `tests/z80_timing.rs` independently checks every encoding and
 conditional/repeat path total, plus NMI and all interrupt modes. Documented
 totals use the primary and Mostek second witness; decision-20 §1 supplies the
 labelled L alias/hole totals. The five tables contain MAIN 252, CB 248,
-ED 256, INDEX 39 and INDEX_CB 31 terminal entries: 896 logical encodings.
+ED 256, INDEX 85 and INDEX_CB 31 effective entries. With ignored MAIN
+fallbacks, 1322 logical terminal encodings execute (dispatch slots excluded).
 Decision-20 §1 admits ED70 flags-only input (**A/H**), ED71 zero output
 (**L**, CPU preservation **H**), NEG/return aliases (**H**, alias costs **L**),
 IM aliases (**L**) and 178 two-byte, 8-state NOP holes (**L**). All ED returns,
@@ -91,8 +92,15 @@ RETI signature without a callback. The Z80 CP/M host uses a private
 `OUT FFh; RET` boundary stop, adding one step / 11 states per BDOS call and
 preserving Data reads of the stack word. The nine ZEXDOC groups needing §§2–3
 remain not run. Bits 5/3 await §4; current six-flag storage
-is retained. ED63/6B remain four-byte pair loads. CB30–37, index halves and
-ignored-prefix forms remain refused until decision-20 §§2–3.
+is retained. ED63/6B remain four-byte pair loads. Decision-20 §2 now executes
+register-only index halves (**H** operation/flags, **L** costs), retains
+ordinary H/L beside indexed memory (**A/H**), and admits ignored/repeated
+DD/FD (**L**). Chains use the last selector, ED cancels it, CB selects indexed-CB,
+and prefixed HALT has no displacement. Arbitrary chains have one boundary and
+retirement, wrapping PC/R and saturating u64 costs without a prefix buffer.
+Only CB30–37 and undocumented indexed-CB terminals remain fetched-byte refusals
+until §3. `tests/z80_undocumented_index.rs` pins the full main map, half flags,
+exclusions, chains, interrupts, long/wrapping traces and refusal rollback.
 
 `tests/z80_coverage.rs` independently enumerates literal admitted and
 refused key sets for every table, distinguishing dispatch slots. Every
@@ -108,7 +116,8 @@ IM 0's RST-only restriction, IM 1's fixed vector and IM 2's even-vector table
 lookup (decision-15 rules 7–10). Refused interrupt acknowledges restore the
 complete boundary state. `tests/z80_interrupts_nmi.rs` and
 `tests/z80_interrupts_int.rs` pin acceptance and refusal traces. The boundary
-witnesses in `tests/z80_run.rs` use still-refused DD forms for rollback;
+witnesses in `tests/z80_run.rs` use still-refused CB30 and indexed-CB forms
+for rollback (decision-20 §2);
 `tests/z80_undocumented_ed.rs` pins the full ED map, aliases, ports, unequal
 IFFs, NOP traces, wrapping PC/R and one retirement (decision-20 §1).
 `tests/z80_determinism.rs` pins a 40-step, 410-state mixed program with CB, ED,

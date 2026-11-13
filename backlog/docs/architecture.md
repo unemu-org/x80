@@ -284,13 +284,13 @@ to the existing 8-bit methods with A0-A7. Only models whose decisions specify
 them call these methods: Z80 does, while 8080/8085 use the 8-bit methods.
 Models document which instruction bytes carry `MemoryAccess::OpcodeFetch`,
 potentially more than one per instruction; the 8080/8085 first-byte mapping
-is unchanged. `Unsupported` reports the refused byte in `opcode` and every
-instruction-stream byte read before it, in read order, in the used prefix of
+is unchanged. `Unsupported` reports the refused byte in `opcode` and the final
+decode context before it, in read order, in the used prefix of
 `preceding: [u8; 3]` with `preceding_len` in `0..=3` (displacement included,
 unused elements zero). Its `preceding()` accessor returns the used bytes and
 clamps invalid lengths to capacity. `pc` remains the first-byte or acknowledge
-address. Only the reads of the reported bytes have reached the bus; CPU state
-is restored and read-side device effects cannot be undone. 8080/8085
+address. The consumed reads have reached the bus; earlier DD/FD selectors
+are omitted under decision-20 §2. CPU state is restored and read-side device effects cannot be undone. 8080/8085
 report zero preceding bytes for refusals (8085 now refuses only INTR bytes);
 Z80 uses the preceding bytes for prefixed instruction refusals.
 
@@ -373,19 +373,20 @@ Unsupported restores pre-sampling latches, and Halt retains samples; the
 boundary and replay witnesses are `tests/i8085_run.rs` and
 `tests/i8085_determinism.rs`. Residual qualifications are in PROVENANCE.md §3.
 
-Z80 map data (decision-13 rules 2–5; decision-14 rule 1): eleven group
-modules each supply only their applicable `MAIN`, `CB`, `ED`, `INDEX` and
-`INDEX_CB` slices. `opcodes.rs` calls the unchanged `decode::build` separately
-for each table, with model-owned field restrictions. The key is respectively
-the first byte, second byte after CB/ED/DD/FD, or fourth byte after DD/FD CB d.
-All lengths and both cost slots describe the complete instruction. MAIN's four
-prefix slots and INDEX's CB slot have no terminal entry. INDEX and INDEX_CB
-serve both IX and IY, so the five stored counts 252/248/58/39/31 represent 698
-logical terminal encodings. Repeating blocks store terminating/repeating totals
-as untaken/taken (decision-15 rule 11). The independent literal witness checks
-every key, group, length, cost slot and complement against the rendered primary
-UM008011-0816 tables/entries and 03-0029-01 Tables 7.0-1–7.0-11; source
-reconciliations are pinned separately and recorded in PROVENANCE.md §1.
+Z80 map data (decision-13 rules 2–5, amended by decision-20 §§1–2):
+eleven group modules supply their applicable encoding slices to the unchanged
+`decode::build`. Z80-owned load/arithmetic groups extend the documented
+index map with 46 register-only half entries. The five stored counts are 252/248/256/85/31;
+INDEX and INDEX_CB serve both IX and IY. Ignored index forms dispatch through
+MAIN rather than duplicating entries. Thus 988 effective logical entries plus
+334 ignored MAIN fallbacks cover 1322 terminal encodings; prefix dispatch
+slots are excluded. Terminal lengths and both cost slots include the effective
+prefixes only. Repeating blocks store terminating/repeating totals as
+untaken/taken (decision-15 rule 11). Literal maps/costs are pinned in
+`opcodes/tests.rs`, `tests/z80_coverage.rs` and `tests/z80_timing.rs`;
+`tests/z80_undocumented_index.rs` supplies the complete substitution/exclusion
+map and the decision-20 §2 H operation / A/H exception / L prefix witnesses.
+Source pins and evidence limits remain in PROVENANCE.md §1.
 
 Z80 dispatch and executor handoff (`x80-bi2.9`; decisions 13–15): `run` checks
 budget; polls stop, NMI, INT exactly once in that order; honors stop; samples
@@ -394,8 +395,13 @@ executes. Stop precedes sampling. A refusal restores the complete CPU state
 saved after polling and before sampling, including R and sampler history;
 Halt retains samples. Interrupt retirement uses the same counters as ordinary
 instructions. Every documented encoding dispatches directly to its group.
-Only table holes return Unsupported, using the exact decision-14 rule 4 reads
-and payload. `tests/z80_run.rs` pins boundary and refusal traces;
+Only CB SLL and undocumented indexed-CB terminals still return fetched-byte
+Unsupported; interrupt API restrictions remain. Decision-20 §2's L diagnostic
+convention retains the instruction-start PC and final decode context:
+`[last DD/FD, CB, d]` for indexed-CB refusals, `[CB]` for ordinary SLL.
+Earlier selectors are omitted. Single-prefix payloads are unchanged, all
+consumed fetches remain observable and nothing after the refused key is read.
+`tests/z80_run.rs` pins boundary and refusal traces;
 `tests/z80_coverage.rs` checks every literal documented/undocumented key.
 `tests/z80_determinism.rs` checks complete state, bus trace and poll-sequence
 equality across unlimited, one-step and cycle-budget execution, including
@@ -417,21 +423,39 @@ pub(super) fn execute<S: Bus>(
 `opcode: u8` (table key), `index: Option<IndexRegister>` (`Ix`, `Iy`),
 `displacement: Option<u8>` (only `IndexCb`) and `start_pc: u16`. The dispatcher
 leaves PC **after the fetched prefix/key bytes**, including d/op for indexed CB.
-`instruction.length` and `states` describe the whole instruction. Executors
+`instruction.length` and `states` describe the terminal form with its effective
+prefixes, excluding extra ignored/redundant selectors. Executors
 must not add that length to the already advanced PC. They read remaining
 operands in stream order through `cpu.fetch_operand(system)`, which returns
 one `OperandFetch` byte and wraps PC forward without changing R. For ordinary
 INDEX memory forms the executor reads d first, then any immediate byte; INDEX
-pair/index-only forms have no d. Indexed-CB executors use the saved d and never
-read it again. The dispatcher makes no data/stack/port access.
+pair/index-only and register-only half forms have no d. Indexed-CB executors
+use the saved d and never read it again. The dispatcher makes no data/stack/port access.
+
+Decision-20 §2 narrows decision-13 rule 5's `u8` bound to terminal-table
+fields. `cpu.rs` retains the start PC and current selector, fetching arbitrary
+DD/FD chains without a prefix buffer or count cap. The last selector wins;
+ED cancels it and CB selects indexed-CB. Ignored main opcodes retain their own
+immediates/addresses; EX DE,HL and EXX retain ordinary HL. Only register-only
+H/L operands substitute index halves; indexed-memory LD uses ordinary H/L,
+and prefixed HALT consumes no displacement. Selection ends at the terminal.
+Wrapping PC accounts for consumed length; a model-local saturating `u64`
+extra cost adds four states per ignored/redundant selector outside table
+fields. `progress::retire_wide` accepts a fact-free full-width cost; the old
+byte-cost entry point delegates to it. No CPU rule enters shared machinery.
+There is no stop/NMI/INT poll, retirement, EI-delay consumption or parity-note
+expiry inside a chain. An endless prefix stream need not return from `step`.
+These are L library rules, following Young v0.91 §§3.2/3.7 pp. 11–14 and
+§6.1 p. 23, without an independent timing/chain/interrupt capture.
 
 All eleven group executors are complete; there is no staging switch or
-documented-but-unimplemented dispatch path. The dispatcher selects the returned
-Path's complete cost and retires once.
+documented-but-unimplemented dispatch path. The dispatcher adds its extra
+prefix cost to the returned Path's terminal cost and retires once.
 A block executor rewinds PC by two and returns `Path::Taken` when repeating;
 termination returns `Path::Untaken`. The next iteration naturally polls and
 fetches both bytes again (decision-15 rule 11; UM LDIR p. 132, TM Table 7.0-3
-p. 46). The loop has no repeat-specific machinery.
+p. 46). Leading ignored DD/FD bytes are not refetched (decision-20 §2, L).
+The loop has no repeat-specific machinery.
 
 R advances once per `OpcodeFetch`, prefixes included, keeping bit 7 and
 wrapping the low seven bits. Indexed CB reads DD/FD and CB as `OpcodeFetch`,

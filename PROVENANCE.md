@@ -509,7 +509,7 @@ Linked chip photographs/screens are absent and were not claimed read.
 | Ignored general/ED/EX prefixes / §2 | Y §3.2 p. 11 excepts EX DE,HL/EXX/ED and ignores DD/FD for other no-index operations; R's independent match is the register-LD subset above | **L** general ignoring and +1 byte/+4 states per prefix; documented main/ED semantics retained. No broad H inference from `.ld_x_x` |
 | Repeated prefixes / §2 | Y §3.7 p. 14 says last DD/FD wins, ED cancels selection, CB selects indexed-CB. No independent R chain acquisition | **L** finite arbitrary chains, no count cap; one terminal instruction/retirement. Extra prefix costs accumulate outside u8 table length/cost; decision-13 rule 5 narrowed accordingly |
 | Fetch, R and boundary mapping / §2 | Y §6.1 p. 23 states prefix/R counts; T §3 p. 7/U p. 6 establishes ordinary M1. Y §5.5 pp. 21–22 reports INT tests, explicitly has not tested NMI. No independent chain/timing capture | **L** instruction-wide no-poll/no-retirement/no-EI-expiry rule, one R increment per DD/FD and ordinary M1, indexed-CB d/op OperandFetch with two R increments. Q-only prefix effect is not a boundary. Repeating block refetch begins at ED, not earlier ignored prefixes |
-| Long-prefix accounting / §2 | Software requirement, not a chip finding | **L** model-local selector/start PC and saturating u64 accumulated total, wrapping PC, no prefix allocation/cap. Terminal table costs remain u8; widen fact-free progress accounting as required. Infinite prefix stream need not terminate step; payload is not an arbitrary-prefix buffer |
+| Long-prefix accounting / §2 | Software requirement, not a chip finding | **L** model-local selector/start PC and saturating u64 accumulated total, wrapping PC, no prefix allocation/cap. Terminal table costs remain u8; widen fact-free progress accounting as required. Infinite prefix stream need not terminate step; payload records final decode context ([last DD/FD, CB, d] or [CB]), omits earlier selectors and retains start PC; single-prefix payloads unchanged. Implemented in `cpu.rs`, witnessed in `z80_undocumented_index.rs` |
 | Normal-fetch refusal closure / §§2/7 | Complete maps derived from Y plus labelled fallback rules above | **Library scope** remove fetched-byte refusals after §§1–3. Keep root Unsupported payload/rollback and decision-15 IM0 non-RST / odd-IM2 restrictions. 8080/V20 ED escape unchanged |
 | SLL / §3 | Y §3.1 p. 11 / §8.7 p. 32; R `.slia_a`/`.slia_r`, `.sro_xyd*` | **H** result=(byte<<1) OR1, old bit7→C, S/Z/PV/Y/X from result, H=N=0. **L** extension totals 8/15 states for register/(HL), 23 indexed; no timing key |
 | Indexed-CB memory/register copies / §3 | Y §§3.5–3.6 pp. 13–14 / §§8.7–8.8 pp. 32–33; R `.sro_xyd_r`, `.set_n_xyd_`, `.res_n_xyd_` | **H** computed rotate/shift/RES/SET result to memory plus selected ordinary B/C/D/E/H/L/A, no copy for field110; **L** physical/API ordering and write-ignoring-device behaviour (R tests RAM). Do not reread memory into destination |
@@ -550,6 +550,15 @@ Linked chip photographs/screens are absent and were not claimed read.
 | ZEXDOC nine new runnable groups / §7 | Existing §2 binary/source audit, groups7/29–32/49/51/60–61 | **Library campaign plan** `alu8rx`, `incxh`, `incxl`, `incyh`, `incyl`, `ld8ixy`, `ld8rrx`, `rotxy`, `rotz80`; preserve actual DD encoding in misleading incyh/incyl names. Historical58 judged/9 not run is not a new67-group PASS. Replace ED70 refusal rendezvous before admission, measure host overhead |
 | ZEXALL Y/X judging / §7 | Pinned source495f686b…; lines34–39 unidentified real-Z80 CRCs; descriptor block all67 masksFFh, `flgmsk` line1102 uses selected descriptor mask | **Falsifier only** including bits5/3; no named independent hardware key. Require its own COM/source/digest/encoding audit and safe host rendezvous; keep GPL fetch-only, no PASS here |
 | R six-variant host/campaign / §7 | Pinned ZIP README, loader.bas/Makefile/main.asm/print.asm/idea.asm and `src/z80*.asm` | **Library plan** Spectrum-style oracle host at8000h/data8800h, writable RAM/stack, ROM-service stubs/system variables, FEh precheckBFh, caller EI/RET; run full/doc/flags/docflags/ccf/memptr separately. Documented flags masks do not exclude undocumented encodings. No silent I/O skips, no code/test run here, core remains guest-agnostic |
+
+Decision-20 §2 implementation (`x80-mn3.14`): register-only index-half
+operations retain the H labels above; new costs/general ignoring/chaining and
+access/boundary/diagnostic conventions remain L, and ordinary H/L beside
+indexed memory remain A/H. `z80_undocumented_index.rs` pins all 256 main
+positions under both selectors, literal half results/flags, memory exceptions,
+ED cancellation, last selector, HALT, indexed-CB, no mid-chain polls, long
+PC/R wrapping, block refetch and refusal payload/rollback. This introduces no
+new hardware claim. Bits 5/3 and later decision-20 sections remain deferred.
 
 ### Discovery inventory
 
@@ -662,8 +671,10 @@ captures describe the measured silicon, not every family member.
 ### Z80 exercisers: fetch-only pins and documented-encoding audit
 
 Maintainer decision, 2026-11-13 (x80-bi2.5): M4 covers documented Z80 behavior
-only. Bits 5 and 3, IXH/IXL/IYH/IYL, SLL, WZ/MEMPTR and all prefixed holes are
-out of scope; every undocumented encoding returns Unsupported. The two programs
+only. That historical refusal policy is superseded by decision-20 §§1–2:
+all ED terminals, index halves and ignored/repeated DD/FD now execute with the
+A/H/L limits in §1. SLL and undocumented indexed-CB terminals still refuse
+pending §3; bits 5/3 and WZ/MEMPTR await later sections. The two programs
 below are falsifying oracles, never sources of semantics. GPL files, including
 sources and COPYING, are fetched locally and never committed. Pins and fetch
 entries occupy separate Z80 exerciser blocks in the shared stash.
@@ -1238,9 +1249,9 @@ remain in §2. Each bullet distinguishes a derivation, unverified reading or
 library contract from a stated hardware fact.
 
 - Library layout choices: concrete Z80 state/API names, eleven group modules, five physical maps sharing DD/FD context, prefix dispatch and model-owned execution rather than a family CPU/trait; decision-13 rules 1–4/7 (UM pp. 2–3, 18, 42, 70–316; TM pp. 44–54), `mod.rs`, `cpu.rs`, `opcodes.rs` and `boundary.rs`.
-- Derived layout/timing bounds: section end pages follow the next heading; documented no-wait entries fit two cost slots and `u8`, with maximum 23 states, not a claim about every silicon encoding; decision-13 rules 2/5 (UM pp. 128–129, 221–222; TM Tables 7.0-1–11 pp. 44–54), `opcodes/tests.rs`, `z80_timing.rs`.
+- Derived layout/timing bounds: section end pages follow the next heading; terminal no-wait entries fit two cost slots and `u8`, with maximum 23 states; decision-20 §2 narrows that bound to terminal fields, with wrapping PC and saturating u64 extra prefix costs, not a claim about every silicon encoding; decision-13 rules 2/5 (UM pp. 128–129, 221–222; TM Tables 7.0-1–11 pp. 44–54), `opcodes/tests.rs`, `z80_timing.rs`.
 - Unverified assumption / library scope: one model for NMOS and CMOS, without established instruction-level equivalence or a Z80/Z80A variant; decision-13 rule 6 (UM pp. 1, 15–16; TM p. 1), §1 and `mod.rs`.
-- Library admission/refusal policy and derived counts: the reconciled documented set has 698 logical terminal encodings (252/248/58/39/39/31/31); its complement, including aliases, index halves, SLL, ignored/repeated prefixes and indexed register-copy forms, is refused at the first failing decode; decision-14 rules 1–2 (UM summary/entry pages and TM Tables 7.0-1–11 pp. 44–54 cited there), `opcodes/tests.rs`, `z80_coverage.rs`.
+- Library admission/refusal policy and derived counts: the reconciled documented set has 698 logical terminal encodings (252/248/58/39/39/31/31); decision-20 §§1–2 supersede the old ED and index-prefix refusals, yielding 1322 executing logical terminals including ignored MAIN fallbacks; only SLL and undocumented indexed-CB terminals still refuse pending §3; decision-14 rules 1–2 (UM summary/entry pages and TM Tables 7.0-1–11 pp. 44–54 cited there), `opcodes/tests.rs`, `z80_coverage.rs`.
 - Derived alternate-register resolution: the repeated B' label is read as C', from the BC' text and second diagram; §1 (UM Fig. 2 p. 2, p. 3; TM Fig. 2.0-2 p. 4), `state.rs`, `z80_registers.rs`.
 - Derived ED load admission: ED 63/6B follow explicit pair fields despite compact-table omissions; §1 / decision-14 rule 1 (UM pp. 45, 103, 108; TM p. 45), `opcodes/tests.rs`, `z80_load16.rs`.
 - Derived H-register heading resolution: compact F headings mean H = 100, not an F operand; §1 / decision-14 rule 1 (UM pp. 42, 50, 54, 71, 145, 213; TM pp. 44, 47, 50), `opcodes/tests.rs`.
@@ -1290,7 +1301,7 @@ library contract from a stated hardware fact.
 - Library block retirement: one iteration per step; map stated 16 terminating / 21 repeating to Untaken/Taken, retaining refetch and boundary polls on repeat; decisions 13 rule 5 / 15 rule 11 (UM pp. 132, 136, 139, 142, 300, 304, 311–312, 315–316; TM pp. 46, 54; ALPM p. 269), block and determinism witnesses.
 - Library reset preservation/bookkeeping: preserve SP, both general/AF sets, IX/IY and flags; clear EI/parity bookkeeping and initialise NMI history inactive, with no bus/polls or elapsed-cycle report; decision-15 rule 12 (UM pp. 6, 18, 181; TM pp. 9, 56; MK p. 2-15), `cpu.rs`, `z80_model.rs`.
 - Library construction/packing: zero registers/flags, disabled IFFs, IM 0 and clear delay/halt/parity/NMI history are Default values, not power-up claims; pair and AF/AF' packing are model-owned API representations; decisions 13 rule 1 / 15 rule 12 (UM pp. 2–3; TM pp. 3–5), `state.rs`, `flags.rs`, `z80_model.rs`, `z80_registers.rs`.
-- Library Unsupported transaction/payload / derived capacity: restore all CPU boundary state including R/samplers/delay/parity, contribute zero progress, expose only reported-byte reads with irreversible device effects; three preceding bytes suffice for the longest admitted refusal DD/FD CB d op; decision-14 rules 2–4 / decision-15 rule 13 (UM p. 247; TM p. 51), `cpu.rs`, `z80_coverage.rs`, `root_contract.rs`; interrupt rollback deliberately departs from acceptance IFF clearing (UM p. 18).
+- Library Unsupported transaction/payload / derived capacity: restore all CPU boundary state including R/samplers/delay/parity, contribute zero progress, preserve irreversible effects of consumed reads; decision-20 §2 defines the fixed payload as the final decode context ([last DD/FD, CB, d] for indexed-CB, [CB] for SLL), omitting earlier selectors while retaining instruction-start PC; single-prefix payloads are unchanged and all consumed reads remain observable; decision-14 rules 2–4 / decision-15 rule 13 (UM p. 247; TM p. 51), `cpu.rs`, `z80_coverage.rs`, `root_contract.rs`; interrupt rollback deliberately departs from acceptance IFF clearing (UM p. 18).
 - Library timing scope: no BUSREQ/BUSACK or external WAIT gating/time, pin timing, refresh-address bus calls or sub-instruction polls; automatic acknowledge waits stay in totals, R is the refresh exposure subject to HALT's departure; decision-15 rules 6/14 (UM pp. 6–8, 12; TM pp. 4, 8–9, 16), `cpu.rs`, boundary/interrupt witnesses.
 - Unverified oracle CRC provenance / library judging scope: ZEXDOC source lines 34–39 attribute expected CRCs to a real Z80 without part/revision or per-group capture; §2 pins the GPL-2.0-or-later artifacts, source/binary audit, 58 judged groups and nine not run under decision-14. `x80-oracle` keeps digest checks, filtering and the decision-20 §7 output/RET host rendezvous outside core semantics; the recorded PASS licenses no hardware fact.
 

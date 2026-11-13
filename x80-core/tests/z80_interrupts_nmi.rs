@@ -479,8 +479,8 @@ fn stop_does_not_commit_a_not_asserted_sample() {
 fn unsupported_restores_sampler_and_reports_the_earlier_nmi_progress() {
     // Rule 2 / decision-12 rule 2 restoration is an API guarantee.
     // NMI itself cannot refuse; its discarded ED is not decoded. A later
-    // unsupported DD 00 boundary must undo its tentative low sample.
-    // Decision-20 §1: ED00 is an L NOP; DD00 retains the refusal witness.
+    // unsupported CB 30 boundary must undo its tentative low sample.
+    // Decision-20 §2: DD00 executes; CB30 still refuses until §3.
     let initial = Latches {
         ei_delay: true,
         ..latches()
@@ -488,7 +488,7 @@ fn unsupported_restores_sampler_and_reports_the_earlier_nmi_progress() {
     let mut cpu = Z80::new(registers(), initial);
     let mut bus = RecordingBus::new();
     bus.load(0x2345, &[0xED, 0]);
-    bus.load(0x0066, &[0xDD, 0]);
+    bus.load(0x0066, &[0xCB, 0x30]);
     bus.nmi_levels.extend([true, false]);
     let assert_refusal = |actual: Report, steps, cycles| {
         assert_eq!((actual.steps, actual.cycles), (steps, cycles));
@@ -496,9 +496,9 @@ fn unsupported_restores_sampler_and_reports_the_earlier_nmi_progress() {
             actual.exit,
             Exit::Unsupported(Unsupported {
                 pc: 0x0066,
-                opcode: 0,
+                opcode: 0x30,
                 acknowledge: false,
-                preceding: [0xDD, 0, 0],
+                preceding: [0xCB, 0, 0],
                 preceding_len: 1,
                 ..
             })
@@ -534,8 +534,8 @@ fn unsupported_restores_sampler_and_reports_the_earlier_nmi_progress() {
             Event::StopPoll(false),
             Event::NmiPoll(false),
             Event::IntPoll(false),
-            read(0x0066, OP, 0xDD),
-            read(0x0067, OP, 0),
+            read(0x0066, OP, 0xCB),
+            read(0x0067, OP, 0x30),
         ]
     );
     let before = cpu.clone();
@@ -550,8 +550,8 @@ fn unsupported_restores_sampler_and_reports_the_earlier_nmi_progress() {
             Event::StopPoll(false),
             Event::NmiPoll(true),
             Event::IntPoll(false),
-            read(0x0066, OP, 0xDD),
-            read(0x0067, OP, 0),
+            read(0x0066, OP, 0xCB),
+            read(0x0067, OP, 0x30),
         ]
     );
     bus.nmi = false;
@@ -585,7 +585,7 @@ fn unsupported_restores_sampler_and_reports_the_earlier_nmi_progress() {
             Event::StopPoll(false),
             Event::NmiPoll(true),
             Event::IntPoll(false),
-            read(0x0067, OP, 0),
+            read(0x0067, OP, 0x30),
             write(0x80FD, 0),
             write(0x80FC, 0x67),
         ]

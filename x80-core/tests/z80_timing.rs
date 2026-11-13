@@ -615,6 +615,31 @@ fn transcription() -> Vec<Case> {
         fixed(&mut c, DdCb, &[0xC6 + 8 * bit], 23, "MK 2-241; UM 255");
         fixed(&mut c, FdCb, &[0xC6 + 8 * bit], 23, "MK 2-243; UM 257");
     }
+    // Decision-20 §2, L: Young v0.91 §§3.2/3.7 pp. 11–14,
+    // §6.1 p. 23. Half-register and ignored-prefix costs are MAIN +4;
+    // retain all documented indexed-memory/pair totals above.
+    let main: Vec<_> = c
+        .iter()
+        .filter(|case| case.table == Main)
+        .map(|case| (case.opcode, case.cycles, case.flow))
+        .collect();
+    for table in [Dd, Fd] {
+        for &(opcode, cycles, flow) in &main {
+            if !c
+                .iter()
+                .any(|case| case.table == table && case.opcode == opcode)
+            {
+                c.push(Case {
+                    table,
+                    opcode,
+                    cycles: [cycles[0] + 4, cycles[1] + 4],
+                    flow,
+                    source: "decision-20 §2 L; Young v0.91 §§3.2/3.7 pp. 11–14, §6.1 p. 23",
+                });
+            }
+        }
+    }
+
     c
 }
 
@@ -733,6 +758,16 @@ fn witness(case: &Case, taken: bool, early_match: bool) -> Vec<String> {
         }
         None => {}
     }
+    // Decision-20 §2: ignored prefix advances relative/untaken PCs by one.
+    if matches!(case.table, Table::Dd | Table::Fd) {
+        expected_pc = expected_pc.map(|pc| {
+            if (0x1000..0x1100).contains(&pc) {
+                pc + 1
+            } else {
+                pc
+            }
+        });
+    }
     let report = cpu.step(&mut bus);
     let mut errors = Vec::new();
     let expected = expected_report(case.cycles[usize::from(taken)]);
@@ -769,18 +804,18 @@ fn check_table(table: Table) {
 }
 
 #[test]
-fn independent_census_has_all_896_unique_admitted_encodings() {
+fn independent_census_has_all_1322_unique_admitted_encodings() {
     let cases = transcription();
     let keys: BTreeSet<_> = cases.iter().map(|c| (c.table, c.opcode)).collect();
-    // Decision-20 §1 admits 198 additional ED terminals.
-    assert_eq!(cases.len(), 896);
-    assert_eq!(keys.len(), 896, "duplicate transcription entry");
+    // Decision-20 §2 admits all 252 main terminals per selector.
+    assert_eq!(cases.len(), 1322);
+    assert_eq!(keys.len(), 1322, "duplicate transcription entry");
     for (table, count) in [
         (Table::Main, 252),
         (Table::Cb, 248),
         (Table::Ed, 256),
-        (Table::Dd, 39),
-        (Table::Fd, 39),
+        (Table::Dd, 252),
+        (Table::Fd, 252),
         (Table::DdCb, 31),
         (Table::FdCb, 31),
     ] {
@@ -803,13 +838,10 @@ fn independent_census_has_all_896_unique_admitted_encodings() {
         );
     }
     for table in [Table::Dd, Table::Fd] {
-        let expected: BTreeSet<_> = [
-            0x09, 0x19, 0x21, 0x22, 0x23, 0x29, 0x2A, 0x2B, 0x34, 0x35, 0x36, 0x39, 0x46, 0x4E,
-            0x56, 0x5E, 0x66, 0x6E, 0x70, 0x71, 0x72, 0x73, 0x74, 0x75, 0x77, 0x7E, 0x86, 0x8E,
-            0x96, 0x9E, 0xA6, 0xAE, 0xB6, 0xBE, 0xE1, 0xE3, 0xE5, 0xE9, 0xF9,
-        ]
-        .into_iter()
-        .collect();
+        // Decision-20 §2: only prefix dispatch bytes lack terminal entries.
+        let expected: BTreeSet<_> = (0..=255)
+            .filter(|op| ![0xCB, 0xDD, 0xED, 0xFD].contains(op))
+            .collect();
         assert_eq!(
             keys.iter()
                 .filter_map(|&(t, op)| (t == table).then_some(op))
@@ -854,11 +886,11 @@ fn ed_all_256_encodings_and_all_repeat_termination_paths() {
     check_table(Table::Ed);
 }
 #[test]
-fn dd_all_39_encodings() {
+fn dd_all_252_encodings_and_both_conditional_paths() {
     check_table(Table::Dd);
 }
 #[test]
-fn fd_all_39_encodings() {
+fn fd_all_252_encodings_and_both_conditional_paths() {
     check_table(Table::Fd);
 }
 #[test]

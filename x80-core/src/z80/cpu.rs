@@ -37,7 +37,8 @@ pub(super) enum IndexRegister {
 
 /// Final context shared by all eleven executors (decision-13 rules 3–4).
 /// PC is already past the fetched key byte, including d/op for INDEX_CB.
-/// `instruction.length` is the WHOLE length, not a remaining-byte count.
+/// `instruction.length` includes effective prefixes, not extra selectors
+/// or a remaining-byte count (decision-20 §2). PC tracks consumed length.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) struct Decoded {
     pub(super) table: Table,
@@ -169,7 +170,7 @@ impl Z80 {
             self.latches.ei_delay = false;
             self.latches.parity_note_pending = false;
             match self.execute(system) {
-                Ok(states) => progress.retire(states),
+                Ok(states) => progress.retire_wide(states),
                 Err(unsupported) => {
                     self.registers = boundary_registers;
                     self.latches = boundary_latches;
@@ -255,58 +256,84 @@ impl Z80 {
     /// UM Table 6 p. 42, RL m p. 221; TM Tables 7.0-1/7 pp. 44/50.
     /// DD/FD CB d op uses two M1s and two operand reads: decision-15 rule 5's
     /// UNVERIFIED fourth-byte classification (UM BIT p. 247; TM §3 p. 7).
-    /// Diagnostics are assembled without scanning past the refused key.
-    fn fetch_decode<S: Bus>(&mut self, system: &mut S) -> (Decoded, Unsupported) {
+    /// L: decision-20 §2 (Young v0.91 §§3.2/3.7 pp. 11–14;
+    /// §6.1 p. 23): arbitrary DD/FD chains have one boundary/retirement.
+    /// No prefix buffer or count limit; wrapping PC tracks consumed length.
+    /// Extra costs saturate outside the u8 terminal table. An infinite chain
+    /// need not return. The L diagnostic convention keeps start PC and the
+    /// final decoding context: [last DD/FD, CB, d] for indexed-CB refusals,
+    /// or [CB] for SLL. Earlier selectors are omitted; single-prefix payloads
+    /// stay unchanged. Never scan beyond the refused terminal.
+    fn fetch_decode<S: Bus>(&mut self, system: &mut S) -> (Decoded, Unsupported, u64) {
         let start_pc = self.registers.pc;
-        let first = self.fetch_opcode(system);
         let mut decoded = Decoded {
             table: Table::Main,
-            opcode: first,
+            opcode: 0,
             index: None,
             displacement: None,
             start_pc,
         };
         let mut unsupported = Unsupported {
             pc: start_pc,
-            opcode: first,
+            opcode: 0,
             acknowledge: false,
             preceding: [0; 3],
             preceding_len: 0,
         };
-        match first {
-            0xCB | 0xED => {
-                decoded.table = if first == 0xCB { Table::Cb } else { Table::Ed };
-                decoded.opcode = self.fetch_opcode(system);
-                unsupported.preceding = [first, 0, 0];
-                unsupported.preceding_len = 1;
-            }
-            0xDD | 0xFD => {
-                decoded.table = Table::Index;
-                decoded.index = Some(if first == 0xDD {
-                    IndexRegister::Ix
-                } else {
-                    IndexRegister::Iy
-                });
-                decoded.opcode = self.fetch_opcode(system);
-                unsupported.preceding = [first, 0, 0];
-                unsupported.preceding_len = 1;
-                if decoded.opcode == 0xCB {
+        let mut extra_states = 0u64;
+        loop {
+            let byte = self.fetch_opcode(system);
+            match byte {
+                0xDD | 0xFD => {
+                    decoded.index = Some(if byte == 0xDD {
+                        IndexRegister::Ix
+                    } else {
+                        IndexRegister::Iy
+                    });
+                    // L: decision-20 §2; Young v0.91 §3.7 p. 14,
+                    // §6.1 p. 23. No independent chain/timing capture.
+                    // The final effective prefix is included in INDEX costs.
+                    extra_states = extra_states.saturating_add(4);
+                    unsupported.preceding = [byte, 0, 0];
+                    unsupported.preceding_len = 1;
+                }
+                0xCB if decoded.index.is_some() => {
                     decoded.table = Table::IndexCb;
                     let displacement = self.fetch_operand(system);
                     decoded.displacement = Some(displacement);
                     decoded.opcode = self.fetch_operand(system);
-                    unsupported.preceding = [first, 0xCB, displacement];
+                    unsupported.preceding[1] = 0xCB;
+                    unsupported.preceding[2] = displacement;
                     unsupported.preceding_len = 3;
+                    extra_states = extra_states.saturating_sub(4);
+                    break;
+                }
+                0xCB | 0xED => {
+                    decoded.table = if byte == 0xCB { Table::Cb } else { Table::Ed };
+                    decoded.index = None;
+                    decoded.opcode = self.fetch_opcode(system);
+                    unsupported.preceding = [byte, 0, 0];
+                    unsupported.preceding_len = 1;
+                    break;
+                }
+                _ => {
+                    decoded.opcode = byte;
+                    if decoded.index.is_some() && opcodes::INDEX[usize::from(byte)].is_some() {
+                        decoded.table = Table::Index;
+                        extra_states = extra_states.saturating_sub(4);
+                    } else {
+                        decoded.index = None;
+                    }
+                    break;
                 }
             }
-            _ => {}
         }
         unsupported.opcode = decoded.opcode;
-        (decoded, unsupported)
+        (decoded, unsupported, extra_states)
     }
 
-    fn execute<S: Bus>(&mut self, system: &mut S) -> Result<u8, Unsupported> {
-        let (decoded, unsupported) = self.fetch_decode(system);
+    fn execute<S: Bus>(&mut self, system: &mut S) -> Result<u64, Unsupported> {
+        let (decoded, unsupported, extra_states) = self.fetch_decode(system);
         let table = match decoded.table {
             Table::Main => &opcodes::MAIN,
             Table::Cb => &opcodes::CB,
@@ -318,7 +345,7 @@ impl Z80 {
             return Err(unsupported);
         };
         let path = self.execute_group(system, instruction, &decoded);
-        Ok(instruction.states.of(path))
+        Ok(extra_states.saturating_add(u64::from(instruction.states.of(path))))
     }
 
     fn execute_group<S: Bus>(
@@ -472,7 +499,7 @@ mod tests {
             cpu.registers.pc = 0xFFFE;
             cpu.registers.r = 0xFF;
             let mut bus = FetchBus::new(bytes);
-            let (decoded, _) = cpu.fetch_decode(&mut bus);
+            let (decoded, _, _) = cpu.fetch_decode(&mut bus);
             assert_eq!(
                 decoded,
                 Decoded {
@@ -496,7 +523,7 @@ mod tests {
         cpu.registers.pc = 0xFFFE;
         cpu.registers.r = 0xFF;
         let mut bus = FetchBus::new([0xDD, 0x36, 0x80, 0xA5]);
-        let (decoded, _) = cpu.fetch_decode(&mut bus);
+        let (decoded, _, _) = cpu.fetch_decode(&mut bus);
         assert_eq!(decoded.displacement, None);
         assert_eq!(cpu.registers.pc, 0);
         assert_eq!(cpu.fetch_operand(&mut bus), 0x80);

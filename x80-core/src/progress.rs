@@ -19,8 +19,13 @@ impl Progress {
     /// Counts one completed instruction of `states` states. Both counters
     /// saturate at `u64::MAX` (decision-2).
     pub(crate) fn retire(&mut self, states: u8) {
+        self.retire_wide(u64::from(states));
+    }
+
+    /// Counts one completed instruction with a full-width cost.
+    pub(crate) fn retire_wide(&mut self, states: u64) {
         self.steps = self.steps.saturating_add(1);
-        self.cycles = self.cycles.saturating_add(u64::from(states));
+        self.cycles = self.cycles.saturating_add(states);
     }
 
     pub(crate) const fn report(self, exit: Exit) -> Report {

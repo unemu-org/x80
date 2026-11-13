@@ -96,7 +96,8 @@ pub(super) static ED: [Option<Instruction>; 256] = build(
 
 // R/S exclude only 110, preserving real H/L operands beside indexed memory
 // (UM pp. 75–78, 81–84). P is unrestricted BC,DE,IX/IY,SP (pp. 194, 196).
-// No index halves or ignored-prefix forms are admitted (decision-14 rule 1).
+// Decision-20 §2 adds register-only index halves in their groups. Ignored forms use
+// MAIN at dispatch, with model-local extra prefix cost (L).
 pub(super) static INDEX: [Option<Instruction>; 256] = build(
     &[
         (Group::Load8, super::load8::INDEX),

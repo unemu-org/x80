@@ -7,9 +7,10 @@
 //! The sources share Zilog lineage; agreement is no hardware measurement.
 //!
 //! Audit checklist (each key, group, complete byte length and both totals):
-//! MAIN 252/252; CB 248/248; ED 256/256; INDEX 39/39; INDEX_CB 31/31.
-//! The last two maps each serve DD and FD: 826 stored entries represent
-//! 896 logical terminal encodings (decision-20 §1; historical subset 698).
+//! MAIN 252/252; CB 248/248; ED 256/256; INDEX 85/85; INDEX_CB 31/31.
+//! The last two maps each serve DD and FD: 872 stored entries represent
+//! 988 effective logical entries; 334 ignored MAIN fallbacks bring terminal
+//! coverage to 1322 (decision-20 §§1–2; dispatch slots excluded).
 //! These literal lists neither use the encoding slices nor expand patterns.
 //! The tests below pin the PROVENANCE.md §1 resolutions separately.
 
@@ -851,6 +852,54 @@ const INDEX_ROWS: &[Row] = &[
     (0xE5, L16, 2, 15, 15),
     (0xE9, JP, 2, 8, 8),
     (0xF9, L16, 2, 10, 10),
+    // Decision-20 §2: H operation (Young v0.91 §§3.2/8.1/8.4 pp. 11–12/26/30;
+    // Rak .inc_x/.dec_x/.ld_x_n/.ld_x_x/.alo_a_x/.alo_a_y); L costs.
+    (0x24, A8, 2, 8, 8),
+    (0x25, A8, 2, 8, 8),
+    (0x26, L8, 3, 11, 11),
+    (0x2C, A8, 2, 8, 8),
+    (0x2D, A8, 2, 8, 8),
+    (0x2E, L8, 3, 11, 11),
+    (0x44, L8, 2, 8, 8),
+    (0x45, L8, 2, 8, 8),
+    (0x4C, L8, 2, 8, 8),
+    (0x4D, L8, 2, 8, 8),
+    (0x54, L8, 2, 8, 8),
+    (0x55, L8, 2, 8, 8),
+    (0x5C, L8, 2, 8, 8),
+    (0x5D, L8, 2, 8, 8),
+    (0x60, L8, 2, 8, 8),
+    (0x61, L8, 2, 8, 8),
+    (0x62, L8, 2, 8, 8),
+    (0x63, L8, 2, 8, 8),
+    (0x64, L8, 2, 8, 8),
+    (0x65, L8, 2, 8, 8),
+    (0x67, L8, 2, 8, 8),
+    (0x68, L8, 2, 8, 8),
+    (0x69, L8, 2, 8, 8),
+    (0x6A, L8, 2, 8, 8),
+    (0x6B, L8, 2, 8, 8),
+    (0x6C, L8, 2, 8, 8),
+    (0x6D, L8, 2, 8, 8),
+    (0x6F, L8, 2, 8, 8),
+    (0x7C, L8, 2, 8, 8),
+    (0x7D, L8, 2, 8, 8),
+    (0x84, A8, 2, 8, 8),
+    (0x85, A8, 2, 8, 8),
+    (0x8C, A8, 2, 8, 8),
+    (0x8D, A8, 2, 8, 8),
+    (0x94, A8, 2, 8, 8),
+    (0x95, A8, 2, 8, 8),
+    (0x9C, A8, 2, 8, 8),
+    (0x9D, A8, 2, 8, 8),
+    (0xA4, A8, 2, 8, 8),
+    (0xA5, A8, 2, 8, 8),
+    (0xAC, A8, 2, 8, 8),
+    (0xAD, A8, 2, 8, 8),
+    (0xB4, A8, 2, 8, 8),
+    (0xB5, A8, 2, 8, 8),
+    (0xBC, A8, 2, 8, 8),
+    (0xBD, A8, 2, 8, 8),
 ];
 
 // UM Fig. 39 p. 54 / Table 14 pp. 55–57 reconciled with entries
@@ -945,8 +994,8 @@ fn ed_map_matches_all_256_literal_rows() {
 }
 
 #[test]
-fn index_map_matches_all_39_literal_rows_and_its_complement() {
-    assert_map(&INDEX, INDEX_ROWS, 39);
+fn index_map_matches_all_85_literal_rows_and_its_complement() {
+    assert_map(&INDEX, INDEX_ROWS, 85);
 }
 
 #[test]
@@ -955,7 +1004,7 @@ fn index_cb_map_matches_all_31_literal_rows_and_its_complement() {
 }
 
 #[test]
-fn shared_index_maps_represent_896_logical_encodings() {
+fn shared_index_maps_represent_988_effective_logical_entries() {
     // decision-14 rule 1 counts DD and FD separately, while decision-13
     // rule 3 stores each shared table once.
     let count = MAIN.iter().flatten().count()
@@ -963,8 +1012,9 @@ fn shared_index_maps_represent_896_logical_encodings() {
         + ED.iter().flatten().count()
         + 2 * INDEX.iter().flatten().count()
         + 2 * INDEX_CB.iter().flatten().count();
-    // Decision-20 §1 adds 198 ED encodings to the documented 698.
-    assert_eq!(count, 896);
+    // Decision-20 §2 adds 46 effective half entries per selector; ignored
+    // MAIN fallbacks are dispatcher-owned and not duplicated in INDEX.
+    assert_eq!(count, 988);
 }
 
 #[test]
@@ -976,16 +1026,19 @@ fn prefix_dispatch_slots_have_no_terminal_entry() {
 }
 
 #[test]
-fn documented_only_exclusions_are_explicit() {
+fn remaining_exclusions_and_main_fallbacks_are_explicit() {
     // decision-14 rule 1; UM Fig. 39 p. 54, IN p. 296, OUT p. 307,
     // indexed entries pp. 75–87,217–237,247–260; TM pp. 44,50–51,54.
     // Decision-20 §1 now admits TM's ED70; retain CB/index exclusions.
     assert!(CB[0x30..=0x37].iter().all(Option::is_none));
-    // Decision-20 §1 removes ED exclusions; §§2–3 are later work.
+    // Decision-20 §§1–2 remove ED and DD/FD main refusals.
     assert!(ED.iter().all(Option::is_some));
-    for key in [0x00, 0x44, 0x65, 0x76, 0xCB, 0xDD, 0xED, 0xFD] {
+    for key in [0x00, 0x76, 0xCB, 0xDD, 0xED, 0xFD] {
         assert!(INDEX[key].is_none());
     }
+    // Decision-20 §2: these now substitute index halves.
+    assert_row(&INDEX, (0x44, L8, 2, 8, 8));
+    assert_row(&INDEX, (0x65, L8, 2, 8, 8));
     for key in [0x00, 0x36, 0x47, 0x7F, 0xC0] {
         assert!(INDEX_CB[key].is_none());
     }

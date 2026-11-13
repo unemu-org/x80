@@ -4,11 +4,12 @@
 //! Entry citations below use printed pages; PDF = printed + 14.
 //! Independent cross-read: 03-0029-01 (1977), Table 7.0-4, p. 47
 //! (PDF = printed + 6). Whole-instruction lengths and T-state totals include
-//! every prefix, operand and displacement (decision-13 rules 3–5).
+//! effective prefixes, operands and displacements (decision-13 rules 3–5).
+//! Extra ignored/repeated selectors are accounted in cpu.rs (decision-20 §2).
 
-use super::alu;
 use super::cpu::{Decoded, IndexRegister, Table};
 use super::opcodes::{Encoding, Instruction, States};
+use super::{alu, load8};
 use super::{Registers, Z80};
 use crate::decode::Path;
 use crate::{Bus, MemoryAccess};
@@ -75,6 +76,15 @@ pub(super) const MAIN: &[Encoding] = &[
 ];
 
 pub(super) const INDEX: &[Encoding] = &[
+    // H operation/flags: decision-20 §2; Young v0.91 §3.2 pp. 11–12 /
+    // §8.4 p. 30; Rak v1.2a .inc_x/.dec_x/.alo_a_x/.alo_a_y.
+    // New costs L. O selects all eight ordinary ALU operations.
+    Encoding::new(b"00100100", 2, States::single(8)),
+    Encoding::new(b"00100101", 2, States::single(8)),
+    Encoding::new(b"00101100", 2, States::single(8)),
+    Encoding::new(b"00101101", 2, States::single(8)),
+    Encoding::new(b"10OOO100", 2, States::single(8)),
+    Encoding::new(b"10OOO101", 2, States::single(8)),
     // UM ADD A,(IX/IY+d), pp. 149–150.
     Encoding::new(b"10000110", 3, States::single(19)),
     // UM ADC A,(IX/IY+d), pp. 151–152.
@@ -110,7 +120,13 @@ pub(super) fn execute<S: Bus>(
     // INDEX d belongs to the executor and precedes the data read (decision-15
     // rule 5). UM pp. 149–150,168–171; TM p. 47: signed two's-complement
     // displacement. The u16 address wrap is derived from index width.
-    let address = if decoded.table == Table::Index {
+    let opcode = decoded.opcode;
+    let code = if opcode & 0xC0 == 0 {
+        (opcode >> 3) & 7
+    } else {
+        opcode & 7
+    };
+    let address = if decoded.table == Table::Index && code == 6 {
         let displacement = i16::from(cpu.fetch_operand(system) as i8);
         let base = match decoded.index {
             Some(IndexRegister::Ix) => cpu.registers().ix,
@@ -121,20 +137,29 @@ pub(super) fn execute<S: Bus>(
     } else {
         cpu.registers().hl()
     };
-    let opcode = decoded.opcode;
+    // H: decision-20 §2; Young v0.91 §3.2 / §8.4 p. 30;
+    // Rak v1.2a .inc_x/.dec_x, .alo_a_x/.alo_a_y. Register-only
+    // H/L use selected halves; memory still follows documented INDEX d.
     let carry = cpu.registers().flags.carry;
     if opcode & 0xC0 == 0 {
         // INC/DEC r and memory: UM pp. 165–171; TM p. 47. Read before
         // writing the same location, both as Data (decision-15 rule 5).
         // Carry is preserved by the ALU and does not enter the byte result.
         let code = (opcode >> 3) & 7;
-        let value = read_operand(cpu.registers(), system, code, address);
+        let value = read_operand(cpu.registers(), system, code, address, decoded.index);
         let (result, flags) = if opcode & 1 == 0 {
             alu::increment(value, carry)
         } else {
             alu::decrement(value, carry)
         };
-        write_operand(cpu.registers_mut(), system, code, address, result);
+        write_operand(
+            cpu.registers_mut(),
+            system,
+            code,
+            address,
+            result,
+            decoded.index,
+        );
         cpu.registers_mut().flags = flags;
     } else {
         // UM pp. 145–164; TM p. 47. Only n uses an immediate byte; r and
@@ -143,7 +168,7 @@ pub(super) fn execute<S: Bus>(
         let source = if opcode & 0xC0 == 0xC0 {
             cpu.fetch_operand(system)
         } else {
-            read_operand(cpu.registers(), system, opcode & 7, address)
+            read_operand(cpu.registers(), system, opcode & 7, address, decoded.index)
         };
         let a = cpu.registers().a;
         let (result, flags) = match (opcode >> 3) & 7 {
@@ -166,37 +191,34 @@ pub(super) fn execute<S: Bus>(
 }
 
 // Register fields: UM pp. 145,152,154,156,158,160,162,164–165,170;
-// TM Table 7.0-4 p. 47. Memory is 110; no index halves (decision-14 rule 1).
-fn read_operand<S: Bus>(registers: &Registers, system: &mut S, code: u8, address: u16) -> u8 {
-    match code {
-        0 => registers.b,
-        1 => registers.c,
-        2 => registers.d,
-        3 => registers.e,
-        4 => registers.h,
-        5 => registers.l,
-        6 => system.read(address, MemoryAccess::Data),
-        _ => registers.a,
+// TM Table 7.0-4 p. 47. Index halves follow decision-20 §2 as cited above.
+fn read_operand<S: Bus>(
+    registers: &Registers,
+    system: &mut S,
+    code: u8,
+    address: u16,
+    index: Option<IndexRegister>,
+) -> u8 {
+    if code == 6 {
+        system.read(address, MemoryAccess::Data)
+    } else {
+        load8::read_register(registers, code, index)
     }
 }
 
-// INC/DEC destinations, with memory address captured before the operation:
-// UM pp. 165–171; TM p. 47. Data kind is decision-15 rule 5's API mapping.
+// INC/DEC destinations: UM pp. 165–171; TM p. 47; decision-20 §2
+// (H index-half operation, sources above). Data kind: decision-15 rule 5.
 fn write_operand<S: Bus>(
     registers: &mut Registers,
     system: &mut S,
     code: u8,
     address: u16,
     value: u8,
+    index: Option<IndexRegister>,
 ) {
-    match code {
-        0 => registers.b = value,
-        1 => registers.c = value,
-        2 => registers.d = value,
-        3 => registers.e = value,
-        4 => registers.h = value,
-        5 => registers.l = value,
-        6 => system.write(address, value, MemoryAccess::Data),
-        _ => registers.a = value,
+    if code == 6 {
+        system.write(address, value, MemoryAccess::Data);
+    } else {
+        load8::write_register(registers, code, value, index);
     }
 }

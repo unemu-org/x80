@@ -431,13 +431,15 @@ mod tests {
     }
     #[test]
     fn refusal_halt_bad_ports_and_bad_channel_never_return_success() {
-        let r = run(&[0xdd, 0xdd], config(100)).unwrap();
+        // DD DD now executes as an ignored prefix (decision-20 §2); SLL
+        // CB 30 still refuses until decision-20 §3 lands.
+        let r = run(&[0xcb, 0x30], config(100)).unwrap();
         assert_eq!(
             r.reason,
             Reason::Unsupported {
                 step: 1,
                 pc: 0x8000,
-                encoding: vec![0xdd, 0xdd],
+                encoding: vec![0xcb, 0x30],
             }
         );
         assert_eq!((r.steps, r.cycles), (0, 0));
