@@ -42,12 +42,12 @@ cargo run -p x80-oracle --release --offline --locked -- --model 8085 oracles/808
 cargo run -p x80-oracle --release --offline --locked -- --model 8085 oracles/8080-exercisers/8085EXM.COM --cycle-cap 100000000000
 ```
 
-`--model 8080|8085` selects the CPU (default 8080). Known programs must use their
+`--model 8080|8085|z80` selects the CPU (default 8080). Known programs must use their
 intended model: 8080EXM requires 8080, 8085EXM requires 8085, and 8080PRE supports
-either. A mismatch is an error before execution. Both models share the CP/M host,
+either. A mismatch is an error before execution. The 8080/8085 models share the CP/M host,
 including the undocumented 08h BDOS rendezvous (decisions 3 and 11).
 
-The CLI identifies the program bytes by SHA-256, using the three pinned digests
+For 8080/8085, the CLI identifies the program bytes by SHA-256, using the three pinned digests
 from `oracles/SHA256SUMS.fetched` (8085EXM added at oracles commit `f379261`), then
 echoes the program's console output and reports total steps, cycles, exit reason
 and verdict. Only those digests can receive a PASS/FAIL verdict. Exit 0 requires
@@ -86,6 +86,62 @@ protocol regardless of filename. Optional `--oracle pre` or `--oracle exm` check
 the expected identity of a known program for the selected model; it cannot give
 an unknown digest a verdict. No interrupts or host stop are requested; on the
 8085, SID is low and SOD notifications are ignored.
+
+For Z80, run the pinned preliminary test first, then the full 58-group release
+campaign (the larger cap accommodates the long ALU groups):
+
+```sh
+cargo run -p x80-oracle --release --offline --locked -j 4 -- --model z80 oracles/z80-exercisers/prelim.com
+cargo run -p x80-oracle --release --offline --locked -j 4 -- --model z80 oracles/z80-exercisers/zexdoc.com --cycle-cap 1000000000000
+```
+
+The Z80 path accepts only the original `prelim.com` and `zexdoc.com` SHA-256
+pins in `oracles/SHA256SUMS.fetched`; unknown digests and model mismatches are
+errors before execution. Filenames and `--oracle pre|exm` cannot grant a verdict.
+No fetched program is needed for the harness unit or CLI tests.
+
+The Z80 CP/M host leaves INT/NMI unasserted and supports the same BDOS functions
+2 and 9, writable RAM, entry 0100h, a usable initial SP, the stack word at 0006h,
+and JP 0000h exit. Its private BDOS fetch response is **ED 70**, a refused hole
+under decision-14 (UM008011-0816 p. 296); 08h remains documented EX AF,AF'.
+The PROVENANCE §2 audit confirms neither program executes ED holes, including
+ED 70. Only an Unsupported exit at PC 0005h with preceding byte ED and refused
+opcode 70, while the host awaits registers, services this rendezvous. The second
+byte is synthesized only for OpcodeFetch at 0006h; Data reads of the stack word
+remain intact. The retry returns the installed RET. Core semantics are unchanged.
+Z80 refusals outside this rendezvous print PC, opcode and all preceding bytes;
+unexpected port accesses report the full 16-bit port address (decision-15).
+
+ZEXDOC filtering happens in loaded RAM, after digest selection, without modifying
+the disk file, descriptors, expected CRCs or instruction bytes. The host first
+verifies all 67 original little-endian pointers at file offset 003Ah (guest
+013Ah), including the zero terminator at 00C0h; each descriptor address must be
+01C2h + 0060h × its original zero-based index. A mismatch fails before any patch
+or guest execution. The table is compacted to the 58 judged pointers in order,
+followed by zeroes. The nine excluded groups are each printed to stderr as
+`not run (decision-14)`: `alu8rx`, `incxh`, `incxl`, `incyh`, `incyl`, `ld8ixy`,
+`ld8rrx`, `rotxy`, `rotz80`. They never execute; no Unsupported result is waived.
+
+Prelim requires its exact completion output; silent early failure, a printed
+failure address, extra lines or trailing text fail. ZEXDOC requires its banner,
+all 58 complete descriptor/results in audited order, and completion message.
+Every nonempty line is consumed; unknown, missing, duplicated, reordered or
+extra lines fail. Each judged group must print the program's exact OK suffix,
+which follows comparison with all four expected CRC bytes. ZEXDOC does not
+print CRCs on OK. ERROR results include eight lowercase hexadecimal digits in
+each expected/found field and always fail; malformed or partial results also
+fail. Exit 0 additionally requires the boot-stub halt at PC 0001h. A timeout
+remains FAIL even if earlier groups printed OK.
+
+A bounded debug smoke can be run without the release campaign:
+
+```sh
+cargo run -p x80-oracle --offline --locked -j 4 -- --model z80 oracles/z80-exercisers/prelim.com
+cargo run -p x80-oracle --offline --locked -j 4 -- --model z80 oracles/z80-exercisers/zexdoc.com --cycle-cap 5000000000
+```
+
+The capped command intentionally exits 1 if it reaches the cap before completion;
+it is evidence for only the complete groups printed before that point.
 
 ## V20 contract fixtures
 

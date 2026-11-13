@@ -519,6 +519,31 @@ a Z80 host: 08h is documented EX AF,AF' (T8 p. 47). Selecting an appropriate
 Z80 host rendezvous and implementing digest-keyed table filtering belong to
 the later harness bead. Neither of these Z80 programs was executed in this audit.
 
+Results structure (x80-bi2.26): the digest-selected Z80 harness now runs prelim
+as judged and compacts ZEXDOC's verified in-memory table to the 58 judged groups,
+reporting the nine excluded labels as `not run (decision-14)`. Its private BDOS
+rendezvous is ED 70, recognized only at PC 0005h by the complete Unsupported
+payload (preceding ED, opcode 70); the audit above excludes ED holes from both
+guests. The host preserves 08h as EX AF,AF' and the Data stack word at 0006h.
+The exact output grammar and release commands are in
+[commands.md, Oracle runs](backlog/docs/commands.md#oracle-runs).
+
+Debug smoke, 2026-11-13, MEASURED: prelim exits 0, PASS, at 898 steps /
+8,703 cycles, boot-stub halt PC 0001h. ZEXDOC with cycle cap 5,000,000,000
+prints OK for `adc16`, `add16`, `add16x`, then times out during `add16y` at
+618,447,422 steps / 5,000,000,002 cycles; exit 1, FAIL (incomplete fourth group
+and no completion). All nine exclusions are reported. This is partial debug
+execution evidence only.
+
+Release campaign, 2026-11-13, MEASURED (supervisor, release build, commands in
+[commands.md](backlog/docs/commands.md#oracle-runs)): prelim prints "Preliminary
+tests complete", exit 0, PASS, 898 steps / 8,703 cycles. ZEXDOC with cycle cap
+10^12 prints OK for all 58 judged groups in table order, then "Tests complete";
+exit 0, PASS, 4,432,084,992 steps / 35,946,550,360 cycles, about 97 s wall
+time. The nine excluded groups are reported "not run (decision-14)". The pass
+found no falsifying case; it licenses no behaviour, which stays pinned to the
+cited pages and witnesses.
+
 #### Recorded Z80 candidates
 
 | Candidate | Disposition | Licence / host evidence |

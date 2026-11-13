@@ -1,16 +1,21 @@
 //! Offline CP/M-style host; oracle artifacts are never embedded or downloaded.
 //!
 //! Host ABI references below name the pinned files in
-//! `oracles/8080-exercisers/` (PROVENANCE.md §2). No oracle implementation is
-//! incorporated here. The core contract is decision-5, items 3–8.
+//! `oracles/8080-exercisers/` and `oracles/z80-exercisers/` (PROVENANCE.md §2).
+//! No oracle implementation is incorporated here. Core contracts are
+//! decision-5, items 3–8, and decisions 14–15 for Z80.
 
 #![forbid(unsafe_code)]
 
+mod fingerprints;
 mod sha256;
+mod z80_oracles;
+
+use fingerprints::fingerprint;
 
 use std::io::{self, Write};
 
-use x80_core::{i8080, i8085};
+use x80_core::{i8080, i8085, z80};
 use x80_core::{Budget, Bus, Control, Exit, MemoryAccess};
 
 const LOAD: usize = 0x0100;
@@ -69,20 +74,12 @@ const EXERCISER_GRAMMAR: OutputGrammar = OutputGrammar {
     error_suffix: (19, 0x7a5d757e1ffba533),
 };
 
-fn fingerprint(bytes: &[u8]) -> (usize, u64) {
-    (
-        bytes.len(),
-        bytes.iter().fold(0xcbf29ce484222325_u64, |hash, &byte| {
-            (hash ^ u64::from(byte)).wrapping_mul(0x100000001b3)
-        }),
-    )
-}
-
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum Model {
     #[default]
     I8080,
     I8085,
+    Z80,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -90,6 +87,8 @@ pub enum Oracle {
     Preliminary,
     Exerciser,
     Exerciser8085,
+    PreliminaryZ80,
+    ExerciserZ80,
 }
 
 impl Oracle {
@@ -110,12 +109,39 @@ impl Oracle {
             "95e430cf2d7793df59c4c1d61a58a6a3ff2260b785067fb35abe5486c57102e1" => {
                 Some(Self::Exerciser8085)
             }
+            "3b3578f19030a4df7e25ce852f763af26053b12582a576c4dffb014aa7c590d1" => {
+                Some(Self::PreliminaryZ80)
+            }
+            "34923a7ed82285d3038b2d54bd64899e12173eebb61f9d07b4fc72e78af2ae8f" => {
+                Some(Self::ExerciserZ80)
+            }
             _ => None,
+        }
+    }
+
+    /// Groups excluded before execution under decision-14, in table order.
+    pub fn not_run(self) -> &'static [&'static str] {
+        if self == Self::ExerciserZ80 {
+            &z80_oracles::NOT_RUN
+        } else {
+            &[]
         }
     }
 
     pub fn check_model(self, model: Model) -> io::Result<()> {
         match (self, model) {
+            (Self::PreliminaryZ80 | Self::ExerciserZ80, Model::I8080 | Model::I8085) => {
+                Err(io::Error::new(
+                    io::ErrorKind::InvalidInput,
+                    "Z80 oracle requires --model z80",
+                ))
+            }
+            (Self::Preliminary | Self::Exerciser | Self::Exerciser8085, Model::Z80) => {
+                Err(io::Error::new(
+                    io::ErrorKind::InvalidInput,
+                    "--model z80 requires a pinned Z80 oracle",
+                ))
+            }
             (Self::Exerciser, Model::I8085) => Err(io::Error::new(
                 io::ErrorKind::InvalidInput,
                 "8080EXM requires --model 8080",
@@ -145,6 +171,11 @@ impl Oracle {
     }
 
     fn validate_output(self, output: &[u8]) -> Result<(), String> {
+        match self {
+            Self::PreliminaryZ80 => return z80_oracles::validate_preliminary(output),
+            Self::ExerciserZ80 => return z80_oracles::validate_exerciser(output),
+            _ => {}
+        }
         if self == Self::Preliminary {
             // 8080PRE.MAC:216–221: match the complete completion message
             // without reproducing its text.
@@ -302,8 +333,14 @@ impl Default for Config {
 #[derive(Debug, PartialEq, Eq)]
 pub enum Reason {
     NormalExit,
-    UnexpectedHalt { pc: u16 },
-    Unsupported { pc: u16, opcode: u8 },
+    UnexpectedHalt {
+        pc: u16,
+    },
+    Unsupported {
+        pc: u16,
+        opcode: u8,
+        preceding: Vec<u8>,
+    },
     Timeout,
     HostError(String),
 }
@@ -328,6 +365,7 @@ impl Outcome {
 
 struct Host<'a, W> {
     ram: Box<[u8; 65536]>,
+    model: Model,
     console: &'a mut W,
     output: Vec<u8>,
     arguments: Option<(u8, u16)>,
@@ -348,7 +386,8 @@ impl<W: Write> Host<'_, W> {
     }
 
     fn bdos(&mut self, function: u8, address: u16) {
-        // 8080PRE.MAC:216–221,260–271; 8080EXM.MAC:924–958:
+        // 8080PRE.MAC:216–221,260–271; 8080EXM.MAC:924–958;
+        // prelim.z80:269–274,314–324; zexdoc.z80:1187–1210:
         // function 2 consumes E, function 9 consumes a dollar-ended DE string.
         match function {
             2 => self.print(&[address as u8]),
@@ -373,6 +412,15 @@ impl<W: Write> Host<'_, W> {
 
 impl<W: Write> Bus for Host<'_, W> {
     fn read(&mut self, address: u16, kind: MemoryAccess) -> u8 {
+        // ED 70 is a decision-14 hole. Only synthesize its second byte for
+        // this private fetch, never for Data reads of the stack word at 0006h.
+        if self.model == Model::Z80
+            && self.awaiting_registers
+            && address == 6
+            && kind == MemoryAccess::OpcodeFetch
+        {
+            return 0x70;
+        }
         if address == 5 && kind == MemoryAccess::OpcodeFetch {
             if let Some((function, pointer)) = self.arguments.take() {
                 self.bdos(function, pointer);
@@ -381,9 +429,15 @@ impl<W: Write> Bus for Host<'_, W> {
                 // rendezvous returns through decision-5 item 6: no instruction,
                 // cycles or register changes. The runner supplies C/DE and
                 // retries this fetch, servicing BDOS before the installed RET.
-                // 08h is unsupported on both models (decisions 3 and 11).
+                // 8080/8085 use unsupported 08h (decisions 3 and 11).
+                // Z80 uses ED 70 (decision-14); PROVENANCE §2's audit
+                // confirms neither Z80 guest executes any ED hole.
                 self.awaiting_registers = true;
-                return RENDEZVOUS;
+                return if self.model == Model::Z80 {
+                    0xed
+                } else {
+                    RENDEZVOUS
+                };
             }
         }
         self.ram[usize::from(address)]
@@ -401,12 +455,23 @@ impl<W: Write> Bus for Host<'_, W> {
     fn output(&mut self, port: u8, _value: u8) {
         self.error = Some(format!("unexpected output port {port:02X}"));
     }
+
+    fn input16(&mut self, port: u16) -> u8 {
+        self.error = Some(format!("unexpected input port {port:04X}"));
+        0
+    }
+
+    fn output16(&mut self, port: u16, _value: u8) {
+        self.error = Some(format!("unexpected output port {port:04X}"));
+    }
 }
 
 impl<W> Control for Host<'_, W> {}
 impl<W> i8080::Inputs for Host<'_, W> {}
 // decision-12: no interrupts, SID low, SOD notifications ignored.
 impl<W> i8085::Inputs for Host<'_, W> {}
+// decision-15: NMI and INT are never asserted.
+impl<W> z80::Inputs for Host<'_, W> {}
 
 // Local adapters keep the CP/M host and run loop shared. No model abstraction
 // is added to the core (decision-6).
@@ -447,6 +512,7 @@ macro_rules! impl_cpu {
 
 impl_cpu!(i8080::I8080);
 impl_cpu!(i8085::I8085);
+impl_cpu!(z80::Z80);
 
 pub fn run<W: Write>(program: &[u8], config: Config, console: &mut W) -> io::Result<Outcome> {
     if program.len() > 65536 - LOAD || program.is_empty() || config.slice_cycles == 0 {
@@ -458,10 +524,16 @@ pub fn run<W: Write>(program: &[u8], config: Config, console: &mut W) -> io::Res
     let oracle = Oracle::identify(program);
     if let Some(oracle) = oracle {
         oracle.check_model(config.model)?;
+    } else if config.model == Model::Z80 {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "--model z80 refuses unknown digest; requires pinned prelim.com or zexdoc.com",
+        ));
     }
     match config.model {
         Model::I8080 => run_cpu::<i8080::I8080, W>(program, config, console, oracle),
         Model::I8085 => run_cpu::<i8085::I8085, W>(program, config, console, oracle),
+        Model::Z80 => run_cpu::<z80::Z80, W>(program, config, console, oracle),
     }
 }
 
@@ -473,6 +545,7 @@ fn run_cpu<C: Cpu, W: Write>(
 ) -> io::Result<Outcome> {
     let mut host = Host {
         ram: Box::new([0; 65536]),
+        model: config.model,
         console,
         output: Vec::new(),
         arguments: None,
@@ -480,10 +553,14 @@ fn run_cpu<C: Cpu, W: Write>(
         error: None,
     };
     host.ram[LOAD..LOAD + program.len()].copy_from_slice(program);
+    if oracle == Some(Oracle::ExerciserZ80) {
+        z80_oracles::patch_table(&mut host.ram[LOAD..LOAD + program.len()])?;
+    }
     // Host stubs implement the CALL 5 / JMP 0 ABI, rather than CPU facts.
     // 8080PRE.MAC:44,52,55,216–219,264–266: initial CALL needs a stack;
     // nonzero HLT is an emergency. 8080EXM.MAC:53,112–116,127–130:
     // load at 0100h, get stack from word 6, and return to the boot entry.
+    // Z80 host ABI: prelim.z80:269–274; zexdoc.z80:80–98 (PROVENANCE §2).
     host.ram[0] = 0x76;
     host.ram[5] = 0xc9;
     host.ram[6..8].copy_from_slice(&STACK.to_le_bytes());
@@ -521,7 +598,12 @@ fn run_cpu<C: Cpu, W: Write>(
             Exit::Unsupported(unsupported)
                 if host.awaiting_registers
                     && unsupported.pc == 5
-                    && unsupported.opcode == RENDEZVOUS =>
+                    && !unsupported.acknowledge
+                    && if config.model == Model::Z80 {
+                        unsupported.opcode == 0x70 && unsupported.preceding() == [0xed]
+                    } else {
+                        unsupported.opcode == RENDEZVOUS && unsupported.preceding().is_empty()
+                    } =>
             {
                 host.awaiting_registers = false;
                 host.arguments = Some(cpu.bdos_arguments());
@@ -530,6 +612,7 @@ fn run_cpu<C: Cpu, W: Write>(
                 break Reason::Unsupported {
                     pc: unsupported.pc,
                     opcode: unsupported.opcode,
+                    preceding: unsupported.preceding().to_vec(),
                 }
             }
             other => break Reason::HostError(format!("unexpected core exit: {other:?}")),
@@ -611,7 +694,8 @@ mod tests {
             result.reason,
             Reason::Unsupported {
                 pc: 0x100,
-                opcode: 8
+                opcode: 8,
+                preceding: vec![],
             }
         );
         assert_eq!((result.steps, result.cycles), (0, 0));
@@ -1031,7 +1115,8 @@ mod tests {
             unsupported.reason,
             Reason::Unsupported {
                 pc: 0x100,
-                opcode: 8
+                opcode: 8,
+                preceding: vec![],
             }
         );
         assert_eq!((unsupported.steps, unsupported.cycles), (0, 0));
@@ -1050,6 +1135,117 @@ mod tests {
                 &mut Vec::new()
             )
             .is_err());
+        }
+    }
+
+    #[test]
+    fn z80_digest_pins_and_model_pairings_are_exclusive() {
+        for (digest, oracle) in [
+            (
+                "3b3578f19030a4df7e25ce852f763af26053b12582a576c4dffb014aa7c590d1",
+                Oracle::PreliminaryZ80,
+            ),
+            (
+                "34923a7ed82285d3038b2d54bd64899e12173eebb61f9d07b4fc72e78af2ae8f",
+                Oracle::ExerciserZ80,
+            ),
+        ] {
+            assert_eq!(Oracle::from_digest(digest), Some(oracle));
+            assert!(oracle.check_model(Model::Z80).is_ok());
+            for model in [Model::I8080, Model::I8085] {
+                assert!(oracle.check_model(model).is_err());
+            }
+        }
+        for oracle in [
+            Oracle::Preliminary,
+            Oracle::Exerciser,
+            Oracle::Exerciser8085,
+        ] {
+            assert!(oracle.check_model(Model::Z80).is_err());
+            assert!(oracle.not_run().is_empty());
+        }
+        assert_eq!(Oracle::identify(b"prelim.com"), None);
+        assert_eq!(
+            Oracle::ExerciserZ80.not_run(),
+            [
+                "alu8rx", "incxh", "incxl", "incyh", "incyl", "ld8ixy", "ld8rrx", "rotxy",
+                "rotz80",
+            ]
+        );
+        let mut console = Vec::new();
+        assert!(run(
+            &[0x76],
+            Config {
+                model: Model::Z80,
+                ..Config::default()
+            },
+            &mut console
+        )
+        .is_err());
+        assert!(console.is_empty());
+    }
+
+    fn z80_synthetic(program: &[u8]) -> Outcome {
+        // Deliberately bypass digest selection only inside these host unit tests.
+        run_cpu::<z80::Z80, _>(
+            program,
+            Config {
+                model: Model::Z80,
+                cycle_cap: 1000,
+                slice_cycles: 1,
+            },
+            &mut Vec::new(),
+            None,
+        )
+        .unwrap()
+    }
+
+    #[test]
+    fn z80_bdos_uses_a_hole_and_preserves_documented_exchange_and_stack_word() {
+        // Read the host stack word as Data, then exercise documented 08h on
+        // both sides of output. A synthetic 08h trap would corrupt this run.
+        let program = [
+            0x2a, 6, 0, 0xf9, // LD HL,(6); LD SP,HL
+            0x3e, b'A', 0x08, 0x3e, b'B', 0x08, // A='A', A'='B'
+            0x5f, 0x0e, 2, 0xcd, 5, 0, // LD E,A; LD C,2; CALL 5
+            0x08, 0x5f, 0x0e, 2, 0xcd, 5, 0, 0x11, 0x22, 1, 0x0e, 9, 0xcd, 5, 0, 0xc3, 0, 0, b'!',
+            b'$',
+        ];
+        let outcome = z80_synthetic(&program);
+        assert_eq!(outcome.reason, Reason::NormalExit);
+        assert_eq!(outcome.output, b"AB!");
+        assert_eq!(outcome.verdict, None);
+    }
+
+    #[test]
+    fn z80_holes_outside_bdos_are_never_swallowed_and_keep_preceding_bytes() {
+        for (program, opcode, preceding) in [
+            (vec![0xed, 0x70], 0x70, vec![0xed]),
+            (vec![0xdd, 0x44], 0x44, vec![0xdd]),
+            (vec![0xfd, 0xcb, 0x80, 0x47], 0x47, vec![0xfd, 0xcb, 0x80]),
+        ] {
+            let outcome = z80_synthetic(&program);
+            assert_eq!(
+                outcome.reason,
+                Reason::Unsupported {
+                    pc: 0x100,
+                    opcode,
+                    preceding
+                }
+            );
+            assert_eq!((outcome.steps, outcome.cycles), (0, 0));
+        }
+    }
+
+    #[test]
+    fn z80_port_errors_keep_the_full_address() {
+        // Decision-15: use Bus's 16-bit callbacks, never truncate diagnostics.
+        for (opcode, message) in [
+            (0xdb, "unexpected input port AB12"),
+            (0xd3, "unexpected output port AB12"),
+        ] {
+            let outcome = z80_synthetic(&[0x3e, 0xab, opcode, 0x12]);
+            assert_eq!(outcome.reason, Reason::HostError(message.into()));
         }
     }
 }
