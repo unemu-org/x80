@@ -252,6 +252,232 @@ identified (searched 2026-11-12: the SingleStepTests and ProcessorTests collecti
 emulator-generated corpora are not hardware witnesses. Hardware
 captures describe the measured silicon, not every family member.
 
+### Z80 exercisers: fetch-only pins and documented-encoding audit
+
+Maintainer decision, 2026-11-13 (x80-bi2.5): M4 covers documented Z80 behavior
+only. Bits 5 and 3, IXH/IXL/IYH/IYL, SLL, WZ/MEMPTR and all prefixed holes are
+out of scope; every undocumented encoding returns Unsupported. The two programs
+below are falsifying oracles, never sources of semantics. GPL files, including
+sources and COPYING, are fetched locally and never committed. Pins and fetch
+entries occupy separate Z80 exerciser blocks in the shared stash.
+
+Origin for both: Frank D. Cringle, © 1994, original yaze 1.14 distribution,
+[begoon/yaze at 993d8647eabf95c61e49b134198a240ab577358b](https://github.com/begoon/yaze/tree/993d8647eabf95c61e49b134198a240ab577358b).
+The supplied lineage identifies an unchanged import (README; import commit
+4424f29, 2012-10-30). Raw files are pinned at that full commit, not a branch.
+Only the test sources and COPYING were inspected; emulator implementation is
+not evidence.
+
+| Program | Origin paths at the above pin | SHA-256 (.COM; source) | Licence | CRC provenance and role |
+| --- | --- | --- | --- | --- |
+| Preliminary Z80 test | `test/prelim.com`, `test/prelim.z80` | `3b3578f19030a4df7e25ce852f763af26053b12582a576c4dffb014aa7c590d1`; `afefdd15c42ea8d0c123ad099108962ca5ad26b3ffd043d2ba578c2b01cab1fd` | GPL-2.0-or-later (source header) | No CRC: explicit comparisons and completion text; **judged**, documented encodings only |
+| ZEXDOC | `test/zexdoc.com`, `test/zexdoc.z80` | `34923a7ed82285d3038b2d54bd64899e12173eebb61f9d07b4fc72e78af2ae8f`; `4f7b83d5ed1b4ce34f1b6f19b996e40588e3698db9aa2e31bece377db5b91d99` | GPL-2.0-or-later (source header) | Source lines 34–39 say expected CRCs were measured on a real Z80; no part, revision, per-group contributor or capture is identified. 67 groups: **58 judged**, **9 not run** |
+
+Local paths are under `oracles/z80-exercisers/`; byte sizes, raw URLs and the
+COPYING pin are in the stash's MANIFEST and SHA256SUMS.fetched. COPYING is the
+GPL v2 text; the program headers permit version 2 or later. The claimed hardware
+origin of the CRCs is not independently authenticated. Source lines 49–51
+attribute the documented flag selection to the Mostek Z80 Technical Manual;
+that attribution does not make Mostek or these CRCs an authority for M4.
+“Judged” below means eligible for a later run, not a measured PASS.
+
+#### Binary/source correspondence and audit method
+
+READ/MEASURED, 2026-11-13: a local parser expanded `tstr` and `tmsg`
+(zexdoc.z80:170–193), resolving `msbt=0103h`, little-endian words, byte
+truncation of -1 and zero instruction padding. Each of the 67 complete
+96-byte descriptors matched a unique contiguous region of zexdoc.com:
+one mask byte, three 20-byte vectors, four CRC bytes, and a 30-byte dot-padded
+message plus '$'. All 67 little-endian descriptor pointers then matched the
+binary in source table order (lines 100–168), including its zero terminator.
+Thus the requested table order, messages, expected CRC bytes and all vector
+data correspond to this source. This is a structural build check, not a
+whole-file reassembly or an execution result.
+
+The table starts at file offset 003Ah / guest address 013Ah; its terminator
+is at 00C0h / 01C0h. The first descriptor is at 00C2h / 01C2h and descriptors
+are 0060h bytes apart. Within a descriptor, mask is +00h, base is +01h,
+increment is +15h, shift is +29h, CRC is +3Dh and message is +41h. CRCs below
+are the four stored bytes in display order (big-endian per `phex8`), not
+little-endian integers.
+
+For classification, the four instruction bytes of each base, increment and
+shift vector were expanded: every subset of increment bits is XORed with
+the base, with each eligible shift bit inverted in turn; the initial base
+is included. State-vector variations cannot change the opcode bytes.
+The remaining bytes of each four-byte instruction slot execute as NOP
+padding where unused. `tlp` (lines 767–775) skips both 76 and DD/FD 76,
+so `ld8rr` and `ld8rrx` do not execute those HALTs. All other generated
+encodings count, even when the group label omits them. This enumerates
+instruction space, not the much larger full state campaign.
+
+Authority: Zilog **UM008011-0816**, “Instruction Op Codes”, Tables 6–15 and
+20 / Figure 39, checked against rendered page images. Printed page n is
+PDF page n+14 (332 PDF pages). In the table, Tn means Table n of that
+revision; r means B,C,D,E,H,L,A; ALU means ADD,ADC,SUB,SBC,AND,XOR,OR,CP.
+Hexadecimal braces denote alternatives; DD/FD denotes either prefix.
+Indexed displacements are fixed at 01h except in `ld8rrx`'s indexed memory
+forms, where the displacement is 00h. Variations of the index-register state
+do not vary the displacement byte. Absolute nn is 0103h in the memory groups;
+immediate n/nn vary only where their vectors permit.
+
+The summary tables contain visible printing errors, including the H column
+labelled F, C8 in place of CB, and DB for DEC BC. Detailed opcode bit fields
+disambiguate these: LD r,r' p. 71, DEC ss p. 201, RLC r p. 213, and BIT/SET/RES
+pp. 243, 245, 247, 249, 251, 253, 255, 257, 259. In particular Table 14's
+incorrect indexed BIT entries do not introduce a hole: the detailed pages
+give DD/FD CB d (46h+8×bit). No emulator implementation was used to fill gaps.
+
+| # / source label | Table slot: file offset / guest address → descriptor guest address | Executed instruction(s) / opcode set | Flag mask | Expected CRC | Verdict / primary citation or offending encodings |
+| --- | --- | --- | --- | --- | --- |
+| 1. `adc16` | `003A/013A → 01C2` | ADC/SBC HL,{BC,DE,HL,SP}; ED {42,4A,52,5A,62,6A,72,7A} | `C7` | `F8B4EAA9` | **judged** — T13 p. 52 |
+| 2. `add16` | `003C/013C → 0222` | ADD HL,{BC,DE,HL,SP}; {09,19,29,39} | `C7` | `89FDB635` | **judged** — T13 p. 52 |
+| 3. `add16x` | `003E/013E → 0282` | ADD IX,{BC,DE,IX,SP}; DD {09,19,29,39} | `C7` | `C133790B` | **judged** — T13 p. 52 |
+| 4. `add16y` | `0040/0140 → 02E2` | ADD IY,{BC,DE,IY,SP}; FD {09,19,29,39} | `C7` | `E8817B9E` | **judged** — T13 p. 52 |
+| 5. `alu8i` | `0042/0142 → 0342` | ALU A,n; {C6,CE,D6,DE,E6,EE,F6,FE} n | `D7` | `48799360` | **judged** — T11 p. 50 |
+| 6. `alu8r` | `0044/0144 → 03A2` | ALU A,r/(HL); 80–BF | `D7` | `FE43B016` | **judged** — T11 p. 50 |
+| 7. `alu8rx` | `0046/0146 → 0402` | ALU A,{IXH,IXL,IYH,IYL} | `D7` | `A4026D5A` | **not run** — index halves: DD/FD {84,85,8C,8D,94,95,9C,9D,A4,A5,AC,AD,B4,B5,BC,BD} (absent from T11 p. 50) |
+| 8. `alu8x` | `0048/0148 → 0462` | ALU A,(IX/IY+01); DD/FD {86,8E,96,9E,A6,AE,B6,BE} 01 | `D7` | `E849676E` | **judged** — T11 p. 50 |
+| 9. `bitx` | `004A/014A → 04C2` | BIT 0–7,(IX/IY+01); DD/FD CB 01 {46,4E,56,5E,66,6E,76,7E} | `53` | `A8EE0867` | **judged** — T14 pp. 55–56; pp. 247, 249 |
+| 10. `bitz80` | `004C/014C → 0522` | BIT 0–7,r/(HL); CB 40–7F | `53` | `7B55E6C8` | **judged** — T14 pp. 55–56; pp. 243, 245 |
+| 11. `cpd1` | `004E/014E → 0582` | CPD/CPDR; ED {A9,B9} | `D7` | `A87E6CFA` | **judged** — T10 p. 49 |
+| 12. `cpi1` | `0050/0150 → 05E2` | CPI/CPIR; ED {A1,B1} | `D7` | `06DEB356` | **judged** — T10 p. 49 |
+| 13. `daa` | `0052/0152 → 0642` | DAA/CPL/SCF/CCF; {27,2F,37,3F} | `D7` | `9B4BA675` | **judged** — T12 p. 51 |
+| 14. `inca` | `0054/0154 → 06A2` | INC/DEC A; 3C,3D | `D7` | `D18815A4` | **judged** — T11 p. 50 |
+| 15. `incb` | `0056/0156 → 0702` | INC/DEC B; 04,05 | `D7` | `5F682264` | **judged** — T11 p. 50 |
+| 16. `incbc` | `0058/0158 → 0762` | INC/DEC BC; 03,0B | `D7` | `D2AE3BEC` | **judged** — T13 p. 52; DEC ss p. 201 |
+| 17. `incc` | `005A/015A → 07C2` | INC/DEC C; 0C,0D | `D7` | `C284554C` | **judged** — T11 p. 50 |
+| 18. `incd` | `005C/015C → 0822` | INC/DEC D; 14,15 | `D7` | `4523DE10` | **judged** — T11 p. 50 |
+| 19. `incde` | `005E/015E → 0882` | INC/DEC DE; 13,1B | `D7` | `AEC6D42C` | **judged** — T13 p. 52 |
+| 20. `ince` | `0060/0160 → 08E2` | INC/DEC E; 1C,1D | `D7` | `E175AFCC` | **judged** — T11 p. 50 |
+| 21. `inch` | `0062/0162 → 0942` | INC/DEC H; 24,25 | `D7` | `1CED847D` | **judged** — T11 p. 50 |
+| 22. `inchl` | `0064/0164 → 09A2` | INC/DEC HL; 23,2B | `D7` | `FC0D6D4A` | **judged** — T13 p. 52 |
+| 23. `incix` | `0066/0166 → 0A02` | INC/DEC IX; DD {23,2B} | `D7` | `A54DBE31` | **judged** — T13 p. 52 |
+| 24. `inciy` | `0068/0168 → 0A62` | INC/DEC IY; FD {23,2B} | `D7` | `505D51A3` | **judged** — T13 p. 52 |
+| 25. `incl` | `006A/016A → 0AC2` | INC/DEC L; 2C,2D | `D7` | `56CD06F3` | **judged** — T11 p. 50 |
+| 26. `incm` | `006C/016C → 0B22` | INC/DEC (HL); 34,35 | `D7` | `B83ADCEF` | **judged** — T11 p. 50 |
+| 27. `incsp` | `006E/016E → 0B82` | INC/DEC SP; 33,3B | `D7` | `5DACD527` | **judged** — T13 p. 52 |
+| 28. `incx` | `0070/0170 → 0BE2` | INC/DEC (IX/IY+01); DD/FD {34,35} 01 | `D7` | `20581470` | **judged** — T11 p. 50 |
+| 29. `incxh` | `0072/0172 → 0C42` | INC/DEC IXH | `D7` | `6F463662` | **not run** — index halves: DD {24,25} (absent from T11 p. 50) |
+| 30. `incxl` | `0074/0174 → 0CA2` | INC/DEC IXL | `D7` | `027BEF2C` | **not run** — index halves: DD {2C,2D} (absent from T11 p. 50) |
+| 31. `incyh` | `0076/0176 → 0D02` | INC/DEC IXH; descriptor says IYH | `D7` | `2D966CF3` | **not run** — index halves: DD {24,25}; descriptor says IYH (absent from T11 p. 50) |
+| 32. `incyl` | `0078/0178 → 0D62` | INC/DEC IXL; descriptor says IYL | `D7` | `FBCBBA95` | **not run** — index halves: DD {2C,2D}; descriptor says IYL (absent from T11 p. 50) |
+| 33. `ld161` | `007A/017A → 0DC2` | LD {BC,DE},(nn); ED {4B,5B} nn | `D7` | `4D45A9AC` | **judged** — T7 p. 45 |
+| 34. `ld162` | `007C/017C → 0E22` | LD HL,(nn); 2A nn | `D7` | `5F972487` | **judged** — T7 p. 45 |
+| 35. `ld163` | `007E/017E → 0E82` | LD SP,(nn); ED 7B nn | `D7` | `7ACEA11B` | **judged** — T7 p. 45 |
+| 36. `ld164` | `0080/0180 → 0EE2` | LD {IX,IY},(nn); DD/FD 2A nn | `D7` | `858BF16D` | **judged** — T7 p. 45 |
+| 37. `ld165` | `0082/0182 → 0F42` | LD (nn),{BC,DE}; ED {43,53} nn | `D7` | `641E8715` | **judged** — T7 p. 45 |
+| 38. `ld166` | `0084/0184 → 0FA2` | LD (nn),HL; 22 nn | `D7` | `A3608B47` | **judged** — T7 p. 45 |
+| 39. `ld167` | `0086/0186 → 1002` | LD (nn),SP; ED 73 nn | `D7` | `16585FD7` | **judged** — T7 p. 45 |
+| 40. `ld168` | `0088/0188 → 1062` | LD (nn),{IX,IY}; DD/FD 22 nn | `D7` | `BA102A6B` | **judged** — T7 p. 45 |
+| 41. `ld16im` | `008A/018A → 10C2` | LD {BC,DE,HL,SP},nn; {01,11,21,31} nn | `D7` | `DE391969` | **judged** — T7 p. 45 |
+| 42. `ld16ix` | `008C/018C → 1122` | LD {IX,IY},nn; DD/FD 21 nn | `D7` | `227DD525` | **judged** — T7 p. 45 |
+| 43. `ld8bd` | `008E/018E → 1182` | LD A,(BC)/(DE); {0A,1A} | `D7` | `B0818935` | **judged** — T6 p. 42 |
+| 44. `ld8im` | `0090/0190 → 11E2` | LD r/(HL),00; {06,0E,16,1E,26,2E,36,3E} 00 | `D7` | `F1DAB556` | **judged** — T6 p. 42 |
+| 45. `ld8imx` | `0092/0192 → 1242` | LD (IX/IY+01),n; DD/FD 36 01 n | `D7` | `26DB477E` | **judged** — T6 p. 42 |
+| 46. `ld8ix1` | `0094/0194 → 12A2` | LD {B,C,D,E},(IX/IY+01); DD/FD {46,4E,56,5E} 01 | `D7` | `CC1106A8` | **judged** — T6 p. 42 |
+| 47. `ld8ix2` | `0096/0196 → 1302` | LD {H,L},(IX/IY+01); DD/FD {66,6E} 01 | `D7` | `FA2A4D03` | **judged** — T6 p. 42 |
+| 48. `ld8ix3` | `0098/0198 → 1362` | LD A,(IX/IY+01); DD/FD 7E 01 | `D7` | `A5E9AC64` | **judged** — T6 p. 42 |
+| 49. `ld8ixy` | `009A/019A → 13C2` | LD {IXH,IXL,IYH,IYL},00 | `D7` | `24E8828B` | **not run** — index halves: DD/FD {26,2E} 00 (absent from T6 p. 42) |
+| 50. `ld8rr` | `009C/019C → 1422` | LD r/(HL),r/(HL); 40–7F except 76 (skipped) | `D7` | `744B0118` | **judged** — T6 p. 42 |
+| 51. `ld8rrx` | `009E/019E → 1482` | DD/FD 40–7F except 76 (skipped); register moves and indexed loads/stores with d=00 | `D7` | `478BA36B` | **not run** — DD/FD on register-only LD: 49 encodings per prefix, including 24 index-half and 25 ignored-prefix forms; exact set below (absent from T6 p. 42) |
+| 52. `lda` | `00A0/01A0 → 14E2` | LD (nn),A / LD A,(nn); {32,3A} nn | `D7` | `C9262DE5` | **judged** — T6 p. 42 |
+| 53. `ldd1` | `00A2/01A2 → 1542` | LDD/LDDR, BC=1; ED {A8,B8} | `D7` | `94F42769` | **judged** — T9 p. 48 |
+| 54. `ldd2` | `00A4/01A4 → 15A2` | LDD/LDDR, BC=2; ED {A8,B8} | `D7` | `5A907ED4` | **judged** — T9 p. 48 |
+| 55. `ldi1` | `00A6/01A6 → 1602` | LDI/LDIR, BC=1; ED {A0,B0} | `D7` | `9ABDF6B5` | **judged** — T9 p. 48 |
+| 56. `ldi2` | `00A8/01A8 → 1662` | LDI/LDIR, BC=2; ED {A0,B0} | `D7` | `EB59891B` | **judged** — T9 p. 48 |
+| 57. `neg` | `00AA/01AA → 16C2` | NEG; ED 44 only | `D7` | `6A3C3BBD` | **judged** — T12 p. 51 |
+| 58. `rld` | `00AC/01AC → 1722` | RRD/RLD; ED {67,6F} | `D7` | `955BA326` | **judged** — Fig. 39 p. 54 |
+| 59. `rot8080` | `00AE/01AE → 1782` | RLCA/RRCA/RLA/RRA; {07,0F,17,1F} | `D7` | `251330AE` | **judged** — Fig. 39 p. 54 |
+| 60. `rotxy` | `00B0/01B0 → 17E2` | RLC/RRC/RL/RR/SLA/SRA/SLL/SRL (IX/IY+01); DD/FD CB 01 {06,0E,16,1E,26,2E,36,3E} | `D7` | `713ACD81` | **not run** — SLL: DD CB 01 36 and FD CB 01 36 (absent from Fig. 39 p. 54) |
+| 61. `rotz80` | `00B2/01B2 → 1842` | RLC/RRC/RL/RR/SLA/SRA/SLL/SRL r/(HL); CB 00–3F | `D7` | `EB604D58` | **not run** — SLL: CB 30–37 (absent from Fig. 39 p. 54) |
+| 62. `srz80` | `00B4/01B4 → 18A2` | RES/SET 0–7,r/(HL); CB 80–FF | `D7` | `8B57F008` | **judged** — T14 pp. 56–57; pp. 251, 253, 259 |
+| 63. `srzx` | `00B6/01B6 → 1902` | RES/SET 0–7,(IX/IY+01); DD/FD CB 01 {86,8E,96,9E,A6,AE,B6,BE,C6,CE,D6,DE,E6,EE,F6,FE} | `D7` | `CC63F98A` | **judged** — T14 pp. 56–57; pp. 255, 257, 259 |
+| 64. `st8ix1` | `00B8/01B8 → 1962` | LD (IX/IY+01),{B,C,D,E}; DD/FD {70,71,72,73} 01 | `D7` | `04626ABF` | **judged** — T6 p. 42 |
+| 65. `st8ix2` | `00BA/01BA → 19C2` | LD (IX/IY+01),{H,L}; DD/FD {74,75} 01 | `D7` | `6A1A8831` | **judged** — T6 p. 42 |
+| 66. `st8ix3` | `00BC/01BC → 1A22` | LD (IX/IY+01),A; DD/FD 77 01 | `D7` | `CCBE5A96` | **judged** — T6 p. 42 |
+| 67. `stabd` | `00BE/01BE → 1A82` | LD (BC)/(DE),A and LD A,(BC)/(DE); {02,0A,12,1A} | `D7` | `7A4C114F` | **judged** — T6 p. 42 |
+
+The nine **not run** labels are `alu8rx`, `incxh`, `incxl`, `incyh`,
+`incyl`, `ld8ixy`, `ld8rrx`, `rotxy`, `rotz80`. Additional audit details:
+
+- `ld8rrx` has 49 offending register-only combinations for each prefix:
+  `DD/FD (40h + 8×dst + src)`, with dst and src each in {0,1,2,3,4,5,7}.
+  Of these, 24 per prefix involve field 4 or 5 (index halves), and the other
+  25 merely prefix non-indexed register moves. Examples are DD 44 (LD B,IXH),
+  FD 65 (LD IYH,IYL), DD 40 (ignored prefix on LD B,B), and FD 7F (ignored
+  prefix on LD A,A). Only its 14 indexed memory forms per prefix are documented.
+  Its possible 76 forms are skipped by the guest, not accepted as documented.
+- `incyh` and `incyl` actually contain DD 24/25 and DD 2C/2D, matching the
+  binary; the IYH/IYL messages do not match those IX-half encodings. Do not fix
+  these fetched bytes or infer a different test from the message.
+- `stabd` also executes 0A/1A loads, because increment mask 18h varies both
+  bits 3 and 4 of base 02h. `ld8rr` includes (HL) moves despite its message.
+  `ld8im` and `ld8ixy` use immediate 00h; their shift vectors vary A,
+  not the immediate. These label/coverage differences are in the matched bytes.
+- All indexed CB groups retain the low three opcode bits at 110:
+  `bitx` and `rotxy` use mask 38h, `srzx` uses 78h (also varying RES/SET).
+  **No DD/FD CB d register-copy form is generated**. `srzx` is judged.
+  The exclusions in the two rotate groups are SLL, not register-copy forms.
+- No group generates an ED hole or a duplicate NEG encoding: NEG is ED 44
+  only, and the other ED variations stay within T7/T9/T10/T13. ED 70 is
+  explicitly labelled “Undefined op code” at p. 296 (PDF 310); it is absent.
+  No additional undocumented encoding was found in the guest's setup, CRC,
+  output or dispatch routines; NOP, DI/EI are T20 p. 64, other support
+  instructions use T6–T15 as cited above.
+- Mask D7h compares S,Z,H,P/V,N,C; C7h omits H; BIT mask 53h compares Z,H,N,C,
+  excluding S/P/V as well as bits 5 and 3. No group compares bits 5 or 3
+  after its result mask. Masking flags does not legalize undocumented opcodes.
+
+The later oracle host must match the **original .COM digest above**, compact
+the in-memory pointer table to retain these 58 entries in order and write a
+zero terminator. It must report all nine excluded labels as **not run**, without
+executing their cases, rewriting their CRCs or suppressing Unsupported.
+The file on disk stays unchanged. No filtering or Z80 harness is implemented
+by this provenance change.
+
+#### Preliminary test and host services
+
+READ, prelim.z80:37–341: **judged**, no undocumented encoding found in the
+program or its expanded macros. It uses LD (8/16-bit, indexed and stack),
+EX AF,AF', EXX, CP, AND, RRCA, INC A/HL/IX/IY, JP/CALL/RET (including conditions),
+JR Z/NZ/C/NC and DJNZ. The source's `reladr` macro expands only documented
+IX/IY memory addressing, never index-half registers; it includes signed
+displacements -128, -1, 0, +1, +127. Primary opcode tables: T6 p. 42,
+T7 p. 45, T8 p. 47, T11 p. 50, T13 p. 52, Figure 39 p. 54,
+T15 p. 59. Its emergency HALT is documented (T20 p. 64); the adjacent
+FF byte, normally unreachable data, would also be a documented RST 38h
+(T17 p. 61), not a prefixed hole. There is no CRC mask or expected CRC.
+Errors terminate silently early, or print the failing return address later;
+only the completion message signifies success.
+
+| Host requirement | Preliminary test | ZEXDOC |
+| --- | --- | --- |
+| Load / entry | 0100h, writable RAM | 0100h, writable RAM including self-modifying instruction and mask bytes |
+| BDOS | CALL 0005h: C=2, character E; C=9, '$'-terminated text at DE (`allok`, `conout`) | Same functions through register-preserving `bdos` wrapper (lines 1194–1203); no disk or input functions |
+| SP | Host must supply a usable initial SP for CALL at 0111h, before the first LD SP. Then SP=04ACh (`regs1`), 04D4h (`regs2+20`), finally 0600h (`stack`); confirmed immediates in .COM | Entry loads SP from little-endian word 0006h (lines 80–81); host supplies safe stack RAM. Each test saves host SP, POPs state using msbt+2, loads trial SP from spbt, captures post-test SP and restores host SP (lines 1075–1095) |
+| Exit | JP 0000h on success and failure; HALT at 010Fh is an emergency, not success | JP 0000h after completion; group failures print ERROR and continue |
+| Completion | “Preliminary tests complete”; found at file 034Ah / guest 044Ah with '$' terminator | “Tests complete”; requires all 58 retained groups, results in pinned order and explicit not-run reporting for the other nine |
+| Interrupts / ports | No port device or injected interrupt needed | No ports; guest DI/EI around each case; no injected interrupt needed |
+
+The existing `x80-oracle` host recognizes only the 8080/8085 digests and models.
+Its synthetic 08h Unsupported rendezvous at BDOS entry cannot be carried into
+a Z80 host: 08h is documented EX AF,AF' (T8 p. 47). Selecting an appropriate
+Z80 host rendezvous and implementing digest-keyed table filtering belong to
+the later harness bead. Neither of these Z80 programs was executed in this audit.
+
+#### Recorded Z80 candidates
+
+| Candidate | Disposition | Licence / host evidence |
+| --- | --- | --- |
+| ZEXALL | Rejected for M4: compares flag bits 5 and 3, outside the documented behavior set; no fetch pin | Same Cringle exerciser family; specific candidate bytes and licence header **to confirm** if reconsidered. CP/M-style host expected from family lineage; exact build's host needs **to confirm** |
+| Patrik Rak's z80test | Evaluated candidate only; not selected, fetched or run | No local pinned source or licence inspected: exact licence and redistribution terms **to confirm**. Prior local knowledge suggests ZX Spectrum-oriented builds, requiring a target-specific loading/ROM/I/O environment rather than assuming the CALL 5 ABI; exact build, load address, entry/exit, stack, ROM calls, ports, interrupt/timing needs and any alternative host **to confirm** |
+
+Unresolved provenance: the exact Z80 part/revision and per-group capture behind
+Cringle's expected CRCs are unstated. Candidate licence/host details above remain
+unverified; no network lookup was made. The Zilog manual pin is maintained
+separately; this block records the revision and page images used for classification.
+
 ## 3. Witnesses and current scope
 
 The core types, the run loop and the 8080 opcode map exist; every documented
