@@ -263,8 +263,9 @@ in part with explicit S/D/L qualifications. The Zilog NMOS Z80 undocumented
 track is done (2026-11-13, decision-20): every normally fetched encoding,
 full F/F', WZ/Q and final six-variant z80test / 67-group ZEXDOC/ZEXALL campaigns,
 with explicit **A**, **H**, **B8039/H** and **L** evidence limits and remaining gaps in PROVENANCE §3.
-Undocumented 8080 remains research-only (`x80-mn3.4`);
-decision-3 and decision-9's V20 ED escape stand.
+Undocumented 8080 research (`x80-mn3.4`) found no qualifying source: one hedged
+second-source table, contradicted by AMD, and no silicon key; decision-3 and
+decision-9's V20 ED escape stand.
 
 ## 6. Questions for the maintainer
 
@@ -309,8 +310,8 @@ Decided items cite their record; the rest stay open.
    the items listed at the end of §3.
 7. Decided for the 8080 in decision-3: undocumented encodings return a typed
    unsupported exit; decision-9's V20 ED escape remains working. Undocumented
-   8080 research is `x80-mn3.4`; admission needs qualifying evidence and a later
-   record. Decided and implemented for 8085: decision-18 supersedes decision-11
+   8080 research (`x80-mn3.4`) found no qualifying source; admission needs
+   qualifying evidence and a later record. Decided and implemented for 8085: decision-18 supersedes decision-11
    in part; all 256 fetched bytes execute (documented set plus ten second-source
    instructions), with operations/lengths/totals labelled S (CA80C85B,
    Intel-unverified) and independent D encoding confirmation (exact 8085 part

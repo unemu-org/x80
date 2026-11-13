@@ -563,6 +563,8 @@ The list below is **not a set of pinned sources**. Unknown metadata is marked
 | --- | --- | --- | --- | --- |
 | MCS-80 User's Manual | 98-153D | 1977 | bitsavers mirror (not pinned) | Not pinned: a later edition that repeats the 98-153B CPU chapters; a possible check for corrections |
 | MCS-85 User's Manual | 9800366E | September 1978 | not on bitsavers (not pinned) | Not pinned: its 8085A chapters carry the same text as 205775-002, so not an independent witness |
+| Mitsubishi '77 LSI Data Book (M58710S, "Alternative Designation 8080A") | H-C4024-A KI-7711 | November 1977 | bitsavers trailing-edge mirror, `components/mitsubishi/_dataBooks/` (not pinned; SHA-256 `3270299a7bc449e5832f5dbc0ee4a36b2c1554698d372ab4756449f5c8ae65b1`) | Not pinned (`x80-mn3.4`): p. 4-7 (PDF 50) prints (NOP) at 08/10/18/20/28/30/38, (JMP) at CB, (RET) at D9, (CALL) at DD/ED/FD, with the legend "may be executed. This is not, however, guaranteed." One hedged second-source written candidate; the 1980 book (H-C4024-B, M5L8080AP,S p. 8-10) repeats it, same origin. No die or measured silicon key |
+| The 8080A/9080A MOS Microprocessor Handbook (AMD) | source to find | 1977 | bitsavers trailing-edge mirror, `components/amd/_dataBooks/` (not pinned; SHA-256 `6bea9955f5784c009574cd7d18a83c790dc6f72f4e3de1c02bc69cdd2213ac74`) | Not pinned (`x80-mn3.4`): p. 3-2 (PDF 23) lists the same twelve opcodes as not decoded, "The response of the Am9080A is unpredictable"; contradicts the Mitsubishi table. Decision-3 refusals stand |
 
 Sources live in the organisation's shared oracle stash, `unemu-org/oracles`, included here
 as x80's own `oracles/` submodule with its own pin (maintainer decision, 2026-11-11; x86jit

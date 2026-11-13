@@ -533,7 +533,7 @@ RETs add one step / 10 cycles per call; full-width FEh I/O, prechecks, diagnosti
 skips and final counts remain explicit. Final release results are in PROVENANCE
 §2; CRCs license no new hardware facts. Z80 facts remain model-owned; Intel
 `FlagRules` hooks do not authorize Z80 sharing. Undocumented 8080 research
-remains `x80-mn3.4`, preserving decision-3 refusals and decision-9's V20 ED escape.
+(`x80-mn3.4`) found no qualifying source, preserving decision-3 refusals and decision-9's V20 ED escape.
 
 Any future dependency-bearing oracle harness will also be separate and unpublished.
 The Z80 layout follows decision-13 (accepted): [Z80 model, prefix tables and sharing](<../decisions/decision-13 - z80-model-layout-prefix-tables-and-sharing.md>).

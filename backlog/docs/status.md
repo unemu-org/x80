@@ -198,7 +198,8 @@ the §2 verdicts and totals. Intel specimen/revision confirmation, physical bus
 traces, exact POP loads and the L hidden-flag effects remain unverified.
 
 The Zilog NMOS Z80 track is complete under decision-20, as recorded above.
-Undocumented 8080 behavior remains research-only (`x80-mn3.4`), preserving
+Undocumented 8080 behavior was researched (`x80-mn3.4`): one hedged second-source table (Mitsubishi M58710S, 1977) lists the folklore NOP/JMP/RET/CALL aliases, AMD's Am9080A handbook calls the response unpredictable, and no silicon key exists. It stays
+refused, preserving
 decision-3's refusals and decision-9's V20 ED escape.
 
 **M5: done (2026-11-13, epic `x80-8sg`).** The private `intel` tier shares
