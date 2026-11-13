@@ -44,9 +44,6 @@ pub(super) const INDEX: &[Encoding] = &[
     Encoding::new(b"00101011", 2, States::single(10)),
 ];
 
-/// This group's executor covers every encoding above (decision-14 rule 4).
-pub(super) const LANDED: bool = true;
-
 /// PC is already after all instruction bytes (decision-13 rule 4).
 /// Every form is register-only and has a single timing path.
 pub(super) fn execute<S: Bus>(

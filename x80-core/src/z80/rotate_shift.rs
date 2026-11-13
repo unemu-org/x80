@@ -84,11 +84,6 @@ pub(super) const ED: &[Encoding] = &[
     Encoding::new(b"01100111", 2, States::single(18)),
 ];
 
-/// Flip only this group-owned switch when its executor is complete. Until
-/// then dispatch refuses before any operand/data/stack/port access
-/// (decision-5 item 7 staging; decision-14 rule 4).
-pub(super) const LANDED: bool = true;
-
 /// Final executor seam (decision-13 rule 4). PC is after prefix/key bytes;
 /// read remaining operands through Z80::fetch_operand. INDEX d is executor-
 /// owned; INDEX_CB d is in Decoded. Return the complete instruction's path.

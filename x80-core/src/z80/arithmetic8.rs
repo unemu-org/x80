@@ -97,9 +97,6 @@ pub(super) const INDEX: &[Encoding] = &[
     Encoding::new(b"00110101", 3, States::single(23)),
 ];
 
-/// All documented encodings in this group's MAIN and INDEX lists execute.
-pub(super) const LANDED: bool = true;
-
 /// PC is after prefix/key bytes (decision-13 rule 4). All flag rules come
 /// from the model's landed ALU helpers; no flag equations are repeated here.
 /// UM pp. 145–171; 03-0029-01 Table 7.0-4 p. 47. Existing PROVENANCE §1

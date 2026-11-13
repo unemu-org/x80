@@ -20,8 +20,6 @@
 //! Flags stores only the six documented flags; zero F bits 5/3 are a
 //! library choice, not a hardware claim (decision-14 rule 5).
 
-#![allow(dead_code, reason = "consumed by group beads x80-bi2.14-.17")]
-
 use super::Flags;
 
 /// Result S/Z, with the operation supplying H/P-V/N/C. UM pp. 65–69;

@@ -4,8 +4,9 @@ The design sketch is [plan §2](plan.md#2-architecture-sketch). The `i8080` and
 `i8085` models execute every documented instruction through `step` and budgeted
 `run`, with their own interrupt paths (decisions 5/10/12;
 `tests/i8080_coverage.rs`, `tests/i8085_coverage.rs`; [status](status.md)).
-The `z80` module has model-owned state, flag images, inputs, reset and the
-documented opcode maps, with execution still pending (decisions 13–15).
+The `z80` model also executes every documented instruction, with model-owned
+state, flag images, inputs, reset, prefix tables and NMI/INT acceptance
+(decisions 13–15; `tests/z80_coverage.rs`, `tests/z80_determinism.rs`).
 
 ```text
 x80-core/
@@ -48,27 +49,33 @@ x80-core/
   src/z80/mod.rs                the Z80 model module and its re-exports (decisions 13–15)
   src/z80/state.rs              main/alternate Registers, pair accessors, InterruptMode and Latches
   src/z80/flags.rs              six flags and the decision-14 library F/F' image
+  src/z80/alu.rs                model-owned arithmetic primitives and flag rules
   src/z80/interrupt.rs          Inputs: asserted-true NMI and INT requests
   src/z80/cpu.rs                Z80: run/step, reset, boundary sampling, prefix dispatch and executor context
-  src/z80/nmi.rs                final NMI acceptance seam (staging: declines)
-  src/z80/acknowledge.rs        final INT acceptance/refusal seam (staging: declines)
+  src/z80/nmi.rs                NMI discarded fetch, stack save and 0066h entry
+  src/z80/acknowledge.rs        IM 0/1/2 acceptance and acknowledge restrictions
   src/z80/opcodes.rs            eleven model groups and five private maps via decode::build
   src/z80/opcodes/tests.rs      independent literal whole-map and source-disagreement witnesses
-  src/z80/load8.rs              8-Bit Load encoding slices (UM pp. 70–97)
-  src/z80/load16.rs             16-Bit Load encoding slices (pp. 98–122)
-  src/z80/exchange_block_search.rs Exchange, Block Transfer, and Search slices (pp. 123–143)
-  src/z80/arithmetic8.rs        8-Bit Arithmetic encoding slices (pp. 144–171)
+  src/z80/load8.rs              8-Bit Load encodings and executor (UM pp. 70–97)
+  src/z80/load16.rs             16-Bit Load encodings and executor (pp. 98–122)
+  src/z80/exchange_block_search.rs Exchange, Block Transfer, and Search executor (pp. 123–143)
+  src/z80/arithmetic8.rs        8-Bit Arithmetic encodings and executor (pp. 144–171)
   src/z80/general_arithmetic_cpu_control.rs General-Purpose Arithmetic and CPU Control (pp. 172–186)
-  src/z80/arithmetic16.rs       16-Bit Arithmetic encoding slices (pp. 187–203)
-  src/z80/rotate_shift.rs       Rotate and Shift encoding slices (pp. 204–241)
-  src/z80/bit_set_reset_test.rs Bit Set, Reset, and Test encoding slices (pp. 242–260)
-  src/z80/jump.rs               Jump encoding slices (pp. 261–279)
-  src/z80/call_return.rs        Call and Return encoding slices (pp. 280–293)
-  src/z80/input_output.rs       Input and Output encoding slices (pp. 294–316)
+  src/z80/arithmetic16.rs       16-Bit Arithmetic encodings and executor (pp. 187–203)
+  src/z80/rotate_shift.rs       Rotate and Shift encodings and executor (pp. 204–241)
+  src/z80/bit_set_reset_test.rs Bit Set, Reset, and Test encodings and executor (pp. 242–260)
+  src/z80/jump.rs               Jump encodings and executor (pp. 261–279)
+  src/z80/call_return.rs        Call and Return encodings and executor (pp. 280–293)
+  src/z80/input_output.rs       Input and Output encodings and executor (pp. 294–316)
   tests/boundary.rs             zero-dependency and model-neutral root tripwires
   tests/root_contract.rs        full-width port defaults/overrides and preceding-byte diagnostics
   tests/support/                recording test bus, sample state, unsupported check
-  tests/z80_run.rs              boundary, refusal traces, staging, refresh and budget-split witnesses
+  tests/z80_run.rs              boundary, refusal, landed execution, refresh and budget-split witnesses
+  tests/z80_coverage.rs         independent literal execution/refusal coverage for all seven logical tables
+  tests/z80_determinism.rs      prefixed mixed program, block/interrupt resume and budget replay
+  tests/z80_<group>.rs          independent instruction semantics, flags, timing and bus witnesses
+  tests/z80_interrupts_nmi.rs   NMI acceptance, priority, edge and halt witnesses
+  tests/z80_interrupts_int.rs   IM 0/1/2 acceptance, refusal and halt witnesses
   tests/z80_model.rs            ownership, construction, reset, input defaults and recording polls
   tests/z80_registers.rs        main/alternate register pairs and F/F' image witnesses
   tests/i8080_run.rs            budget, boundary sequence, exit precedence, step, determinism
@@ -103,15 +110,16 @@ x80-v20-contract/               unpublished test-only V20 vectors and mock nativ
 Model split (decision-6, plan §2.6): the crate root holds the model-neutral
 types, re-exported as `x80_core::{Bus, MemoryAccess, Control, Budget, Report,
 Exit, Unsupported}`. They carry no hardware fact and cite decisions, not
-manuals. Each CPU model is its own module and type: `x80_core::i8080` and
-`x80_core::i8085`, each with its CPU, `Registers`, `Flags`, `Latches` and `Inputs`.
+manuals. Each CPU model is its own module and type: `x80_core::i8080`,
+`x80_core::i8085` and `x80_core::z80`, each with its CPU, `Registers`, `Flags`,
+`Latches` and `Inputs`.
 Hardware facts live in the model and cite the pinned manuals by page. There is
 no family-wide CPU or register type and no model trait.
 
 Root-contract extensions (decision-14 rule 3; decision-15 rules 4/5/13):
 `Bus::input16` and `output16` accept the full A0-A15 port address, defaulting
 to the existing 8-bit methods with A0-A7. Only models whose decisions specify
-them call these methods; neither current model does, and the planned Z80 will.
+them call these methods: Z80 does, while 8080/8085 use the 8-bit methods.
 Models document which instruction bytes carry `MemoryAccess::OpcodeFetch`,
 potentially more than one per instruction; the 8080/8085 first-byte mapping
 is unchanged. `Unsupported` reports the refused byte in `opcode` and every
@@ -120,8 +128,9 @@ instruction-stream byte read before it, in read order, in the used prefix of
 unused elements zero). Its `preceding()` accessor returns the used bytes and
 clamps invalid lengths to capacity. `pc` remains the first-byte or acknowledge
 address. Only the reads of the reported bytes have reached the bus; CPU state
-is restored and read-side device effects cannot be undone. Both current models
-report zero preceding bytes for fetched and acknowledge refusals.
+is restored and read-side device effects cannot be undone. 8080/8085
+report zero preceding bytes for fetched and acknowledge refusals; Z80 uses
+the preceding bytes for prefixed instruction refusals.
 
 Private machinery is shared under decision-10: `decode.rs` matches bit patterns
 using model-supplied field restrictions and builds maps generic over the model's
@@ -133,9 +142,9 @@ timing values, executors, ALU, flags, state, interrupts, reset and map witness.
 The 8085 owns the same categories independently, plus `rim_sim`, `vectored`
 and `acknowledge` (decision-10; `i8085/mod.rs`).
 
-Flow for either model: CPU (owned registers and latches) + an embedder value
+Flow for each model: CPU (owned registers and latches) + an embedder value
 that implements `Bus` and that model's `Inputs` → `step`/`run` → state updates,
-bus effects, cycle totals and a typed `Report` (decisions 5/12). Execution
+bus effects, cycle totals and a typed `Report` (decisions 5/12/15). Execution
 latches persist across runs. No core-owned machine, loader, OS or device.
 
 8080 dispatch: `run` checks the budget, polls the inputs, accepts an eligible
@@ -180,9 +189,13 @@ NMI; selects a fresh NMI edge before eligible INT; checks halt; fetches and
 executes. Stop precedes sampling. A refusal restores the complete CPU state
 saved after polling and before sampling, including R and sampler history;
 Halt retains samples. Interrupt retirement uses the same counters as ordinary
-instructions. Only NOP executes during staging; the other documented forms
-return Unsupported using exactly their table's hole reads, with no operand
-reads beyond the bytes needed to decode. `tests/z80_run.rs` pins those traces.
+instructions. Every documented encoding dispatches directly to its group.
+Only table holes return Unsupported, using the exact decision-14 rule 4 reads
+and payload. `tests/z80_run.rs` pins boundary and refusal traces;
+`tests/z80_coverage.rs` checks every literal documented/undocumented key.
+`tests/z80_determinism.rs` checks complete state, bus trace and poll-sequence
+equality across unlimited, one-step and cycle-budget execution, including
+interrupts between repeating-block iterations and after HALT.
 
 Every group executor has this final signature, using `cpu::Decoded`,
 `opcodes::Instruction`, and `decode::Path`:
@@ -208,13 +221,9 @@ INDEX memory forms the executor reads d first, then any immediate byte; INDEX
 pair/index-only forms have no d. Indexed-CB executors use the saved d and never
 read it again. The dispatcher makes no data/stack/port access.
 
-Each group module owns one `LANDED: bool` switch and its executor stub. A group
-bead completes the executor and flips only its own switch; it never edits
-`cpu.rs`, the signature or `tests/z80_run.rs`. General arithmetic/CPU control
-also has `is_landed(&Decoded)` admitting only main-table NOP while its switch
-is false. Staging witnesses allow documented completion once a group lands;
-while unsupported they require the exact hole trace and complete restoration.
-The dispatcher selects the returned Path's complete cost and retires once.
+All eleven group executors are complete; there is no staging switch or
+documented-but-unimplemented dispatch path. The dispatcher selects the returned
+Path's complete cost and retires once.
 A block executor rewinds PC by two and returns `Path::Taken` when repeating;
 termination returns `Path::Untaken`. The next iteration naturally polls and
 fetches both bytes again (decision-15 rule 11; UM LDIR p. 132, TM Table 7.0-3
@@ -236,9 +245,10 @@ Option<Result<u8, Unsupported>>`. None means not accepted and must have no
 CPU or bus effect; Some completes one interrupt step or refuses it. The loop
 retires returned states and skips handler execution, retaining the EI delay
 through NMI acceptance. INT refusal restores the entire pre-sampling snapshot.
-Both stubs currently return None. `x80-bi2.22` fills only `nmi.rs` and its own
-witness file; `x80-bi2.23` fills only `acknowledge.rs` and its own witness file.
-Neither changes `cpu.rs` or `tests/z80_run.rs`. The seams call
+NMI saves PC and enters 0066h. INT accepts RST only in IM 0, uses 0038h in
+IM 1, and saves PC before reading the even-addressed vector pair in IM 2.
+Other IM 0 bytes and odd IM 2 vectors are refused before writes/table reads
+(decision-15 rules 8–9). The acceptance paths call
 `cpu.increment_r()` once after their discarded fetch/acknowledge respectively,
 and `cpu.consume_parity_note()` only on successful acceptance, after refusal
 validation and before service. That helper clears P/V only when a note is
@@ -257,7 +267,6 @@ selected model and gives a verdict only for their pinned SHA-256 digests
 (commands.md, "Oracle runs"; PROVENANCE.md §2).
 
 Any future dependency-bearing oracle harness will also be separate and unpublished.
-The remaining Z80 group and interrupt implementations follow their milestone beads.
-Its layout follows decision-13 (accepted): [Z80 model, prefix tables and sharing](<../decisions/decision-13 - z80-model-layout-prefix-tables-and-sharing.md>).
+The Z80 layout follows decision-13 (accepted): [Z80 model, prefix tables and sharing](<../decisions/decision-13 - z80-model-layout-prefix-tables-and-sharing.md>).
 The V20 adapter belongs to the embedder; x80 will expose only agreed boundaries.
 Keep this map current when modules change.

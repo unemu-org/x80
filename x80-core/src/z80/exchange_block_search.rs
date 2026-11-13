@@ -84,8 +84,6 @@ pub(super) const ED: &[Encoding] = &[
     ),
 ];
 
-pub(super) const LANDED: bool = true;
-
 /// Final executor seam (decision-13 rule 4). PC is after prefix/key bytes;
 /// read remaining operands through Z80::fetch_operand. INDEX d is executor-
 /// owned; INDEX_CB d is in Decoded. Return the complete instruction's path.

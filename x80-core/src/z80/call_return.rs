@@ -46,8 +46,6 @@ pub(super) const ED: &[Encoding] = &[
     Encoding::new(b"01000101", 2, States::single(14)),
 ];
 
-pub(super) const LANDED: bool = true;
-
 /// PC is already after the opcode/prefix bytes (decision-13 rule 4).
 /// Every instruction preserves flags (UM pp. 281–290; TM Table 7.0-10 p. 53).
 pub(super) fn execute<S: Bus>(

@@ -40,9 +40,6 @@ pub(super) const INDEX_CB: &[Encoding] = &[
     Encoding::new(b"10BBB110", 4, States::single(23)),
 ];
 
-/// Enables this completed group in the dispatcher (decision-13 rule 4).
-pub(super) const LANDED: bool = true;
-
 /// Executes only the CB/INDEX_CB entries above (decision-13 rule 4).
 /// The dispatcher has consumed all stream bytes, including indexed d/op.
 pub(super) fn execute<S: Bus>(

@@ -73,44 +73,46 @@ offline ([commands](commands.md)); on 2026-11-12 8080PRE passed and 8080EXM pass
 all 25 groups, about 16 s for 2.9 billion instructions in a release build.
 M2 remains in progress: its x80-side work (beads `x80-pzp.1` to `.5`) runs from the
 pinned NEC manual, and its joint witnesses wait on x86jit's V20/V30 bead (C4).
-M4 source preparation (2026-11-13): the Z80 primary UM008011-0816 and four
-historical second witnesses are pinned fetch-only and cite-only, with verified
-page maps and the shared Zilog lineage caveat in PROVENANCE.md §1. M4 covers
-documented behaviour only. The `z80` module now exposes `Z80`, `Registers`,
-`Flags`, `Latches`, `InterruptMode` and `Inputs` (decisions 13–15), with both
-register sets, pair accessors, the six-flag F/F' image and reset. Construction
-defaults, unused F bits 5/3 reading as zero, reset preservation and sampler
-bookkeeping are library choices. Literal witnesses cover these types and the
-recording bus's independent Z80 NMI/INT poll events (`tests/z80_model.rs`,
-`tests/z80_registers.rs`). The Z80 now also has eleven encoding-data modules
-and five private 256-entry opcode tables, with full lengths, group tags and both state totals
-(`x80-bi2.8`; decisions 13–15). An independent literal map witness checks
-MAIN 252, CB 248, ED 58, INDEX 39 and INDEX_CB 31 entries plus every hole;
-shared DD/FD maps represent 698 logical encodings. ED 63/6B are included;
-ED 70/71, CB 30–37, index halves and ignored-prefix forms remain excluded.
-The witness cross-reads UM008011-0816's rendered compact tables and instruction
-entries with 03-0029-01 Tables 7.0-1–7.0-11, pinning the reconciliations in
-PROVENANCE.md §1. The Z80 now implements `run`/`step`, the full boundary sequence, NMI sampling,
-prefix dispatch and R counting (`x80-bi2.9`). NOP is the only executing
-instruction (UM p. 180; TM Table 7.0-5 p. 48). Every other documented encoding
-is temporarily Unsupported before any executor operand/data/stack/port access;
-its reads and payload match a hole in its selected table. `tests/z80_run.rs`
-has literal boundary/refusal traces, complete rollback (including R and
-latches), budget/stop/halt precedence, overshoot and EI-delay/parity-note
-bookkeeping across splits. Private CPU witnesses pin table/index/displacement
-context, PC convention, operand reads, R increments and interrupt selection.
-The INDEX_CB fourth-byte access kind remains the unverified reading of
-decision-15 rule 5; EI-delay edge cases and parity-note timing remain the
-unverified readings of rules 7/10. Other R counting is derived under rule 6.
+M4 execution coverage (2026-11-13): the `z80` model executes every documented
+instruction through `run`/`step`, including all prefixed forms and repeating
+blocks (decisions 13–15). The eleven group executors dispatch directly; the
+temporary documented-but-unimplemented path and all group staging switches
+are removed. The five tables contain MAIN 252, CB 248, ED 58, INDEX 39 and
+INDEX_CB 31 terminal entries. Shared DD/FD maps represent 698 logical
+encodings. ED 63/6B are included; ED 70/71, CB 30–37, index halves and
+ignored-prefix forms remain excluded (decision-14; PROVENANCE.md §1).
 
-The eleven executors share a final `Decoded`/`execute` contract and group-owned
-landed switches; PC arrives after the fetched prefix/key bytes. INDEX memory
-executors fetch d through the shared operand helper; INDEX_CB d is pre-fetched.
-Repeating blocks rewind PC by two and return the taken path. The NMI and INT
-acceptance seams have their final signatures but decline without side effects
-until `x80-bi2.22` / `x80-bi2.23` fill their own modules and witness files.
-Those beads and the group beads need no edits to `cpu.rs` or `tests/z80_run.rs`.
-See [architecture](architecture.md) for the exact handoff and merge contract. See [plan §5](plan.md#5-milestones).
+`tests/z80_coverage.rs` independently enumerates literal documented and
+undocumented key sets for every table, distinguishing dispatch slots. Every
+documented encoding completes one step from neutral state; every undocumented
+encoding has the exact decision-14 refusal reads and payload, zero contributed
+progress and full CPU restoration, including R, alternate registers, EI delay,
+parity-note and NMI history. Both index prefixes, wrapped fetch addresses and
+repeated refusals are covered. Per-group witnesses pin semantics, flags, timing
+and bus accesses against the pinned primary and historical second witnesses.
+
+NMI and INT acceptance execute, including HALT wakeup, RETN/RETI, EI delay,
+IM 0's RST-only restriction, IM 1's fixed vector and IM 2's even-vector table
+lookup (decision-15 rules 7–10). Refused interrupt acknowledges restore the
+complete boundary state. `tests/z80_interrupts_nmi.rs` and
+`tests/z80_interrupts_int.rs` pin acceptance and refusal traces. The boundary
+witnesses in `tests/z80_run.rs` remain unchanged after staging removal.
+`tests/z80_determinism.rs` pins a 40-step, 410-state mixed program with CB, ED,
+DD, FD and DD CB, an NMI between LDIR iterations, full-width port I/O and
+scripted IM 1/IM 2 interrupts after HALT. Unlimited execution, individual steps,
+fixed and varying cycle budgets produce identical final registers, latches,
+memory, bus traces, poll sequences and actual progress totals.
+
+The model exposes `Z80`, `Registers`, `Flags`, `Latches`, `InterruptMode` and
+`Inputs`, with both register sets, pair accessors and reset. Construction
+values, unused F bits 5/3 reading as zero, preservation of primary-entry
+unknown flags, reset preservation and sampler bookkeeping remain library
+choices. Source pins, page maps, reconciliations and the shared Zilog lineage
+caveat remain in PROVENANCE.md §1. INDEX_CB's fourth-byte access kind, EI-delay
+edge cases and parity-note boundary timing retain decision-15's unverified
+qualifications; per-M1 R counting is derived. Further M4 closure work remains
+tracked in beads.
+See [architecture](architecture.md) and [plan §5](plan.md#5-milestones).
 
 **M3: done (2026-11-13, epic `x80-4gk`).** The `i8085` model executes every
 documented instruction, including RIM/SIM, and all five interrupt sources with

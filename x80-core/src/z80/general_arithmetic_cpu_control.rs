@@ -42,14 +42,6 @@ pub(super) const ED: &[Encoding] = &[
     Encoding::new(b"01011110", 2, States::single(8)),
 ];
 
-/// This group implements every entry in its MAIN and ED lists.
-pub(super) const LANDED: bool = true;
-
-/// Group-owned dispatcher switch; retain the staging seam's signature.
-pub(super) fn is_landed(_decoded: &Decoded) -> bool {
-    LANDED
-}
-
 /// PC/R and complete costs belong to the dispatcher (decision-13 rule 4;
 /// decision-15 rules 5–7). This group has no operand or data accesses.
 /// Primary: UM008011-0816 rev. 11, pp. 173–186; second cross-read:

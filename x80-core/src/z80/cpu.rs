@@ -57,7 +57,7 @@ enum Interrupt {
 /// A Z80 CPU's registers and execution latches (decision-13 rule 1).
 ///
 /// `Default` uses library construction values, not a hardware power-up
-/// state (decision-15 rule 12). Only NOP executes during group staging.
+/// state (decision-15 rule 12).
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Z80 {
     registers: Registers,
@@ -118,9 +118,8 @@ impl Z80 {
     /// their device side effects cannot be undone. Budget does no polling.
     /// Started instructions complete with their whole cost, even on overshoot.
     ///
-    /// During staging, documented encodings in groups not yet landed return
-    /// Unsupported with exactly their table's hole reads (decision-5 item 7;
-    /// decision-14 rule 4). Interrupt seams currently decline acceptance.
+    /// Every documented encoding dispatches to its group executor. Unsupported
+    /// terminal bytes follow decision-14 rule 4's refusal reads.
     pub fn run<S: Bus + Inputs>(&mut self, system: &mut S, budget: Budget) -> Report {
         let mut progress = Progress::default();
         loop {
@@ -238,10 +237,6 @@ impl Z80 {
     /// refusal validation and before service. Do not consume the EI delay.
     /// Decision-15 rule 10's unverified boundary interpretation of the note:
     /// UM LD A,I / LD A,R pp. 94–95; 03-0002-01 (January 1978) pp. 48–49.
-    #[allow(
-        dead_code,
-        reason = "final helper for separately landing interrupt seams"
-    )]
     pub(super) fn consume_parity_note(&mut self) {
         if self.latches.parity_note_pending {
             self.registers.flags.parity_overflow = false;
@@ -322,26 +317,6 @@ impl Z80 {
         let Some(instruction) = &table[usize::from(decoded.opcode)] else {
             return Err(unsupported);
         };
-        // ONE group-owned switch enables each executor. No group bead needs
-        // to edit this dispatcher. General control admits NOP during staging.
-        let landed = match instruction.group {
-            Group::Load8 => load8::LANDED,
-            Group::Load16 => load16::LANDED,
-            Group::ExchangeBlockSearch => exchange_block_search::LANDED,
-            Group::Arithmetic8 => arithmetic8::LANDED,
-            Group::GeneralArithmeticCpuControl => {
-                general_arithmetic_cpu_control::is_landed(&decoded)
-            }
-            Group::Arithmetic16 => arithmetic16::LANDED,
-            Group::RotateShift => rotate_shift::LANDED,
-            Group::BitSetResetTest => bit_set_reset_test::LANDED,
-            Group::Jump => jump::LANDED,
-            Group::CallReturn => call_return::LANDED,
-            Group::InputOutput => input_output::LANDED,
-        };
-        if !landed {
-            return Err(unsupported);
-        }
         let path = self.execute_group(system, instruction, &decoded);
         Ok(instruction.states.of(path))
     }

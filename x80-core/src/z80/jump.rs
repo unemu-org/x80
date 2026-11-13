@@ -73,11 +73,6 @@ pub(super) const INDEX: &[Encoding] = &[
     Encoding::new(b"11101001", 2, States::single(8)),
 ];
 
-/// Flip only this group-owned switch when its executor is complete. Until
-/// then dispatch refuses before any operand/data/stack/port access
-/// (decision-5 item 7 staging; decision-14 rule 4).
-pub(super) const LANDED: bool = true;
-
 /// PC starts after the prefix/key bytes (decision-13 rule 4). Operand reads
 /// use decision-15 rule 5's OperandFetch mapping; flags are unaffected for
 /// every form (UM pp. 262, 264–265, 267, 269, 271, 273, 275–277, 279;

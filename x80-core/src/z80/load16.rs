@@ -53,9 +53,6 @@ pub(super) const INDEX: &[Encoding] = &[
     Encoding::new(b"11100001", 2, States::single(14)),
 ];
 
-/// This group's executor covers every encoding above (decision-14 rule 4).
-pub(super) const LANDED: bool = true;
-
 /// PC is after prefix/key bytes; operand reads advance it through
 /// Z80::fetch_operand (decision-13 rule 4). Every form has a fixed cost.
 pub(super) fn execute<S: Bus>(
