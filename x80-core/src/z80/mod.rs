@@ -29,6 +29,7 @@
 //! assert!(!cpu.latches().iff1);
 //! ```
 
+mod alu;
 mod arithmetic16;
 mod arithmetic8;
 mod bit_set_reset_test;
