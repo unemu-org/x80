@@ -191,7 +191,7 @@ fn block<S: Bus>(cpu: &mut Z80, system: &mut S, opcode: u8) -> Path {
         // P/V's counter rule is STATED for LDIR (p. 133), DERIVED for
         // intermediate LDDR iterations from LDIR/LDD. UM LDDR p. 137's
         // reset and TM p. 46's zero entries describe completion, when
-        // BC=0 (corrected supervisor ruling, 2026-11-13).
+        // BC=0 (maintainer-accepted ruling, 2026-11-13).
         // LDDR's omitted C is explicitly unaffected in TM p. 46.
         // See PROVENANCE §1 for the source discrepancy and ruling.
         r.flags.half_carry = false;

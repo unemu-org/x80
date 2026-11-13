@@ -5,8 +5,8 @@
 //! Unsupported for 27h and zero retired steps/cycles.
 //!
 //! The literal table covers 684 of 2048 A/N/H/C inputs. A separate
-//! witness pins a handful of the other 1364 inputs as a library extension,
-//! unverified: the primary documents only the table cases.
+//! witness pins a handful of the other 1364 inputs as a library extension
+//! accepted by the maintainer (2026-11-13): the primary documents only the table cases.
 //! H-after is a DERIVED READING: use the adjustment's bit-4 carry/borrow
 //! (TM section 6's H definition). UM p. 174 refers to p. 173, which has
 //! no H-after column. This is a library rule for table cases too, not an
@@ -163,13 +163,13 @@ fn check(a: u8, before_f: u8, result: u8, result_f: u8) {
 #[test]
 fn exhaustive_input_domain_against_literal_manual_rows() {
     let mut table_cases = 0;
-    let mut unverified_cases = 0;
+    let mut extension_cases = 0;
     for a in 0..=255 {
         for n in [false, true] {
             for h in [false, true] {
                 for c in [false, true] {
                     let Some((added, carry)) = table_reading(a, n, h, c) else {
-                        unverified_cases += 1;
+                        extension_cases += 1;
                         continue; // Never silently fill a gap in the primary's table.
                     };
                     table_cases += 1;
@@ -184,7 +184,7 @@ fn exhaustive_input_domain_against_literal_manual_rows() {
             }
         }
     }
-    assert_eq!((table_cases, unverified_cases), (684, 1364));
+    assert_eq!((table_cases, extension_cases), (684, 1364));
 }
 
 #[test]
@@ -213,8 +213,8 @@ fn literal_table_anchors_and_manual_example() {
 }
 
 #[test]
-fn library_extension_unverified_outside_manual_table() {
-    // LIBRARY EXTENSION, UNVERIFIED: choose 06h if input low digit >9 or H;
+fn library_extension_outside_manual_table() {
+    // LIBRARY EXTENSION (maintainer-accepted 2026-11-13; undocumented by the sources): choose 06h if input low digit >9 or H;
     // choose 60h if input A>99h or C. Add when N=0, subtract when N=1.
     // C reports selection of 60h; H is adjustment bit-4 carry/borrow.
     // Literal expectations below follow this rule as written, not silicon.

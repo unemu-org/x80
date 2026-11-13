@@ -12,7 +12,7 @@
 //! Transfer P/V follows the decremented count on every iteration: stated
 //! for LDIR (UM p. 133), derived for intermediate LDDR iterations from
 //! LDIR/LDD. LDDR's reset and TM's zero entries describe completion;
-//! corrected supervisor ruling (2026-11-13), PROVENANCE §1.
+//! supervisor ruling accepted by the maintainer (2026-11-13), PROVENANCE §1.
 //!
 //! MEASURED fail-before on base 5f5f6e8: all 18 tests fail at their first
 //! retirement assertion with Unsupported, 0 steps and 0 cycles, because the
@@ -495,7 +495,7 @@ fn repeating_transfer(opcode: u8, next_e: u8, next_l: u8) {
     // P/V follows BC after decrement: STATED for LDIR on UM p. 133;
     // DERIVED for intermediate LDDR iterations from LDIR/LDD (p. 134).
     // UM LDDR p. 137's reset and TM's zero entries describe completion
-    // (corrected supervisor ruling, 2026-11-13; PROVENANCE §1).
+    // (maintainer-accepted ruling, 2026-11-13; PROVENANCE §1).
     for (count, next_b, next_c, pc, cycles) in [
         (2_u16, 0, 1, 0x2000, 21),
         (1, 0, 0, 0x2002, 16),

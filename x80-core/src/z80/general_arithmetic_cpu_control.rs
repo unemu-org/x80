@@ -120,7 +120,8 @@ pub(super) fn execute<S: Bus>(
 /// DAA: UM008011-0816 pp. 173–174; TM Table 7.0-5 p. 48.
 /// The digit/H/C selection below agrees with every literal p. 173 row;
 /// tests/z80_daa.rs transcribes all thirteen rows without widening ranges.
-/// LIBRARY EXTENSION, UNVERIFIED outside that table (which covers 684/2048 inputs):
+/// LIBRARY EXTENSION accepted by the maintainer (2026-11-13), not documented
+/// by the sources, outside that table (which covers 684/2048 inputs):
 /// choose 06h if input low digit >9 or H, and 60h if input A>99h or C;
 /// add/subtract according to N. C records selection of 60h. The primary
 /// documents only table cases; this extension claims no silicon behaviour.
