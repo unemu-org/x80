@@ -5,6 +5,7 @@
 //! implementations retain their own authority and public type identity.
 
 pub(crate) mod access;
+pub(crate) mod branch;
 pub(crate) mod data_transfer;
 
 /// A concrete borrowed view, a library choice under decision-16 rule 2.
