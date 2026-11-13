@@ -233,9 +233,11 @@ cited and witnessed for each.
 Candidate oracles: 8080 exercisers/diagnostics (for example CPU diagnostic and
 8080EXM-family programs), Z80 ZEX-family exercisers, and hardware-captured
 single-step corpora where available. Exact artifacts, origin, licenses, pins and
-redistribution permissions are **to check before vendoring**. Oracles can falsify
-a claim but never license a fact; record measured divergences and consult primary
-sources. Manuals and downloaded corpora must never be required for ordinary
+redistribution permissions are **to check before vendoring**. Oracles alone never
+license a fact. For undocumented behavior, an identified-hardware oracle may
+confirm a written fact under decision-17's two-key rule; unidentified-hardware
+CRCs remain falsifiers only. Record measured divergences and source rulings.
+Manuals and downloaded corpora must never be required for ordinary
 offline witness tests. The two Intel 8080 manuals are pinned (PROVENANCE.md);
 no 8080 corpus is pinned yet.
 
@@ -251,6 +253,13 @@ no 8080 corpus is pinned yet.
 
 These are planning landmarks; after setup, beads holds priorities, dependencies
 and claims. Do not turn this draft into a second task tracker.
+
+After M4, epic `x80-mn3` plans undocumented behavior for the 8085 first, then the
+Zilog NMOS Z80, always on with no embedder profile. The maintainer's 2026-11-13
+direction is drafted in [decision-17](<../decisions/decision-17 - Two-key-evidence-rule-for-undocumented-behaviour.md>);
+later per-model records will supersede decisions 11 and 14 in part after source
+pinning and two-key qualification. Undocumented 8080 behavior remains deferred
+pending research; decision-3 and decision-9's V20 ED escape stand.
 
 ## 6. Questions for the maintainer
 
@@ -294,9 +303,14 @@ Decided items cite their record; the rest stay open.
    through the host stop (§3). Still open with C4: handoff timing, event precedence and
    the items listed at the end of §3.
 7. Decided for the 8080 in decision-3: undocumented encodings return a typed
-   unsupported exit. Settled for the 8085 in decision-11 and for the Z80 in
-   decision-14: documented encodings only; Z80 F bits 5/3 read zero and flags
-   printed unknown are preserved by library choice. decision-15 limits IM 0 to
+   unsupported exit; decision-9's V20 ED escape remains working. The completed
+   M3/M4 scope follows decisions 11 and 14: documented encodings only; Z80 F bits
+   5/3 read zero and flags printed unknown are preserved by library choice.
+   Maintainer direction (2026-11-13), drafted in decision-17: implement
+   undocumented behavior under the two-key rule, 8085 first, then Zilog NMOS
+   Z80, always on without an embedder profile (epic `x80-mn3`). Later per-model
+   records will supersede decisions 11 and 14 in part; 8080 research stays
+   deferred until qualifying evidence is found. decision-15 limits IM 0 to
    RST and refuses odd IM 2 vectors. Oracle licences and pins are recorded in
    PROVENANCE.md §2: 8080PRE/8080EXM, 8085EXM and Z80 prelim/ZEXDOC are
    GPL-2.0-or-later, fetch-only and run locally. M4 prelim and all 58 judged

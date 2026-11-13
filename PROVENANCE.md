@@ -2,8 +2,8 @@
 
 ## 1. Authority and citations
 
-Derive hardware behavior from primary sources, cited by document, edition/revision,
-section or table, and printed page (also PDF page if different). Pin revision and
+Derive documented hardware behavior from primary sources, cited by document,
+edition/revision, section or table, and printed page (also PDF page if different). Pin revision and
 SHA-256 before implementing a fact; check scans against page images. Comments
 also link the relevant design section. Each implemented fact needs an independent
 witness test with expected values derived from that citation.
@@ -20,6 +20,27 @@ remain per model. `tests/boundary.rs` checks the root's manual-identifier exclus
 and each family source file's two primary identifiers, absence of Z80 identifiers
 and absence of paths to concrete model modules; review enforces citations at the
 individual fact.
+
+For undocumented behavior, apply the two-key rule in
+[decision-17](<backlog/decisions/decision-17 - Two-key-evidence-rule-for-undocumented-behaviour.md>):
+each fact needs a written statement pinned by revision/date and SHA-256 from
+class A (manufacturer or licensee/second-source document), B (die analysis or
+hardware measurement) or C (third-party written analysis), plus independent
+confirmation from real silicon: class B, or class A of a different origin.
+Pin both sources. Independence means different origin, not different publisher;
+a copy counts once. Class C alone never licenses a fact. Independent witness
+tests remain required; they do not replace silicon confirmation.
+
+Each fact carries one label: "documented by manufacturer", "documented by second
+source (part)", "die analysis (chip)", "hardware-measured (part, by whom)" or
+"third-party analysis", and names the silicon it holds for. Anything else stays
+"unverified". When classes disagree, silicon evidence prevails over a derivative
+or erroneous document; record both readings and the ruling.
+
+Never read another emulator's source or documentation. HDL replicas and netlist
+simulators are implementations; only their die-derived data (schematics,
+netlists) is evidence. Source pins and per-model rulings follow in later beads;
+decision-17 itself licenses no individual undocumented fact.
 
 ### Pinned sources
 
@@ -267,10 +288,16 @@ a public scan alone grants no redistribution permission.
 ## 2. Oracles
 
 Exercisers, diagnostic ROMs, other emulators and hardware captures can falsify a
-claim; they never authorize a behavioral fact. Never obtain semantics from another
-emulator's source. When an oracle disagrees, record initial state, bytes, measured
-result, artifact pin and the primary citation resolving the discrepancy. Do not
-silently mask a divergence.
+claim. An oracle alone never licenses a behavioral fact: a CRC confirms a stated
+fact, it cannot state one. Under [decision-17](<backlog/decisions/decision-17 - Two-key-evidence-rule-for-undocumented-behaviour.md>),
+a program whose expected values come from identified hardware (for example,
+z80test) may supply the independent silicon confirmation only for facts its
+groups discriminate, after pinning the artifact and hardware provenance.
+Unidentified-hardware CRCs (ZEXALL, ZEXDOC) remain falsifiers only. This eligibility
+does not pin or approve a candidate for use. Never read another emulator's source
+or documentation. When an oracle disagrees, record initial state, bytes, measured
+result, artifact pin, both source readings and the ruling under §1. Do not
+silently mask a divergence; documented behavior keeps its primary-source rule.
 
 ### Pinned oracles
 

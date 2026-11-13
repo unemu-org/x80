@@ -62,10 +62,13 @@ setup. Cross-repository identifiers carry a tag, e.g. `decision-23 (x86jit)`.
   maintainer's step.
 - Add only requested features and required fixes; no speculative framework or
   opportunistic cleanup. Respect milestone order and deliberate deferrals.
-- Derive behavior only from cited primary sources: document/revision, section or
-  table, and page. Pin every implemented fact with an independent witness. An
-  oracle can falsify a claim but cannot license it. Never take semantics from
-  another emulator's implementation. Unknown facts stay explicitly unverified.
+- Derive documented behavior only from cited primary sources: document/revision,
+  section/table and page. Pin every implemented fact with an independent witness.
+  Undocumented facts need a revision/date-and-hash-pinned written A/B/C statement
+  plus independent silicon confirmation (B or A of different origin); see
+  [decision-17](<backlog/decisions/decision-17 - Two-key-evidence-rule-for-undocumented-behaviour.md>).
+  Oracles can falsify; alone they cannot license a fact. Never read another
+  emulator's source or documentation. Unknown facts stay explicitly unverified.
 - Preserve the zero-dependency, guest-agnostic core. Machine behavior and x86
   register/segment conversion belong to the embedder. Hardware-derived code and
   witnesses cite both the design section and the primary source.
