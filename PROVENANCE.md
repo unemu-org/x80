@@ -331,7 +331,7 @@ decision-11 belong to **x80-mn3.3**; these pins license no behaviour by themselv
 | Silicon scope and labels | **S** below expands to **documented by second source (CA80C85B), unverified for Intel 8085** and applies to each licensed operation, length, mask and timing. **D** = **die analysis (8085; exact part unverified)**. **L** = **adopted library rule; exact hardware effect unverified**, including selected single-origin die readings. ROM's Intel heading/AMD9085 paths do not identify a package/revision. No hardware-measured or Intel manufacturer-documented label is claimed |
 | Revision-1 re-reading | All six original hashes rechecked; W PDF 1–2, T PDF 1–2, 25, 28, 39–40 and Intel PDF 100–101,105 re-read as rendered images; KV/FC decompressed with Python gzip, relevant sections of all four HTML bodies re-read. Original-draft audit additionally records Intel PDF 91–97; that earlier arithmetic/logical image audit is retained, not claimed as freshly read. No network or linked implementations/timing ROM read |
 
-All ten rows below are **ADMITTED** in the proposed model scope. The independent
+All ten rows below are **ADMITTED and implemented** in the model. The independent
 key confirms each encoding, not the complete operation or timing. S licenses
 the documented facts despite absent Intel timing measurements; two keys are
 not required anew for each timing under the maintainer's amendment.
@@ -349,7 +349,7 @@ not required anew for each timing under the maintainer's amendment.
 | LHLX ED; 1 byte; L←[DE], H←[DE+1], DE preserved | ROM row 12 `1110 1101`, no complete operand/transfer trace | 3 / 10 | **S**, W/T text reconciliation; **D** encoding |
 | JK FD; 3 bytes; K=1 jumps to byte 3:byte 2, else PC after instruction | Same ROM row 32 and limits | K=0 untaken 2 / 7; K=1 taken 3 / 10 | **S** operation/length/both totals, polarity reconciliation; **D** encoding |
 
-| Fact / disagreement | Source readings and exact locators | Proposed ruling / label |
+| Fact / disagreement | Source readings and exact locators | Accepted ruling / label |
 | --- | --- | --- |
 | Conditional path totals | W p. 145/T Table 2-10 give RSTV 1 or 3 / 6 or 12, jumps 2 or 3 / 7 or 10; conditional operation names continuation versus transfer | **S, second-source path interpretation**: smaller total untaken, larger taken. Both paths admitted. ROM introduction explicitly identifies a separate timing ROM; decode alone does not confirm totals |
 | JNUI DSUB remnants; JUI trailing subtraction | T Table 2-10 says Jump on NOT UI, then saved-HL/HL−BC text; JUI explicitly says UI set but also appends HL−BC. W p. 145 JNX5 gives if(not X5), target byte3:byte2 | Take the jump headings/diagrams and W's complete predicate, discard subtraction remnants: JNK if K=0, JK if K=1. **S, second-source text reconciliation** |
@@ -392,7 +392,7 @@ not required anew for each timing under the maintainer's amendment.
 | POP PSW / set_psw | KV circuit explicitly V/K databus loads; FC bus_to_flags and ALU POP PSW entry same die origin; W/T positions do not state exact load destinations | **L following explicit die reading**, hardware exact load unverified: adopt input1→V, input5→K independently, discard bit3. No implementation block pending another key; never reconstruct K from S/V |
 | Default/reset | Existing decision-12 rule 9 preserves flags on reset; no hidden-bit power-up guarantee supplied | **L construction/reset policy**: Default clears V/K, reset preserves them; bit3 packs zero. No new bus calls or elapsed reset time |
 | RSTV versus interrupt acceptance | W/T conditional software restart 0040h; neither settles interrupt latches | Admitted **S** operation uses explicit 0040h, not opcode & 38h. **L** preserve INTE/source latches, retire as ordinary instruction for EI delay, no acknowledge access. decision-12 INTR remains documented RST n/CALL only, no CB extension |
-| decision-11 partial supersession / decision-16 ownership | Decisions 17/18 source policy; current i8085 flags.rs/alu.rs/state.rs and reset/PSW conversion read | On acceptance all ten operations/lengths/totals admitted; replace primary-only refusal and filler1/5 with seven flags and chosen PSW rules. Preserve bit3=0, unsupported transaction for other unadmitted behaviour, documented operand-marker reconciliation, all 8080 rules and model-specific types. New FlagRules hooks still need decision-16 amendment |
+| decision-11 partial supersession / decision-16 ownership | Decisions 17/18 source policy; i8085 flags.rs/alu.rs/state.rs and reset/PSW conversion; accepted decision-19 | All ten operations/lengths/totals implemented; primary-only refusal and filler1/5 replaced by seven flags and chosen PSW rules. Preserve bit3=0, unsupported transaction for other unadmitted behaviour, documented operand-marker reconciliation, all 8080 rules and model-specific types. Decision-19 amends decision-16 with four flag-only hooks; further methods still require an amendment |
 | 8085EXM masked CRC invariance | Pinned 8085EXM.MAC, May 2020, SHA-256 caf4bf988ee3127947e5d22877cd0a120b5d2acabbb6d0eefc39bc82d296172e; lines 38–39, 186–378, 390–392, 846–855; lines 810–825 DAD before PUSH | **Library verification scope**: all 25 masks D5h exclude bits5/3/1, snapshot masked before CRC. Changes confined to these bits cannot change judged CRCs; no V/K/ten-opcode witness, new oracle run or guarantee for other flags/state. Keep §2's 24 judged/one reported qualification |
 
 ### Discovery inventory
@@ -485,6 +485,14 @@ unchanged digest-keyed output grammar; they do not witness the ten extensions.
 The accompanying release 8080 reruns also exit 0, PASS, with unchanged output
 and totals: 8080PRE 1,060 steps / 7,804 cycles; 8080EXM 2,919,050,421 steps /
 23,803,378,398 cycles (all 25 groups PASS).
+
+Closure rerun, 2026-11-13, **MEASURED on `766906e`**: all four release runs
+reproduce these verdicts and step/cycle totals exactly, including the reported,
+not judged long-ALU CRC `0cfd75b5`. Commands follow commands.md with local
+fetch-only program paths, offline/locked Cargo, target directory
+`/private/tmp/x80-x80-mn3.8-target`, empty `RUSTC_WRAPPER`, and
+`RUSTFLAGS="-C link-arg=-isysroot -C link-arg=$SDKROOT"`. No new silicon
+confirmation follows from these reruns.
 
 Rejected or not chosen: the Microcosm 8080/8085 CPU diagnostic (CPUDIAG/TST8080, 1980;
 licence unclear, so fetch-only would be the most it could be), the SuperSoft CPU test
@@ -841,9 +849,10 @@ Module paths below are under `x80-core/src/i8085/`, witnesses under
 - Library choices, not power-up claims: default registers and flags are zero;
   default latches set the masks, arm TRAP and clear the other fields.
   `state.rs`, `flags.rs` and `i8085_model.rs`.
-- Library PSW image: undefined bits 5/3/1 are stored as 0/0/1; hardware
-  expectations use mask D5h. decision-11, `flags.rs`, `i8085_registers.rs`
-  and `i8085_stack_io_control.rs`.
+- Historical M3 library PSW image: decision-11 chose bits 5/3/1 as 0/0/1.
+  Decision-18 supersedes that image with stored K/V and zero bit 3; the
+  undocumented closure list below records the current rules and witnesses.
+  D5h still masks hidden bits out of documented-flag oracle comparisons.
 - Derived API packing: PSW has A high and the flag byte low, from PUSH PSW's
   stack order. `state.rs` (205775-002 §5.6.5 p. 5-15; 9800301-04 p. 3-45)
   and `i8085_registers.rs`.
@@ -865,6 +874,110 @@ Module paths below are under `x80-core/src/i8085/`, witnesses under
   only an eight-bit device number. decision-5 item 3, decision-12's retained
   model-neutral contract and `stack_io_control.rs`; no upper I/O address byte
   is represented by this bus API.
+
+### Residual facts at the 8085 undocumented closure (2026-11-13)
+
+READ implementation at `766906e`: decision-18 §§2–5 and decision-19 are
+implemented. This index restates their chosen facts and the §1 rulings, without
+upgrading their evidence. **S** = documented by second source (CA80C85B),
+unverified for Intel 8085; **D** = die analysis (8085; exact part unverified);
+**L** = adopted library rule, exact hardware effect unverified. D/S retains
+both scopes. Decode confirmation does not establish operations, timings or
+physical bus traces. W/T count as one origin; KV/FC/ALU/ROM as another, not
+four independent keys. The full revision/date/hash pins and exact locators
+remain in §1 and decision-18 §1.
+
+One row per implemented fact or instruction contract follows. Witness names
+are exact test functions: **U** = `x80-core/tests/i8085_undocumented.rs`,
+**V** = `x80-core/tests/i8085_vk_flags.rs`, **T** =
+`x80-core/tests/i8085_timing.rs`, **C** = `x80-core/tests/i8085_coverage.rs`,
+**H** = `x80-oracle/tests/cli.rs`; other paths are given in full. Machine-cycle
+counts remain source context in §1; x80 reports only T-state totals.
+
+| Implemented fact / retained limit | Label | Independent witness (file key :: test name) |
+| --- | --- | --- |
+| All 256 fetched bytes execute: the documented set plus ten always-on extensions; decision-11's ten-hole refusal is superseded | L admission under licensed S/D facts | C :: `every_admitted_opcode_completes_a_step`; `literal_sets_partition_all_bytes_once` |
+| DSUB 08, one byte, HL←HL−BC, 10 states | S operation/length/total; D encoding ROM row 22 | U :: `dsub_word_result_and_all_seven_literal_flags`; T :: `op_08` |
+| ARHL 10, one byte, signed HL shift right with H7 retained, H0→L7, old L0→CY, 7 states; carry-input prose is compatible, not die confirmation of sign fill | S operation/length/total; D encoding row 25 | U :: `arhl_sign_fill_low_bit_carry_cleared_v_and_preserved_other_flags`; T :: `op_10` |
+| RDEL 18, one byte, DE left through old CY, old D7→CY, 10 states | S operation/length/total; D encoding row 23 | U :: `rdel_carry_in_out_and_word_overflow_preserve_k_and_documented_latches`; T :: `op_18` |
+| LDHI 28, two bytes, DE←HL+byte 2 with HL preserved, 10 states | S operation/length/total; D encoding row 24 | U :: `ldhi_ldsi_unsigned_byte_two_and_wrapped_sum_preserve_all_flags_and_base`; T :: `op_28` |
+| LDSI 38, two bytes, DE←SP+byte 2 with SP preserved, 10 states | S operation/length/total; D encoding row 24 | U :: `ldhi_ldsi_unsigned_byte_two_and_wrapped_sum_preserve_all_flags_and_base`; T :: `op_38` |
+| RSTV CB, one byte, V=1 saves return address high at SP−1/low at SP−2 and enters 0040h with SP−2, else sequential; CB resolves W's C8 typo | S operation/length; D encoding row 8 and typo resolution | U :: `rstv_both_paths_next_pc_stack_wrap_vector_and_ordinary_latch_retirement`; T :: `op_cb` |
+| SHLX D9, one byte, [DE]←L and [DE+1]←H with DE preserved, 10 states; W completes T's cut-off high-byte sentence | S operation/length/total and completion; D encoding row 11 | U :: `shlx_lhlx_low_before_high_data_even_at_sp_and_wrapped_address`; T :: `op_d9` |
+| JNK DD, three bytes, jump to byte 3:byte 2 iff K=0; reject T's stray DSUB text | S operation/length and text reconciliation; D encoding row 32 | U :: `jnk_jk_both_polarities_only_low_operand_when_untaken_with_pc_wrap`; T :: `op_dd` |
+| LHLX ED, one byte, L←[DE], H←[DE+1] with DE preserved, 10 states; reject T's extra data box and malformed parentheses | S operation/length/total and text reconciliation; D encoding row 12 | U :: `shlx_lhlx_low_before_high_data_even_at_sp_and_wrapped_address`; T :: `op_ed` |
+| JK FD, three bytes, jump to byte 3:byte 2 iff K=1; T's set/W's equation prevail over W's reset prose and stray subtraction | S operation/length and polarity reconciliation; D encoding row 32 | U :: `jnk_jk_both_polarities_only_low_operand_when_untaken_with_pc_wrap`; T :: `op_fd` |
+| RSTV smaller total is V=0 continuation (6 states), larger is V=1 restart (12); no independent Intel timing measurement | S conditional-path interpretation | U :: `rstv_both_paths_next_pc_stack_wrap_vector_and_ordinary_latch_retirement`; T :: `op_cb` |
+| JK/JNK smaller total is untaken (7 states), larger is taken (10); no independent Intel timing measurement | S conditional-path interpretation | U :: `jnk_jk_both_polarities_only_low_operand_when_untaken_with_pc_wrap`; T :: `op_dd`; `op_fd` |
+| Whole-set timing inventory includes 256 admitted bytes and 27 double-path conditionals | L inventory of admitted totals | T :: `table_covers_256_admitted_bytes_and_27_double_path_conditionals` |
+| Non-destination registers remain unchanged; assignments are the written basis, exhaustive hardware preservation is unverified | S written-assignment interpretation; L exact preservation contract | U :: all seven tests compare the complete expected CPU, including `dsub_word_result_and_all_seven_literal_flags` |
+| LDHI/LDSI zero-extend immediate 80h–FFh; signed-extension hardware edges remain unverified | L operand-width rule | U :: `ldhi_ldsi_unsigned_byte_two_and_wrapped_sum_preserve_all_flags_and_base` |
+| Pair results, PC/SP and addresses wrap at 16 bits, including FFFFh/0000h edges | L width rule | U :: `dsub_word_result_and_all_seven_literal_flags`; `ldhi_ldsi_unsigned_byte_two_and_wrapped_sum_preserve_all_flags_and_base`; `shlx_lhlx_low_before_high_data_even_at_sp_and_wrapped_address`; `rstv_both_paths_next_pc_stack_wrap_vector_and_ordinary_latch_retirement`; `jnk_jk_both_polarities_only_low_operand_when_untaken_with_pc_wrap` |
+| Each admitted opcode is OpcodeFetch; LDHI/LDSI byte 2 is OperandFetch; no bus callback is implied merely by a machine cycle | L API mapping | U :: `dsub_word_result_and_all_seven_literal_flags`; `arhl_sign_fill_low_bit_carry_cleared_v_and_preserved_other_flags`; `rdel_carry_in_out_and_word_overflow_preserve_k_and_documented_latches`; `ldhi_ldsi_unsigned_byte_two_and_wrapped_sum_preserve_all_flags_and_base` |
+| LHLX reads low then high as Data, SHLX writes low then high as Data, including DE=SP; no dummy accesses | L API order/kinds/access set, physical trace unverified | U :: `shlx_lhlx_low_before_high_data_even_at_sp_and_wrapped_address` |
+| RSTV taken saves next PC high-before-low as Stack; untaken only fetches; neither has acknowledge/dummy calls | L restart API mapping, saved-PC/physical trace unverified | U :: `rstv_both_paths_next_pc_stack_wrap_vector_and_ordinary_latch_retirement` |
+| JK/JNK taken fetch low/high operands; untaken fetch byte 2 only, skip byte 3 and advance PC by 3 | L API mapping, totals do not prove physical operand consumption | U :: `jnk_jk_both_polarities_only_low_operand_when_untaken_with_pc_wrap` |
+| Seven independently stored flags pack as S Z K AC 0 P V CY: K5, V1 and zero3; no eighth latch | D/S image | V :: `psw_images_push_pop_and_independent_loaded_flags`; `x80-core/tests/i8085_registers.rs` :: `decision_18_image_stores_v_k_and_discards_bit_3` |
+| Updated arithmetic K uses V XOR computed-result sign; silicon corrects the printed W/T universal formula, not an invariant over POP or INX/DCX | D conflict resolution of S rule | V :: `arithmetic_and_compare_all_sources_and_immediates`; `logical_clears_v_and_uses_result_sign_including_xor_conflict`; `psw_images_push_pop_and_independent_loaded_flags`; `pair_increment_decrement_wraps_and_clears_k_otherwise` |
+| ADD/ADI/ADC/ACI V is signed byte overflow including carry input, K=V XOR result sign | D/S | V :: `arithmetic_and_compare_all_sources_and_immediates` |
+| SUB/SUI/SBB/SBI V is signed byte subtraction overflow including borrow; internal overflow is distinct from exposed CY borrow, K=V XOR result sign | D/S | V :: `arithmetic_and_compare_all_sources_and_immediates` |
+| CMP/CPI use the temporary subtraction result for V/K while preserving A | D/S | V :: `arithmetic_and_compare_all_sources_and_immediates` |
+| INR V iff old byte=7Fh, otherwise clear, K=V XOR result sign; CY preserved, FF→00 is not overflow | D/S derived +1 specialization | V :: `inr_dcr_all_destinations` |
+| DCR V iff old byte=80h, otherwise clear, K=V XOR result sign; CY preserved, 00→FF is not overflow | D/S derived −1 specialization | V :: `inr_dcr_all_destinations` |
+| INX BC/DE/HL/SP sets K only for old pair=FFFFh, clears it otherwise; independent incrementer path | D/S | V :: `pair_increment_decrement_wraps_and_clears_k_otherwise` |
+| DCX BC/DE/HL/SP sets K only for old pair=0000h, clears it otherwise | D/S | V :: `pair_increment_decrement_wraps_and_clears_k_otherwise` |
+| INX/DCX preserve V, no exact independently confirmed effect | L | V :: `pair_increment_decrement_wraps_and_clears_k_otherwise` |
+| ANA/ANI/ORA/ORI/XRA/XRI clear V and set K=result sign; XRA 80h,80h gives K=0 rather than printed-formula K=1 | L following explicit die reading; counterexample is no silicon measurement | V :: `logical_clears_v_and_uses_result_sign_including_xor_conflict` |
+| RRC/RAR clear V | L following explicit die reading | V :: `rotates_update_v_but_preserve_independent_k_and_szap` |
+| RLC/RAL set V from signed left-add overflow (old CY enters RAL), equivalently old/new A sign differs | L following explicit die reading | V :: `rotates_update_v_but_preserve_independent_k_and_szap` |
+| All four rotations preserve independent K, rather than recomputing from stored S | L unstated-effect policy | V :: `rotates_update_v_but_preserve_independent_k_and_szap` |
+| DAA uses combined correction c=lo+hi: lo=06h iff low digit>9 or AC, hi=60h iff widened a+lo has high digit>9, old CY, or byte carry; otherwise each part is zero | L combined-ACT rule retaining existing five-flag derivation | V :: `daa_overflow_uses_combined_correction`; `x80-core/tests/i8085_daa.rs` :: `exhaustive_daa_all_1024_accumulator_carry_auxiliary_inputs` |
+| DAA V is signed overflow of old A+c and K=V XOR result sign; CY selects c, not an extra addend; 20h+60h and 7Ah+06h refute the restricted top-digit reading | L exact hidden flags lack an independent key | V :: `daa_overflow_uses_combined_correction` |
+| DAD V is signed word overflow including low-byte carry; explicit W/T/KV update prevails over ALU enable-list omission | S / die-reading reconciliation | V :: `dad_signed_word_overflow_includes_low_byte_carry_and_preserves_k` |
+| DAD preserves K | L unstated-effect policy | V :: `dad_signed_word_overflow_includes_low_byte_carry_and_preserves_k` |
+| DSUB updates all seven flags; W completes T's truncated mask, explicit update wins ALU enable-list omission | S mask reconciliation | U :: `dsub_word_result_and_all_seven_literal_flags` |
+| DSUB V is signed HL−BC word overflow including low-byte borrow, K=V XOR word-result sign | S, silicon-corrected K | U :: `dsub_word_result_and_all_seven_literal_flags` |
+| DSUB Z iff the whole word is zero, combined across both byte steps | D/S | U :: `dsub_word_result_and_all_seven_literal_flags` |
+| DSUB subtracts L−C with no incoming borrow, then H−B−low borrow, ignoring incoming CY; exact latch sequence unverified | L byte-step rule | U :: `dsub_word_result_and_all_seven_literal_flags` |
+| DSUB S is high-result bit 7 | L | U :: `dsub_word_result_and_all_seven_literal_flags` |
+| DSUB P is even parity of the high result only | L exact hardware selection unverified | U :: `dsub_word_result_and_all_seven_literal_flags` |
+| DSUB AC iff (old H & 0Fh)>=(old B & 0Fh)+low borrow, widened; high-step bit-3 carry/no nibble borrow | L exact hardware selection unverified | U :: `dsub_word_result_and_all_seven_literal_flags` |
+| DSUB CY iff old H<old B+low borrow, widened, equivalently unsigned old HL<old BC | L final-borrow rule | U :: `dsub_word_result_and_all_seven_literal_flags` |
+| ARHL clears V despite W/T's CY-only mask; die-derived override is not fully confirmed hardware behavior | L | U :: `arhl_sign_fill_low_bit_carry_cleared_v_and_preserved_other_flags` |
+| ARHL preserves K/S/Z/AC/P | S written mask | U :: `arhl_sign_fill_low_bit_carry_cleared_v_and_preserved_other_flags` |
+| RDEL V is signed DE+DE+old CY word overflow; explicit written CY/V mask wins omitted enable-list entry | S mask reconciliation | U :: `rdel_carry_in_out_and_word_overflow_preserve_k_and_documented_latches` |
+| RDEL preserves K/S/Z/AC/P | S written mask | U :: `rdel_carry_in_out_and_word_overflow_preserve_k_and_documented_latches` |
+| LDHI/LDSI preserve all seven flags, with additional die evidence for temporary-carry CY preservation | S mask; D additionally for CY | U :: `ldhi_ldsi_unsigned_byte_two_and_wrapped_sum_preserve_all_flags_and_base` |
+| RSTV/SHLX/JNK/LHLX/JK preserve all seven flags | S written masks, SHLX completed from same-origin W | U :: `rstv_both_paths_next_pc_stack_wrap_vector_and_ordinary_latch_retirement`; `shlx_lhlx_low_before_high_data_even_at_sp_and_wrapped_address`; `jnk_jk_both_polarities_only_low_operand_when_untaken_with_pc_wrap` |
+| PUSH emits K5,V1,zero3 with the documented A/flag stack placement | D/S output image | V :: `psw_images_push_pop_and_independent_loaded_flags` |
+| PUSH preserves V/K; image evidence alone does not establish preservation | L | V :: `psw_images_push_pop_and_independent_loaded_flags`; `remaining_documented_instructions_preserve_v_k` |
+| POP/set_psw load seven independent flags, input1→V/input5→K, discard bit3 without reconstructing K | L following explicit single-origin die reading, exact POP hardware unverified | V :: `psw_images_push_pop_and_independent_loaded_flags`; `x80-core/tests/i8085_registers.rs` :: `pop_psw_style_setter_keeps_seven_independent_flags_and_a` |
+| PSW API packs A high and the seven-flag image low | L API representation | V :: `psw_images_push_pop_and_independent_loaded_flags` |
+| Default clears V/K, not a silicon power-up claim | L construction rule | V :: `default_clears_and_reset_preserves_hidden_flags` |
+| Reset preserves V/K like the other flags, with no added bus calls or elapsed time | L reset API rule | V :: `default_clears_and_reset_preserves_hidden_flags`; `x80-core/tests/i8085_model.rs` :: `reset_preserves_registers_flags_and_sp_by_library_choice` |
+| Remaining documented transfers, CMA/CMC/STC, branches/calls/returns, RIM/SIM, DI/EI, NOP/HLT preserve V/K | L unstated-effect policy | V :: `remaining_documented_instructions_preserve_v_k` |
+| Ordinary external interrupt entry preserves V/K for every accepted source and INTR RST/CALL | L unstated-effect policy | V :: `ordinary_interrupt_entry_preserves_v_k` |
+| Normally fetched RSTV preserves INTE/source latches and retires as an ordinary instruction for EI delay | L latch/retirement rule | U :: `rstv_both_paths_next_pc_stack_wrap_vector_and_ordinary_latch_retirement` |
+| INTR remains documented RST n/CALL only; CB/RSTV and other acknowledge bytes are refused transactionally | L retained decision-12 scope, no new external instruction admission | `x80-core/tests/i8085_interrupts_intr.rs` :: `every_other_acknowledge_including_ei_di_restores_state_and_repeats` |
+| decision-19 pair_step hook supplies pair transition/direction to model-owned INX/DCX flag rules | L sharing contract, effects retain labels above | V :: `pair_increment_decrement_wraps_and_clears_k_otherwise`; `x80-core/tests/i8080_arithmetic.rs` :: `inx_dcx_all_pairs_wrap_and_preserve_all_flags` |
+| decision-19 rotate hook supplies operation and old/new A/CY to model-owned rotate flag rules | L sharing contract, effects retain labels above | V :: `rotates_update_v_but_preserve_independent_k_and_szap`; `x80-core/tests/i8080_logical.rs` :: `rotates_exhaustive_values_carry_and_preserved_flags` |
+| decision-19 dad hook supplies operands/result to model-owned DAD flag rules | L sharing contract, effects retain labels above | V :: `dad_signed_word_overflow_includes_low_byte_carry_and_preserves_k`; `x80-core/tests/i8080_arithmetic.rs` :: `dad_all_pairs_changes_only_hl_and_carry` |
+| decision-19 daa hook supplies old A/combined correction/result to model-owned DAA flag rules | L sharing contract, effects retain labels above | V :: `daa_overflow_uses_combined_correction`; `x80-core/tests/i8080_daa.rs` :: `exhaustive_daa_matches_manual_two_step_rule_for_1024_inputs` |
+| All four 8080 hooks are no-ops beyond the existing executor effects; types and hardware facts remain per model, no latch/timing/bus hooks admitted | L ownership/cap rule of decisions 16/19 | The four 8080 witnesses in the preceding rows pin behavior; `x80-core/tests/boundary.rs` :: `intel_family_sources_cite_both_models_and_use_no_model_paths` pins the structural boundary; hook cap READ in `intel/mod.rs` |
+| 8085 host replaces the refused-08h BDOS rendezvous with fetch-only OUT FFh; RET at 0005h; Data stack word at 0006h remains intact | L private harness ABI | H :: `intel_models_keep_console_output_with_model_specific_rendezvous_costs`; `i8085_bdos_preserves_stack_word_registers_and_flags_across_slices` |
+| Stub OUT requests a boundary stop, BDOS reads C/DE and clears the request before RET; one extra step / 10 cycles per call, stable across slices/repeated calls | L host stop/retirement rule | H :: `i8085_bdos_preserves_stack_word_registers_and_flags_across_slices`; §2 measured totals |
+| Overall cap at OUT stops before BDOS service; invalid ports/BDOS remain failures | L harness error/cap rule | H :: `i8085_bdos_errors_ports_and_cap_at_out_boundary_remain_failures` |
+
+Intel specimen/revision equivalence remains unverified throughout this list.
+Exact bus order/status/dummy activity, offset edge cases, POP destinations,
+DSUB high-byte/latch choices and single-origin hidden-flag effects remain
+unverified where labelled L; admission does not remove those limits.
+8085EXM's D5h mask excludes bits 5/3/1 and cannot witness V/K, arbitrary POP
+hidden bits or the ten opcodes. That mask claim is READ from the pinned
+8085EXM.MAC locations in §1/decision-18 §5, not a new hardware witness;
+the unmasked tests above pin the chosen library behavior. The long-ALU CRC
+remains reported, not judged. The earlier M3 residuals still apply except
+for the explicitly superseded PSW image.
 
 ### Residual unverified or derived facts at the M4 closure (2026-11-13)
 

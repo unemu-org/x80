@@ -138,7 +138,9 @@ notifications and budget splits have replay witnesses (`tests/i8085_run.rs`,
 [PROVENANCE.md §2](../../PROVENANCE.md#2-oracles) records the 8080PRE and
 8085EXM passes, including the unjudged long-ALU CRC;
 [§3](../../PROVENANCE.md#residual-unverified-or-derived-facts-at-the-m3-closure-2026-11-13)
-lists the residual unverified readings, derivations and library choices.
+lists the original residual readings; the
+[8085 undocumented closure list](../../PROVENANCE.md#residual-facts-at-the-8085-undocumented-closure-2026-11-13)
+maps the implemented decision-18/19 facts and their S/D/L limits to named witnesses.
 
 The 8085 now stores V/K independently and implements the documented-instruction
 hidden-flag rules of decision-18 §4, including its D/S/L qualifications
@@ -155,8 +157,22 @@ unverified for Intel 8085; each encoding has independent die confirmation
 unsigned offsets/wrapping, DSUB's high-byte flags and ARHL's V clear.
 `tests/i8085_undocumented.rs` witnesses every instruction/path with literal
 flags and traces, including width edges and RSTV's ordinary retirement.
-The 8080 implementation and flag model are unchanged. 8085EXM's D5h mask
+The 8080 instruction behavior and five-flag model are unchanged. 8085EXM's D5h mask
 excludes V/K and cannot validate them (decision-18 §5).
+
+The oracle host now uses a private `OUT FFh; RET` fetch stub at 0005h for
+8085 BDOS calls, since 08h executes DSUB. Its boundary-stop rendezvous keeps
+Data reads of the stack word at 0006h intact and adds one step / 10 cycles
+per call. The 8080 retains its 08h refusal rendezvous; these are host rules,
+outside core semantics. The closure release reruns on `766906e` reproduce
+the §2 verdicts and totals. Intel specimen/revision confirmation, physical bus
+traces, exact POP loads and the L hidden-flag effects remain unverified.
+
+Next in the undocumented track is Zilog **NMOS Z80** (`x80-mn3.5`): pin sources
+and origins, qualify facts under decisions 17/18, and accept a record
+superseding the relevant parts of decision-14 before implementation.
+Undocumented 8080 behavior remains research-only (`x80-mn3.4`), preserving
+decision-3's refusals and decision-9's V20 ED escape.
 
 **M5: done (2026-11-13, epic `x80-8sg`).** The private `intel` tier shares
 8080/8085 register access and Data Transfer, Arithmetic (including DAA), Logical,

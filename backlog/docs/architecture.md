@@ -4,6 +4,8 @@ The design sketch is [plan §2](plan.md#2-architecture-sketch). The `i8080` and
 `i8085` models execute every documented instruction through `step` and budgeted
 `run`, with their own interrupt paths (decisions 5/10/12;
 `tests/i8080_coverage.rs`, `tests/i8085_coverage.rs`; [status](status.md)).
+The 8085 also executes all ten second-source instructions under decision-18:
+all 256 fetched bytes execute, with S/D/L qualifications retained below.
 The `z80` model also executes every documented instruction, with model-owned
 state, flag images, inputs, reset, prefix tables and NMI/INT acceptance
 (decisions 13–15; `tests/z80_coverage.rs`, `tests/z80_determinism.rs`).
@@ -104,6 +106,7 @@ x80-core/
   tests/i8085_arithmetic_reference/ independent 8085 arithmetic reference
   tests/i8085_daa.rs            decimal-adjust witnesses
   tests/i8085_undocumented.rs   decision-18 literal flags, access traces and every conditional path
+  tests/i8085_vk_flags.rs       unmasked V/K, PSW, preservation and reset witnesses (decisions 18/19)
   tests/i8085_timing.rs         independent whole-set and interrupt T-state witnesses
   tests/i8085_interrupts_intr.rs INTR acknowledge and priority witnesses
   tests/i8085_interrupts_vectored.rs vectored acceptance, edge, mask and priority witnesses
@@ -312,10 +315,10 @@ V/K (L). `tests/i8085_vk_flags.rs` supplies unmasked literal witnesses for
 every row, including POP independence, reset and ordinary interrupts.
 D/S/L retain decision-18's part/revision and exact-hardware qualifications.
 The 8085-only `undocumented` group now implements all ten extensions of
-accepted decision-18 §§2–4; no fetched byte is refused. Its encoding/length/
+accepted decision-18 §§2–4; no fetched byte is refused. Its lengths,
 state slots and operations are S (documented by second source CA80C85B,
-unverified for Intel 8085), with independent D die confirmation of each
-encoding (exact 8085 part unverified). The bus access order/kinds, unsigned
+unverified for Intel 8085), and each encoding also has independent D die
+confirmation (exact 8085 part unverified). The bus access order/kinds, unsigned
 immediates and wrapping are L library mappings, exact hardware unverified.
 DSUB uses the explicit L low/high byte-step S/P/AC/CY rule, D/S combined Z,
 and S signed-word V/silicon-corrected K. ARHL clears V by the die-derived L
@@ -323,8 +326,11 @@ rule; RDEL updates CY/V and preserves K. Other extensions preserve flags (S).
 RSTV is an ordinary software restart to 0040h, preserving interrupt latches
 and retiring the EI delay (L), with no acknowledge. JK/JNK read only byte 2
 when untaken (L). `tests/i8085_undocumented.rs` pins literal flags and traces,
-every conditional path and derived width edges. Shared `FlagRules` and the
-8080 are unchanged.
+every conditional path and derived width edges. The
+[closure fact/witness list](../../PROVENANCE.md#residual-facts-at-the-8085-undocumented-closure-2026-11-13)
+retains the evidence limits for each implemented rule. Decision-19's four hooks
+are the only extension to shared `FlagRules`; the ten instructions stay
+8085-owned and the 8080 behavior is unchanged.
 
 Private machinery is shared under decision-10: `decode.rs` matches bit patterns
 using model-supplied field restrictions and builds maps generic over the model's
@@ -466,6 +472,21 @@ selected 8080/8085/Z80 model and gives a verdict only for the pinned SHA-256 dig
 ZEXDOC runs the 58 audited documented groups; nine groups are not run under
 decision-14. Its private ED 70 BDOS rendezvous and digest-keyed in-memory table
 filtering belong to the host, outside core instruction semantics.
+For 8085 the host supplies `OUT FFh; RET` through instruction reads at 0005h,
+preserving Data reads of the stack word at 0006h. Only that stub's port write
+requests the boundary stop for BDOS; servicing clears the request before RET.
+Each call adds one retired instruction / 10 cycles. The 8080 keeps its refused
+08h rendezvous. `x80-oracle/tests/cli.rs` pins the 8085 host contract across
+repeated calls, budget splits, preservation and failures; §2 records the release
+campaign in [PROVENANCE](../../PROVENANCE.md#2-oracles). None of these host
+responses changes core decoding.
+
+The next undocumented track, `x80-mn3.5`, targets Zilog NMOS Z80. It needs
+source pins and per-fact qualification under decisions 17/18, then a decision
+superseding decision-14's affected admission, flag-image and unknown-flag rules
+before implementation. Z80 facts remain model-owned; Intel `FlagRules` hooks
+do not authorize Z80 sharing. Undocumented 8080 research is `x80-mn3.4` and
+does not change decision-3 refusals or decision-9's V20 ED escape.
 
 Any future dependency-bearing oracle harness will also be separate and unpublished.
 The Z80 layout follows decision-13 (accepted): [Z80 model, prefix tables and sharing](<../decisions/decision-13 - z80-model-layout-prefix-tables-and-sharing.md>).

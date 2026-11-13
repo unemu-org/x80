@@ -4,7 +4,8 @@ Do not implement these unprompted. Open work is tracked in beads.
 
 Undocumented-family work is tracked under epic `x80-mn3`, always on with no
 embedder profile. All ten 8085 extensions now execute; no fetched 8085 byte
-is refused. Zilog NMOS Z80 undocumented behavior remains future work.
+is refused. Zilog NMOS Z80 undocumented behavior is next (`x80-mn3.5`);
+undocumented 8080 research is `x80-mn3.4`.
 The maintainer's 2026-11-13 evidence rule is recorded in [decision-17](<../decisions/decision-17 - Two-key-evidence-rule-for-undocumented-behaviour.md>).
 Source pins, two-key evidence and later per-model records precede implementation;
 decision-18 supersedes decision-11 in part; a later Z80 record must supersede
@@ -22,11 +23,30 @@ group with independent literal witnesses; the remaining evidence gaps below
 do not reinstate fetched-byte refusals. Unsupported INTR acknowledges remain
 limited by decision-12 rule 5.
 
+V/K are independent stored flags with unmasked witnesses; decision-19's four
+flag-effect hooks keep their rules model-owned. The oracle host uses the
+private `OUT FFh; RET` boundary-stop rendezvous for 8085 BDOS, preserving
+the stack word's Data view; it adds one step / 10 cycles per call. The
+8080 retains the 08h refusal rendezvous. These implemented library mappings
+and the per-fact S/D/L limits are listed in
+[PROVENANCE §3](../../PROVENANCE.md#residual-facts-at-the-8085-undocumented-closure-2026-11-13).
+
+The Z80 handoff carries forward source revision/date/hash pins, origin accounting,
+independent silicon confirmation and literal witnesses, explicit conflict rulings
+with silicon precedence, and part-qualified labels. Decision-18's manufacturer
+licence applies only to a qualifying compatible second-source data sheet, with
+independent die confirmation of each admitted encoding; it does not transfer
+the CA80C85B facts to Z80. Before implementation, the NMOS track needs its own
+pinned sources and a decision superseding the affected parts of decision-14
+(admission/refusal, F bits 5/3 and unknown-flag preservation). CMOS and other
+parts need separate evidence and a scope decision; oracle CRCs alone cannot
+admit behavior.
+
 | Item | Why deferred | Revisit |
 | --- | --- | --- |
 | NEC emulation-mode extensions | Shared mapping and handoff contract unverified | M2 with decision-23 and V20 bead (x86jit) |
 | Bus-cycle stepping, pin-level timing, READY and HOLD/HLDA behavior | Instruction T-state totals do not establish bus-cycle accuracy; includes the 8085's HOLD/HLDA and temporary halt leave during HOLD (decision-12 rule 11) | An explicit embedder requirement and cited timing contract |
-| Undocumented 8080 behavior | No qualifying source yet; decision-3 keeps typed Unsupported exits and decision-9's V20 ED escape working | Research finds evidence satisfying decision-17 and a later per-model record admits the behavior |
+| Undocumented 8080 behavior | Research-only `x80-mn3.4`; no qualifying source yet; decision-3 keeps typed Unsupported exits and decision-9's V20 ED escape working | Research finds evidence satisfying decision-17 and a later per-model record admits the behavior |
 | 8085 Intel silicon scope and physical bus traces | decision-18 admits all ten operations, lengths and timings under the second-source licence; Intel specimen/revision equivalence, exact temporal order/dummy activity for LHLX/SHLX/RSTV and JK/JNK operand-read traces remain unverified. Its API mappings and width/offset rules are explicitly labelled | Pinned named-Intel evidence; revise the labelled mappings if hardware differs, without treating licensed timings as blocked |
 | 8085 remaining hidden-flag hardware evidence | decision-18 chooses V/K effects, arbitrary POP loads, Default/reset and explicit preservation rules; single-origin die readings and unstated preservation remain labelled library rules. DSUB P/AC details and hidden-enable discrepancies are not fully confirmed | Independent evidence for exact updates/load/preservation, DSUB P/AC and non-BCD DAA, followed by unmasked witnesses; D5h-masked 8085EXM cannot settle these questions |
 | Z80 BUSREQ/BUSACK, external WAIT, pin timing and refresh addresses | decision-15 rule 14 omits these inputs/signals and their interrupt gating; automatic acknowledge waits remain in totals, external waits add no modelled time | An explicit embedder requirement and cited timing/arbitration contract |
