@@ -19,12 +19,22 @@ use x80_core::{Exit, MemoryAccess, Report};
 
 fn flags(s: bool, z: bool, ac: bool, p: bool, cy: bool) -> Flags {
     Flags {
+        overflow: false,
+        k: false,
         sign: s,
         zero: z,
         auxiliary_carry: ac,
         parity: p,
         carry: cy,
     }
+}
+
+// Mechanical decision-18 migration: compare every original register and
+// five-flag expectation; V/K have separate literals in i8085_vk_flags.rs.
+fn documented(mut registers: Registers) -> Registers {
+    registers.flags.overflow = false;
+    registers.flags.k = false;
+    registers
 }
 
 fn sample() -> Registers {
@@ -169,7 +179,7 @@ fn exhaustive_add_adc_sub_sbb_register_memory_and_immediate() {
                         let mut cpu = I8085::new(before, latches());
                         step(&mut cpu, &mut bus, states);
                         assert_eq!(
-                            *cpu.registers(),
+                            documented(*cpu.registers()),
                             Registers {
                                 a: value,
                                 flags: expected_flags,
@@ -218,7 +228,7 @@ fn every_register_source_including_a_is_sampled_before_writeback() {
                 let mut cpu = I8085::new(before, latches());
                 step(&mut cpu, &mut bus, 4);
                 assert_eq!(
-                    *cpu.registers(),
+                    documented(*cpu.registers()),
                     Registers {
                         a,
                         flags: expected_flags,
@@ -260,7 +270,7 @@ fn literal_memory_and_immediate_results_and_exact_access_kinds() {
             let mut cpu = I8085::new(before, latches());
             step(&mut cpu, &mut bus, 7);
             assert_eq!(
-                *cpu.registers(),
+                documented(*cpu.registers()),
                 Registers {
                     a: value,
                     flags: expected_flags,
@@ -325,7 +335,7 @@ fn inr_dcr_all_bytes_all_destinations_preserve_carry() {
                     let mut cpu = I8085::new(before, latches());
                     step(&mut cpu, &mut bus, states);
                     assert_eq!(
-                        *cpu.registers(),
+                        documented(*cpu.registers()),
                         expected,
                         "opcode={opcode:02X}, byte={operand:02X}, CY={cy}"
                     );
@@ -361,7 +371,7 @@ fn literal_inr_dcr_auxiliary_carry_boundaries() {
         let mut cpu = I8085::new(before, latches());
         step(&mut cpu, &mut bus, 4);
         assert_eq!(
-            *cpu.registers(),
+            documented(*cpu.registers()),
             Registers {
                 b: value,
                 flags: expected_flags,
@@ -405,7 +415,7 @@ fn inx_dcx_pairs_six_states_no_flags_and_derived_wrap() {
                 let memory = bus.memory.clone();
                 let mut cpu = I8085::new(before, latches());
                 step(&mut cpu, &mut bus, 6);
-                assert_eq!(*cpu.registers(), expected);
+                assert_eq!(documented(*cpu.registers()), expected);
                 assert_eq!(bus.log, boundary(0x2000, opcode));
                 assert_eq!(bus.memory, memory);
             }
@@ -455,7 +465,7 @@ fn dad_all_pairs_only_carry_ten_states_no_bus_idle_calls_and_derived_wrap() {
                 let memory = bus.memory.clone();
                 let mut cpu = I8085::new(before, latches());
                 step(&mut cpu, &mut bus, 10);
-                assert_eq!(*cpu.registers(), expected);
+                assert_eq!(documented(*cpu.registers()), expected);
                 assert_eq!(bus.log, boundary(0x2000, opcode));
                 assert_eq!(bus.memory, memory);
             }
@@ -483,7 +493,7 @@ fn derived_pc_wrap_immediates_and_memory_aliasing_opcode() {
         let mut cpu = I8085::new(before, latches());
         step(&mut cpu, &mut bus, 7);
         assert_eq!(
-            *cpu.registers(),
+            documented(*cpu.registers()),
             Registers {
                 a: value,
                 flags: expected_flags,
@@ -529,7 +539,7 @@ fn derived_pc_wrap_immediates_and_memory_aliasing_opcode() {
         let mut cpu = I8085::new(before, latches());
         step(&mut cpu, &mut bus, states);
         assert_eq!(
-            *cpu.registers(),
+            documented(*cpu.registers()),
             Registers {
                 a: value,
                 flags: expected_flags,

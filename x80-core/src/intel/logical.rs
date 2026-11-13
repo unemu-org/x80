@@ -62,29 +62,25 @@ pub(crate) fn execute<S: Bus, F: FlagRules>(
             }
         }
         // RLC/RRC: circular rotation by one, outgoing bit also enters CY;
-        // only CY changes: 98-153B Ch. 4 p. 4-10; 205775-002 §5.6.3
+        // only documented CY changes: 98-153B Ch. 4 p. 4-10; 205775-002 §5.6.3
         // pp. 5-11/5-12. Second witness: 9800301-04 Ch. 3 p. 3-49,
         // pp. 3-53/3-54. Encodings and bit positions are on those pages.
-        0x07 => {
-            r.flags.set_carry(*r.a & 0x80 != 0);
-            *r.a = r.a.rotate_left(1);
-        }
-        0x0F => {
-            r.flags.set_carry(*r.a & 1 != 0);
-            *r.a = r.a.rotate_right(1);
-        }
         // RAL/RAR: old CY enters A, outgoing bit replaces CY, other flags
-        // unchanged: 98-153B Ch. 4 p. 4-10; 205775-002 §5.6.3 p. 5-12.
+        // documented unchanged: 98-153B Ch. 4 p. 4-10; 205775-002 §5.6.3 p. 5-12.
         // Second witness: 9800301-04 Ch. 3 pp. 3-45/3-46.
-        0x17 => {
-            let carry = r.flags.carry();
-            r.flags.set_carry(*r.a & 0x80 != 0);
-            *r.a = (*r.a << 1) | u8::from(carry);
-        }
-        0x1F => {
-            let carry = r.flags.carry();
-            r.flags.set_carry(*r.a & 1 != 0);
-            *r.a = (*r.a >> 1) | (u8::from(carry) << 7);
+        0x07 | 0x0F | 0x17 | 0x1F => {
+            let old_a = *r.a;
+            let old_carry = r.flags.carry();
+            let (result, carry) = match opcode {
+                0x07 => (old_a.rotate_left(1), old_a & 0x80 != 0),
+                0x0F => (old_a.rotate_right(1), old_a & 1 != 0),
+                0x17 => ((old_a << 1) | u8::from(old_carry), old_a & 0x80 != 0),
+                _ => ((old_a >> 1) | (u8::from(old_carry) << 7), old_a & 1 != 0),
+            };
+            *r.a = result;
+            r.flags.set_carry(carry);
+            // decision-19: model-owned rotate flag effects.
+            r.flags.rotate(opcode, old_a, old_carry, result, carry);
         }
         // CMA: complement A, flags unchanged: 98-153B Ch. 4 p. 4-10;
         // 205775-002 §5.6.3 p. 5-12; 9800301-04 Ch. 3 p. 3-11.

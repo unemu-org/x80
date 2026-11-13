@@ -229,6 +229,8 @@ fn assert_program_completed(result: &Session) {
             sp: 0x9000,
             pc: 0x0122,
             flags: Flags {
+                overflow: false,
+                k: false,
                 sign: false,
                 zero: true,
                 auxiliary_carry: false,

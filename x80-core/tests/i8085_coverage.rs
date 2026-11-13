@@ -81,6 +81,8 @@ fn every_documented_opcode_completes_a_step() {
         for set in [false, true] {
             let mut registers = registers();
             registers.flags = Flags {
+                overflow: false,
+                k: false,
                 sign: set,
                 zero: set,
                 auxiliary_carry: set,

@@ -11,6 +11,10 @@
 
 use crate::i8085::Flags;
 
+// Mechanical decision-18 migration: this reference still specifies only
+// S/Z/AC/P/CY. V/K placeholders are excluded by its callers' comparisons;
+// independent hidden-flag expectations live in i8085_vk_flags.rs.
+
 /// Count parity by toggling once per set bit, independently of count_ones.
 pub fn result_flags(value: u8, auxiliary_carry: bool, carry: bool) -> Flags {
     let mut remaining = value;
@@ -20,6 +24,8 @@ pub fn result_flags(value: u8, auxiliary_carry: bool, carry: bool) -> Flags {
         remaining &= remaining - 1;
     }
     Flags {
+        overflow: false,
+        k: false,
         sign: value >= 128,
         zero: value == 0,
         auxiliary_carry,

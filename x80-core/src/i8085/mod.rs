@@ -19,9 +19,13 @@
 //! five interrupt sources execute; INTR supports RST and CALL acknowledges
 //! and returns Unsupported for other acknowledge bytes (decision-12 rule 5).
 //!
-//! The five flags occupy PSW bits 7, 6, 4, 2 and 0. Bits 5, 3 and 1 are
-//! undefined (205775-002 §5.6.5, p. 5-15, FLAG WORD). Their stored image is
-//! 0, 0, 1 by library choice (decision-11); hardware witnesses use mask D5h.
+//! The seven independent flags pack as S Z K AC 0 P V CY (decision-18 §4),
+//! replacing decision-11's filler bits. Image D/S: W p. 145/Tundra
+//! 9000000.MD302.01 Fig. 2-9 p. 2-15, independently KV bus drivers/FC
+//! storage (PROVENANCE §1; part/revision qualifications in [`Flags`]).
+//! POP/set_psw load V/K independently and discard bit 3 as an L library
+//! rule. Default clears V/K; reset preserves them (L). The existing five
+//! documented flags still occupy bits 7, 6, 4, 2 and 0; D5h masks exclude V/K.
 //!
 //! ```
 //! use x80_core::i8085::{I8085, Latches, Registers};

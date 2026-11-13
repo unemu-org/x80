@@ -10,6 +10,8 @@
 use x80_core::i8085::{Flags, Registers};
 
 const NO_FLAGS: Flags = Flags {
+    overflow: false,
+    k: false,
     sign: false,
     zero: false,
     auxiliary_carry: false,
@@ -17,6 +19,8 @@ const NO_FLAGS: Flags = Flags {
     carry: false,
 };
 const ALL_FLAGS: Flags = Flags {
+    overflow: true,
+    k: true,
     sign: true,
     zero: true,
     auxiliary_carry: true,
@@ -132,8 +136,9 @@ fn psw_places_a_high_and_each_flag_at_its_documented_bit_under_d5h() {
 }
 
 #[test]
-fn pop_psw_style_setter_keeps_only_five_flags_and_a() {
-    // Each expectation is a literal from p. 5-16's transfer list.
+fn pop_psw_style_setter_keeps_seven_independent_flags_and_a() {
+    // Five documented destinations: p. 5-16. Hidden loads L, decision-18 §4:
+    // FF loads all seven; 2A loads V/K independently and discards bit 3.
     for (image, flags) in [
         (
             0x1201,
@@ -171,11 +176,19 @@ fn pop_psw_style_setter_keeps_only_five_flags_and_a() {
             },
         ),
         (0x12FF, ALL_FLAGS),
-        (0x122A, NO_FLAGS),
+        (
+            0x122A,
+            Flags {
+                overflow: true,
+                k: true,
+                ..NO_FLAGS
+            },
+        ),
         (0x1200, NO_FLAGS),
     ] {
         let mut registers = sample();
         registers.set_psw(image);
+        // decision-18 §4 L: full-register assertion includes V1/K5 loads.
         assert_eq!(
             registers,
             Registers {
@@ -204,12 +217,12 @@ fn psw_round_trips_under_d5h_with_literal_expectations() {
 }
 
 #[test]
-fn library_choice_pins_undefined_bits_5_3_1_to_the_8080_image() {
-    // decision-11 library choice, NOT a hardware claim: p. 5-15 marks these
-    // bits undefined. This is the sole witness comparing their full image.
+fn decision_18_image_stores_v_k_and_discards_bit_3() {
+    // decision-18 §4 replaces decision-11 filler: D/S output K5,V1,zero3;
+    // L input loading follows the explicit die reading, hardware unverified.
     let mut registers = sample();
     registers.set_psw(0x002A);
-    assert_eq!(registers.psw(), 0x0002);
+    assert_eq!(registers.psw(), 0x0022); // decision-18 §4: V/K loaded, bit 3 discarded.
     registers.set_psw(0xFFFF);
-    assert_eq!(registers.psw(), 0xFFD7);
+    assert_eq!(registers.psw(), 0xFFF7); // decision-18 §4: all seven flags set.
 }

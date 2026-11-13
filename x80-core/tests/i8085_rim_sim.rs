@@ -23,6 +23,8 @@ fn registers(pc: u16, a: u8) -> Registers {
     Registers {
         a,
         flags: Flags {
+            overflow: false,
+            k: false,
             sign: true,
             zero: false,
             auxiliary_carry: true,
@@ -373,6 +375,8 @@ fn rim_and_sim_preserve_every_flag_combination() {
     // 9800301-04 pp. 3-49/3-60. Compare fields, never a crate PSW helper.
     for combination in 0..32 {
         let flags = Flags {
+            overflow: false,
+            k: false,
             sign: digit(combination, 16),
             zero: digit(combination, 8),
             auxiliary_carry: digit(combination, 4),

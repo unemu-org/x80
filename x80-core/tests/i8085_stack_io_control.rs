@@ -30,6 +30,8 @@ fn registers() -> Registers {
 // word from least to most significant. The index has no undefined bits.
 fn flags(index: u8) -> Flags {
     Flags {
+        overflow: false,
+        k: false,
         carry: index % 2 == 1,
         parity: index / 2 % 2 == 1,
         auxiliary_carry: index / 4 % 2 == 1,
@@ -188,7 +190,8 @@ fn push_psw_all_flags_mask_hardware_bits_and_pin_library_image() {
     // 205775-002 p. 5-15: A then S Z X AC X P X CY; 12 states,
     // SWW in Table 5-1. 9800301-04 p. 3-45 agrees, including undefined
     // bits 5/3/1 on 8085. Only D5h is a hardware-derived expectation.
-    // Separate full-byte check pins decision-11's library choice 0/0/1.
+    // decision-18 §4 D/S replaces filler1 with stored V (clear here),
+    // K also clear here, bit 3 zero. Full memory/trace expectations follow it.
     for index in 0..32 {
         let before = Registers {
             flags: flags(index),
@@ -199,7 +202,7 @@ fn push_psw_all_flags_mask_hardware_bits_and_pin_library_image() {
             + (index / 4 % 2) * 16
             + (index / 8 % 2) * 64
             + (index / 16 % 2) * 128;
-        let image = hardware + 2; // Library choice, not a hardware fact.
+        let image = hardware; // decision-18 §4: stored V=K=0, zero3.
         let mut cpu = I8085::new(before, Latches::default());
         let mut bus = RecordingBus::new();
         bus.load(0x2000, &[0xF5]);
@@ -218,20 +221,23 @@ fn push_psw_all_flags_mask_hardware_bits_and_pin_library_image() {
             12,
         );
         assert_eq!(bus.memory[0x9AAD] & 0xD5, hardware);
-        assert_eq!(bus.memory, memory); // Includes the explicitly chosen filler bits.
+        assert_eq!(bus.memory, memory); // decision-18 §4 PSW byte, V=K=0.
         let mut trace = fetch(0xF5, 0x2000);
         trace.extend([write(0x9AAE, 0x69), write(0x9AAD, image)]);
-        assert_eq!(bus.take_log(), trace);
+        assert_eq!(bus.take_log(), trace); // decision-18 §4 emitted PSW image.
     }
 }
 
 #[test]
-fn pop_psw_discards_all_undefined_bits_with_derived_wrap() {
+fn pop_psw_loads_seven_flags_discards_bit_3_with_derived_wrap() {
     // 205775-002 p. 5-16 transfers only bits 0/2/4/6/7, then A,
     // increments SP twice, ten states/FRR. 9800301-04 p. 3-43 agrees.
     // SP crossing FFFF/0000 is derived (205775-002 p. 2-2).
     for byte in 0u8..=255 {
+        // decision-18 §4 L: independent V1/K5 input loads, discard bit 3.
         let expected_flags = Flags {
+            overflow: byte / 2 % 2 == 1,
+            k: byte / 32 % 2 == 1,
             carry: byte % 2 == 1,
             parity: byte / 4 % 2 == 1,
             auxiliary_carry: byte / 16 % 2 == 1,
@@ -256,6 +262,7 @@ fn pop_psw_discards_all_undefined_bits_with_derived_wrap() {
             ..before
         };
         let report = cpu.step(&mut bus);
+        // decision-18 §4: complete's register assertion now includes V/K.
         complete(&cpu, report, expected, 10);
         assert_eq!(bus.memory, memory);
         let mut trace = fetch(0xF1, 0x2000);

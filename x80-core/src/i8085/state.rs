@@ -15,7 +15,7 @@ use super::Flags;
 pub struct Registers {
     /// Accumulator.
     pub a: u8,
-    /// The five condition flags.
+    /// The seven independent condition flags (decision-18 §4).
     pub flags: Flags,
     /// High byte of BC.
     pub b: u8,
@@ -70,13 +70,13 @@ impl Registers {
 
     /// A high, flag byte low: an API packing derived from PUSH PSW's stack
     /// order (205775-002 §5.6.5 p. 5-15; 9800301-04 p. 3-45).
-    /// Undefined bits 5, 3, 1 read as 0, 0, 1 by library choice (decision-11).
+    /// D/S image S Z K AC 0 P V CY (decision-18 §4; flags module sources).
     pub const fn psw(&self) -> u16 {
         u16::from_be_bytes([self.a, self.flags.to_byte()])
     }
 
-    /// Sets A high and the five flags from low-byte bits 7, 6, 4, 2, 0,
-    /// discarding bits 5, 3, 1, as POP PSW does (205775-002 p. 5-16).
+    /// L: sets A high and loads seven independent flags, discarding bit 3
+    /// (decision-18 §4 POP rule; flags module sources and qualifications).
     pub fn set_psw(&mut self, value: u16) {
         let [a, flags] = value.to_be_bytes();
         self.a = a;

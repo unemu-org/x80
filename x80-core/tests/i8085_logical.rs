@@ -74,6 +74,8 @@ fn reference(operation: Operation, a: u8, operand: u8) -> (u8, Flags) {
 
 fn flags(s: bool, z: bool, ac: bool, p: bool, cy: bool) -> Flags {
     Flags {
+        overflow: false,
+        k: false,
         sign: s,
         zero: z,
         auxiliary_carry: ac,
@@ -141,7 +143,12 @@ fn completed(cpu: &I8085, report: Report, expected: Registers, states: u64) {
             exit: Exit::Budget
         }
     );
-    assert_eq!(*cpu.registers(), expected);
+    // Mechanical decision-18 migration: keep all five original flag
+    // expectations; V/K are independently witnessed in i8085_vk_flags.rs.
+    let mut actual = *cpu.registers();
+    actual.flags.overflow = false;
+    actual.flags.k = false;
+    assert_eq!(actual, expected);
     assert_eq!(
         *cpu.latches(),
         Latches {

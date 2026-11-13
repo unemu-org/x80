@@ -20,6 +20,8 @@ use x80_core::{Budget, Exit, MemoryAccess, Report};
 fn flags(bits: u8) -> Flags {
     // Loop indices, not PSW positions; all five inputs vary independently.
     Flags {
+        overflow: false,
+        k: false,
         zero: bits & 1 != 0,
         carry: bits & 2 != 0,
         parity: bits & 4 != 0,

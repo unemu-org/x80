@@ -37,6 +37,7 @@ pub(crate) fn execute<S: Bus, F: FlagRules>(
         // propagation of step 1's bit-7 carry are DERIVED per model; consume
         // the model's policy rather than claim a both-primary statement.
         0x27 => {
+            let old_a = *r.a;
             let correction = if *r.a & 0x0F > 9 || r.flags.auxiliary_carry() {
                 6
             } else {
@@ -45,7 +46,12 @@ pub(crate) fn execute<S: Bus, F: FlagRules>(
             let (low, low_flags) = F::add(*r.a, correction, false);
             let low_carry = daa_carry.propagate_low && low_flags.carry();
             let carry_for_high = r.flags.carry() || low_carry;
-            let (value, high_carry) = if low >> 4 > 9 || carry_for_high {
+            let high_correction = if low >> 4 > 9 || carry_for_high {
+                0x60
+            } else {
+                0
+            };
+            let (value, high_carry) = if high_correction != 0 {
                 low.overflowing_add(0x60)
             } else {
                 (low, false)
@@ -58,6 +64,8 @@ pub(crate) fn execute<S: Bus, F: FlagRules>(
             // 9800301-04 Ch. 3 p. 3-19's 9BH -> A1H -> 01H keeps AC=1
             // through the high adjustment; Ch. 1 pp. 1-10/1-11.
             *r.flags = F::result(value, low_flags.auxiliary_carry(), carry);
+            // decision-19: model-owned effects of the combined correction.
+            r.flags.daa(old_a, correction + high_correction, value);
         }
         // ADD/ADI/ADC/ACI/SUB/SUI/SBB/SBI encodings, source bits 2..0,
         // operation bits 4..3 and CY input only for ADC/ACI/SBB/SBI:
@@ -101,7 +109,7 @@ pub(crate) fn execute<S: Bus, F: FlagRules>(
             write_operand(r, system, destination, value);
             *r.flags = flags;
         }
-        // INX/DCX encodings, RP bits 5..4, 16-bit pair +/-1, no flags:
+        // INX/DCX encodings, RP bits 5..4, 16-bit pair +/-1, no documented flags:
         // 98-153B Ch. 4 pp. 4-3/4-8; 205775-002 §§5.2/5.6.2
         // pp. 5-1/5-9. No memory access beyond fetch: 98-153B Ch. 2
         // pp. 2-16/2-17; 205775-002 Table 5-1 p. 5-19 (S only).
@@ -117,8 +125,10 @@ pub(crate) fn execute<S: Bus, F: FlagRules>(
                 value.wrapping_sub(1)
             };
             write_pair(r, pair, result);
+            // decision-19: model-owned pair-step flag effects.
+            r.flags.pair_step(value, result, opcode & 8 != 0);
         }
-        // DAD encoding, RP bits 5..4, HL <- HL + rp, only CY updated:
+        // DAD encoding, RP bits 5..4, HL <- HL + rp, documented CY updated:
         // 98-153B Ch. 4 pp. 4-3/4-8; 205775-002 §§5.2/5.6.2
         // pp. 5-1/5-9. Internal cycles make no memory reference:
         // 98-153B Ch. 2 note 8 p. 2-20; 205775-002 Table 5-1 p. 5-19
@@ -127,9 +137,12 @@ pub(crate) fn execute<S: Bus, F: FlagRules>(
         // p. 16-20. Wrapped HL is DERIVED from the widths cited above.
         _ if opcode & 0xCF == 0x09 => {
             let operand = read_pair(r, (opcode >> 4) & 3);
-            let (value, carry) = u16::from_be_bytes([*r.h, *r.l]).overflowing_add(operand);
+            let left = u16::from_be_bytes([*r.h, *r.l]);
+            let (value, carry) = left.overflowing_add(operand);
             [*r.h, *r.l] = value.to_be_bytes();
             r.flags.set_carry(carry);
+            // decision-19: model-owned word-add flag effects.
+            r.flags.dad(left, operand, value);
         }
         _ => unreachable!("opcode map dispatches only this group's encodings"),
     }

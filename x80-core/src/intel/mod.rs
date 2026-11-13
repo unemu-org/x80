@@ -30,8 +30,8 @@ pub(crate) struct View<'a, F> {
 /// Condition-flag accessors, model-owned PSW conversion and ALU facts.
 /// Design: decision-16 rule 3; flags: 98-153B Ch. 4 "Condition Flags"
 /// pp. 4-2/4-3; 205775-002 §5.5 p. 5-3. PSW images: 98-153B Ch. 4
-/// p. 4-13; 205775-002 §5.6.5 pp. 5-15/5-16. Facts and the 8085 filler-bit
-/// library choice (decision-11) stay in each model's implementation.
+/// p. 4-13; 205775-002 §5.6.5 pp. 5-15/5-16. Facts and the 8085 V/K
+/// rules (decision-18 §4) stay in each model's implementation.
 pub(crate) trait FlagRules: Copy {
     fn sign(self) -> bool;
     fn zero(self) -> bool;
@@ -52,4 +52,15 @@ pub(crate) trait FlagRules: Copy {
     // AND: 98-153B Ch. 4 pp. 4-8/4-9; 205775-002 §5.6.3 pp. 5-9/5-10.
     // Model-owned AC, including decision-8's resolution of the 8080 sources.
     fn and(a: u8, operand: u8) -> (u8, Self);
+
+    // decision-19: INX/DCX flag effects; the shared executor supplies the
+    // pair transition, while each model owns its update/preservation rules.
+    fn pair_step(&mut self, old: u16, result: u16, decrement: bool);
+    // decision-19: RLC/RRC/RAL/RAR flag effects after accumulator/CY update.
+    fn rotate(&mut self, opcode: u8, old_a: u8, old_carry: bool, result: u8, carry: bool);
+    // decision-19: DAD flag effects after the shared CY update.
+    fn dad(&mut self, left: u16, right: u16, result: u16);
+    // decision-19: DAA completion after the existing five-flag derivation,
+    // using the combined low/high correction selected by the executor.
+    fn daa(&mut self, old_a: u8, correction: u8, result: u8);
 }

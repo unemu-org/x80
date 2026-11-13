@@ -28,6 +28,8 @@ fn registers(pc: u16) -> Registers {
         h: 0x56,
         l: 0x19,
         flags: Flags {
+            overflow: false,
+            k: false,
             sign: true,
             zero: false,
             auxiliary_carry: true,

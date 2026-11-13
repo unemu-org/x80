@@ -12,6 +12,8 @@ use x80_core::{Exit, MemoryAccess, Report};
 
 fn flags(s: bool, z: bool, ac: bool, p: bool, cy: bool) -> Flags {
     Flags {
+        overflow: false,
+        k: false,
         sign: s,
         zero: z,
         auxiliary_carry: ac,
@@ -104,8 +106,13 @@ fn check(a: u8, cy: bool, ac: bool, pc: u16, next_pc: u16, expected: (u8, Flags)
             exit: Exit::Budget
         }
     );
+    // Mechanical decision-18 migration: keep all five original flag
+    // expectations; V/K are independently witnessed in i8085_vk_flags.rs.
+    let mut actual = *cpu.registers();
+    actual.flags.overflow = false;
+    actual.flags.k = false;
     assert_eq!(
-        *cpu.registers(),
+        actual,
         Registers {
             a: expected.0,
             flags: expected.1,

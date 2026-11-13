@@ -139,6 +139,17 @@ notifications and budget splits have replay witnesses (`tests/i8085_run.rs`,
 [§3](../../PROVENANCE.md#residual-unverified-or-derived-facts-at-the-m3-closure-2026-11-13)
 lists the residual unverified readings, derivations and library choices.
 
+The 8085 now stores V/K independently and implements the documented-instruction
+hidden-flag rules of decision-18 §4, including its D/S/L qualifications
+([architecture](architecture.md)). The PSW image is `S Z K AC 0 P V CY`;
+POP loads V/K independently and discards bit 3. Default clears V/K and reset
+preserves them by library rule. Unmasked literal witnesses live in
+`tests/i8085_vk_flags.rs`; the documented five-flag expectations remain
+separate from these qualified hidden-flag rules. The ten admitted undocumented
+instructions of decision-18 remain unimplemented; their existing refusal
+behavior is unchanged. The 8080 flag model is unchanged. 8085EXM's D5h mask
+excludes V/K and cannot validate them (decision-18 §5).
+
 **M5: done (2026-11-13, epic `x80-8sg`).** The private `intel` tier shares
 8080/8085 register access and Data Transfer, Arithmetic (including DAA), Logical,
 Branch and Stack/I/O executor bodies under decision-16. Concrete borrowed

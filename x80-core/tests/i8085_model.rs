@@ -15,6 +15,8 @@ use x80_core::i8085::{Flags, Latches, Registers, I8085};
 const DEFAULT_REGISTERS: Registers = Registers {
     a: 0,
     flags: Flags {
+        overflow: false,
+        k: false,
         sign: false,
         zero: false,
         auxiliary_carry: false,
@@ -69,6 +71,8 @@ const DIRTY_LATCHES: Latches = Latches {
 const REGISTERS: Registers = Registers {
     a: 0xA1,
     flags: Flags {
+        overflow: false,
+        k: false,
         sign: true,
         zero: false,
         auxiliary_carry: true,

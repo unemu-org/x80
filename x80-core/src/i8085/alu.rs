@@ -19,9 +19,13 @@
 use super::Flags;
 
 /// S/Z/P from the byte result; AC/CY supplied by the operation.
+/// V=0, K=sign is L for ANA/ORA/XRA (decision-18 §4, KV note [4],
+/// ALU constant-carry/enables; exact hardware effect unverified).
 /// 205775-002 §5.5 p. 5-3; 9800301-04 Ch. 1 pp. 1-10/1-11.
 pub(super) const fn result_flags(value: u8, auxiliary_carry: bool, carry: bool) -> Flags {
     Flags {
+        overflow: false,
+        k: value & 0x80 != 0,
         sign: value & 0x80 != 0,
         zero: value == 0,
         auxiliary_carry,
@@ -38,7 +42,14 @@ pub(super) fn add(left: u8, right: u8, carry: bool) -> (u8, Flags) {
     let total = u16::from(left) + u16::from(right) + input;
     let nibble_total = u16::from(left & 15) + u16::from(right & 15) + input;
     let value = total as u8;
-    (value, result_flags(value, nibble_total >= 16, total >= 256))
+    let mut flags = result_flags(value, nibble_total >= 16, total >= 256);
+    // D/S: signed ADD/ADC overflow including carry input; INR is +1.
+    // decision-18 §4, W p. 145/T Fig. 2-9 p. 2-15, KV V circuit and
+    // ALU store_v_flag/arith_to_flags. K's silicon conflict resolution
+    // selects V XOR computed result sign (KV note [4]).
+    flags.overflow = (!(left ^ right) & (left ^ value) & 0x80) != 0;
+    flags.k = flags.overflow ^ flags.sign;
+    (value, flags)
 }
 
 /// SUB/SBB: CY reports borrow; AC retains the bit-3 carry (see module docs).
@@ -50,10 +61,14 @@ pub(super) fn subtract(left: u8, right: u8, borrow: bool) -> (u8, Flags) {
     // A + !B + !borrow carries out of bit 3 exactly when this is nonnegative.
     let nibble_difference = i16::from(left & 15) - i16::from(right & 15) - input;
     let value = difference as u8;
-    (
-        value,
-        result_flags(value, nibble_difference >= 0, difference < 0),
-    )
+    let mut flags = result_flags(value, nibble_difference >= 0, difference < 0);
+    // D/S: signed SUB/SBB/CMP overflow including borrow; DCR is -1.
+    // decision-18 §4, W complemented-O2 rule/T Fig. 2-9 p. 2-15;
+    // KV circuit/note [5], ALU enables. Internal overflow is independent
+    // of exposed CY borrow; CMP's temporary result supplies K's sign.
+    flags.overflow = ((left ^ right) & (left ^ value) & 0x80) != 0;
+    flags.k = flags.overflow ^ flags.sign;
+    (value, flags)
 }
 
 /// 8085 ANA/ANI: AND into A, CY cleared and AC set, independently of
@@ -67,13 +82,60 @@ pub(super) const fn and(a: u8, operand: u8) -> (u8, Flags) {
     (value, result_flags(value, true, false))
 }
 
+/// Model-owned completion for the separate 16-bit incrementer.
+pub(super) fn pair_step(flags: &mut Flags, old: u16, decrement: bool) {
+    // K D/S: decision-18 §4, W p. 144/T Fig. 2-9 p. 2-15;
+    // KV incrementer circuit, ALU carry_to_k_flag. V preserved L: the
+    // sources do not state its exact effect; no ALU result-sign equation.
+    flags.k = old == if decrement { 0 } else { 0xFFFF };
+}
+
+/// Model-owned DAD completion; documented flags already came from execution.
+pub(super) fn dad(flags: &mut Flags, left: u16, right: u16, result: u16) {
+    // V S / die-reading reconciliation: decision-18 §4, W p. 145's
+    // arithmetic definition/T Fig. 2-9 p. 2-15's 16-bit V and KV note [4]
+    // explicit DAD statement take precedence over an omitted enable-list
+    // item. Whole-word overflow includes the low-byte carry. K preserved L.
+    flags.overflow = (!(left ^ right) & (left ^ result) & 0x8000) != 0;
+}
+
+/// Model-owned rotation completion; S/Z/AC/P and K remain independent.
+pub(super) fn rotate(flags: &mut Flags, old_a: u8, result: u8, right: bool) {
+    // L: decision-18 §4, following KV note [4]/ALU V controls.
+    // RRC/RAR clear V; RLC/RAL use signed A+A (+old CY for RAL).
+    // The completed result contains the carry input where applicable;
+    // either left addition overflows exactly when its sign changes.
+    // K preservation is L: no explicit rotate K effect, never use S latch.
+    flags.overflow = !right && (old_a ^ result) & 0x80 != 0;
+}
+
+/// Model-owned DAA completion, retaining the existing five-flag derivation.
+pub(super) fn daa(flags: &mut Flags, old_a: u8, correction: u8, result: u8) {
+    // L: decision-18 §4 exact combined ACT correction, ALU "The accumulator
+    // and ACT registers" and KV V circuit. The shared executor supplies its
+    // combined correction; incoming CY is not an extra addend. This also
+    // retains 7A+06 overflow when there is no high correction, and sets V
+    // for 20+60 (not only a top-digit 7->8 transition). K=V XOR result sign.
+    flags.overflow = (!(old_a ^ correction) & (old_a ^ result) & 0x80) != 0;
+    flags.k = flags.overflow ^ (result & 0x80 != 0);
+}
+
 #[cfg(test)]
 #[path = "../../tests/i8085_arithmetic_reference/mod.rs"]
 mod reference;
 
 #[cfg(test)]
 mod tests {
+    use super::Flags;
     use super::{add, reference, result_flags, subtract};
+
+    // Mechanical decision-18 migration: retain every original five-flag
+    // expectation; independent V/K literals live in i8085_vk_flags.rs.
+    fn documented(mut flags: Flags) -> Flags {
+        flags.overflow = false;
+        flags.k = false;
+        flags
+    }
 
     #[test]
     fn result_flags_exhaustive() {
@@ -81,7 +143,7 @@ mod tests {
             for auxiliary in [false, true] {
                 for carry in [false, true] {
                     assert_eq!(
-                        result_flags(value, auxiliary, carry),
+                        documented(result_flags(value, auxiliary, carry)),
                         reference::result_flags(value, auxiliary, carry),
                         "value={value:02X}, AC={auxiliary}, CY={carry}"
                     );
@@ -95,8 +157,9 @@ mod tests {
         for left in u8::MIN..=u8::MAX {
             for right in u8::MIN..=u8::MAX {
                 for carry in [false, true] {
+                    let (value, flags) = add(left, right, carry);
                     assert_eq!(
-                        add(left, right, carry),
+                        (value, documented(flags)),
                         reference::arithmetic(left, right, carry, false),
                         "left={left:02X}, right={right:02X}, carry={carry}"
                     );
@@ -110,8 +173,9 @@ mod tests {
         for left in u8::MIN..=u8::MAX {
             for right in u8::MIN..=u8::MAX {
                 for borrow in [false, true] {
+                    let (value, flags) = subtract(left, right, borrow);
                     assert_eq!(
-                        subtract(left, right, borrow),
+                        (value, documented(flags)),
                         reference::arithmetic(left, right, borrow, true),
                         "left={left:02X}, right={right:02X}, borrow={borrow}"
                     );

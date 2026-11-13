@@ -21,6 +21,8 @@ fn cpu_at(pc: u16) -> I8085 {
         Registers {
             a: 0x91,
             flags: Flags {
+                overflow: false,
+                k: false,
                 sign: true,
                 zero: true,
                 auxiliary_carry: true,

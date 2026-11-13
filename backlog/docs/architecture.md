@@ -39,7 +39,7 @@ x80-core/
   src/i8080/stack_io_control.rs Stack/I/O wrapper, XTHL order and model-owned control (pp. 4-13, 4-14)
   src/i8085/mod.rs              the 8085 model module and its re-exports (decisions 10–12)
   src/i8085/state.rs            Registers, pair/PSW accessors, interrupt and sampler Latches
-  src/i8085/flags.rs            five flags and the decision-11 library PSW image
+  src/i8085/flags.rs            seven independent flags and the decision-18 PSW image
   src/i8085/interrupt.rs        Inputs: five interrupt lines, SID and SOD notifications
   src/i8085/cpu.rs              I8085: run/step, reset, boundary sampling, priority and dispatch
   src/i8085/opcodes.rs          model groups, field restrictions and shared-builder map assembly
@@ -133,7 +133,7 @@ Arithmetic in `x80-8sg.8`):
 
 ```text
 x80-core/src/intel/             private to the crate
-  mod.rs                       View and the FlagRules contract (flag access, PSW image, result/add/subtract/AND)
+  mod.rs                       View and FlagRules (flag access, PSW image, ALU operations and decision-19 hooks)
   access.rs                    operand/location/pair/condition/address and push-and-jump helpers
   data_transfer.rs             shared Data Transfer body
   branch.rs                    shared Branch body, per-model untaken-read constant (BranchFacts)
@@ -150,19 +150,21 @@ Public types, ALU/flag rules and `FlagRules` implementations, encoding lists,
 state totals, map witnesses, run loops, reset, interrupts, EI/DI/HLT/NOP and
 RIM/SIM stay per model. `FlagRules` currently has the `sign`, `zero`, `parity`,
 `carry` and `auxiliary_carry` accessors, `set_carry`, PSW image conversions and
-`result`, `add`, `subtract` and `and` methods. Each model implements them in
-`flags.rs`, delegating the ALU facts to its own `alu.rs`. AND AC remains bit 3
+`result`, `add`, `subtract` and `and` methods, plus the `pair_step`, `rotate`,
+`dad` and `daa` flag-effect hooks admitted by decision-19. Each model implements
+them in `flags.rs`, delegating the ALU facts to its own `alu.rs`. AND AC remains bit 3
 of A OR operand on 8080
 (decision-8), always set on 8085. The implemented flag/ALU methods now cover
-decision-16's closed set; methods beyond that list need an amendment, and latch,
-interrupt, timing and bus members are forbidden. Each model supplies its
+decision-16's closed set as amended by decision-19; further methods need an
+amendment, and latch, interrupt, timing and bus members are forbidden. Each model supplies its
 `BranchFacts` (untaken operand reads). Facts that differ or lack statements
 in both primaries remain model-owned rules/constants, including qualified DAA
 carry and XTHL order; matching code does not upgrade
 evidence. Each Arithmetic wrapper supplies `DaaCarry` constants for incoming CY
 retention and low-step carry propagation, preserving its own derivations and
 citations. The shared body uses flag accessors and model ALU operations, without
-naming concrete flag fields; it adds no 8085 V/K behavior.
+naming concrete flag fields; the four hooks keep V/K facts in the 8085's
+flag/ALU implementation and preserve the 8080's existing behavior.
 
 This tier permits a hardware literal only when both pinned primaries
 state the fact, with 98-153B and 205775-002 citations at that fact and independent
@@ -286,6 +288,28 @@ address. Only the reads of the reported bytes have reached the bus; CPU state
 is restored and read-side device effects cannot be undone. 8080/8085
 report zero preceding bytes for fetched and acknowledge refusals; Z80 uses
 the preceding bytes for prefixed instruction refusals.
+
+The 8085 flag type stores `overflow` (V, bit 1) and `k` (K/X5, bit 5)
+independently alongside S/Z/AC/P/CY (decision-18 §4; PROVENANCE §1).
+Its PSW image is `S Z K AC 0 P V CY`; PUSH emits that image, while POP
+and `set_psw` load seven independent bits and discard bit 3. The image has
+D/S evidence; arbitrary POP loads are L following the explicit die reading.
+Default clears V/K and reset preserves them as L construction/reset rules.
+The 8080 retains its five flags and fixed filler image.
+
+8085 ADD/ADC/SUB/SBB/CMP and INR/DCR update V/K through the existing
+model-owned `FlagRules` ALU operations (D/S). Logical operations clear V and
+set K from result sign (L). Decision-19 extends decision-16's `FlagRules`
+with four flag-effect hooks, called by the shared executors and implemented
+through `i8085::alu` (the 8080 implementations leave existing effects intact):
+INX/DCX set K on word wrap (D/S) and preserve V (L); rotations update V and
+preserve K (L); DAA uses overflow of the combined correction and K=V XOR
+result sign (L); DAD updates signed word overflow V (S / die-reading
+reconciliation) and preserves K (L). All other documented effects preserve
+V/K (L). `tests/i8085_vk_flags.rs` supplies unmasked literal witnesses for
+every row, including POP independence, reset and ordinary interrupts.
+D/S/L retain decision-18's part/revision and exact-hardware qualifications.
+No undocumented instruction is implemented by this flag change.
 
 Private machinery is shared under decision-10: `decode.rs` matches bit patterns
 using model-supplied field restrictions and builds maps generic over the model's

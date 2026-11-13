@@ -36,6 +36,8 @@ fn initial(flags_set: bool) -> Registers {
         sp: 0xDEF0,
         pc: 0x2000,
         flags: Flags {
+            overflow: false,
+            k: false,
             sign: flags_set,
             zero: flags_set,
             auxiliary_carry: flags_set,

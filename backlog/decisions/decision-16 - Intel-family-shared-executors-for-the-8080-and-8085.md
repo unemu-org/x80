@@ -96,6 +96,8 @@ to it (decision-13 rule 7; architecture's M4 measurement).
    ```
 
    Implementation beads introduce only the subset needed at that step.
+   [decision-19](<decision-19 - FlagRules-hooks-for-8085-V-K-effects.md>) adds four
+   flag-effect hooks (INX/DCX, rotates, DAD, DAA) for the 8085's V/K flags.
    Adding a method beyond this set requires a decision amendment, with its
    citation and witness; it is not routine trait growth. The trait is capped
    to flag access, PSW image and ALU facts. It has no latch, interrupt, timing

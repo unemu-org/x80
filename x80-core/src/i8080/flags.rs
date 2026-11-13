@@ -161,4 +161,20 @@ impl crate::intel::FlagRules for Flags {
     fn and(a: u8, operand: u8) -> (u8, Self) {
         super::alu::and(a, operand)
     }
+
+    // decision-19: INX/DCX leave all 8080 flags unchanged (98-153B
+    // Ch. 4 pp. 4-3/4-8; 9800301-04 Ch. 3 pp. 3-22/3-26).
+    fn pair_step(&mut self, _old: u16, _result: u16, _decrement: bool) {}
+
+    // decision-19: the executor already updated the only affected flag,
+    // CY (98-153B Ch. 4 p. 4-10; 9800301-04 pp. 3-45/3-46/3-49/3-53).
+    fn rotate(&mut self, _opcode: u8, _old_a: u8, _old_carry: bool, _result: u8, _carry: bool) {}
+
+    // decision-19: DAD's existing CY update is complete (98-153B Ch. 4
+    // pp. 4-3/4-8; 9800301-04 Ch. 3 p. 3-20).
+    fn dad(&mut self, _left: u16, _right: u16, _result: u16) {}
+
+    // decision-19: retain all five flags from the executor's existing DAA
+    // derivation (98-153B Ch. 4 pp. 4-2/4-3/4-8; 9800301-04 p. 3-19).
+    fn daa(&mut self, _old_a: u8, _correction: u8, _result: u8) {}
 }
