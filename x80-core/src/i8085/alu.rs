@@ -56,6 +56,17 @@ pub(super) fn subtract(left: u8, right: u8, borrow: bool) -> (u8, Flags) {
     )
 }
 
+/// 8085 ANA/ANI: AND into A, CY cleared and AC set, independently of
+/// operands: Intel 205775-002 (January 1983), §5.6.3 pp. 5-9/5-10;
+/// Intel 9800301-04 (May 1981), Ch. 1 p. 1-12, Ch. 3 pp. 3-6 to 3-8.
+/// S/Z/P: 205775-002 §5.5 p. 5-3. Witness: tests/i8085_logical.rs,
+/// every A/operand/source. Model-owned behind FlagRules::and
+/// (decision-16 rule 3); the 8080 AC rule differs.
+pub(super) const fn and(a: u8, operand: u8) -> (u8, Flags) {
+    let value = a & operand;
+    (value, result_flags(value, true, false))
+}
+
 #[cfg(test)]
 #[path = "../../tests/i8085_arithmetic_reference/mod.rs"]
 mod reference;

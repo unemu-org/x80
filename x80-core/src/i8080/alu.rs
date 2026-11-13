@@ -48,3 +48,19 @@ pub(super) fn subtract(left: u8, right: u8, borrow: bool) -> (u8, Flags) {
     let value = sum as u8;
     (value, result_flags(value, low > 0x0F, sum <= 0xFF))
 }
+
+/// ANA r, ANA M and ANI set AC to bit 3 of (A OR operand): Intel
+/// 9800301-04 (May 1981), Ch. 1 p. 1-12. Intel 98-153B (September 1975),
+/// Ch. 4 p. 4-9 instead says ANI clears AC; decision-8 settles the rule.
+/// 8080EXM's two "aluop" groups pass with this rule and fail with AC cleared.
+/// The expected CRCs match reported Intel 8080A measurements on the pinned
+/// oracles/8080-exercisers/8080-8085-cpu-exerciser-results.pdf pp. 3-4.
+/// This oracle evidence distinguishes the readings; the primary source
+/// 9800301-04 p. 1-12 supplies the rule (decision-8).
+/// The result's S/Z/P follow 98-153B Ch. 4 pp. 4-2/4-3; CY is cleared
+/// (pp. 4-8/4-9). Witness: tests/i8080_logical.rs, every A/operand/source.
+/// Model-owned behind FlagRules::and (decision-16 rule 3).
+pub(super) const fn and(a: u8, operand: u8) -> (u8, Flags) {
+    let value = a & operand;
+    (value, result_flags(value, (a | operand) & 0x08 != 0, false))
+}

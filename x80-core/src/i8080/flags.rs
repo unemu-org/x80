@@ -112,6 +112,13 @@ impl crate::intel::FlagRules for Flags {
         self.carry
     }
 
+    // Carry-only updates: 98-153B (September 1975) Ch. 4 pp. 4-10/4-11;
+    // 9800301-04 (May 1981) Ch. 3 pp. 3-45/3-46, 3-49, 3-53/3-54,
+    // 3-12/3-63. Witnesses: i8080_logical. Other stored flags survive.
+    fn set_carry(&mut self, carry: bool) {
+        self.carry = carry;
+    }
+
     // PSW image: 98-153B (September 1975) Ch. 4 p. 4-13;
     // second witness: 9800301-04 (May 1981) Ch. 3 pp. 3-43/3-45.
     // Design: decision-16 rule 3; witnesses: i8080_registers and
@@ -122,5 +129,19 @@ impl crate::intel::FlagRules for Flags {
 
     fn from_byte(byte: u8) -> Self {
         Flags::from_byte(byte)
+    }
+
+    // Model-owned ALU facts (decision-16 rule 3). The cited primitives in
+    // alu retain their independent arithmetic and logical witnesses.
+    fn result(value: u8, auxiliary_carry: bool, carry: bool) -> Self {
+        super::alu::result_flags(value, auxiliary_carry, carry)
+    }
+
+    fn subtract(left: u8, right: u8, borrow: bool) -> (u8, Self) {
+        super::alu::subtract(left, right, borrow)
+    }
+
+    fn and(a: u8, operand: u8) -> (u8, Self) {
+        super::alu::and(a, operand)
     }
 }
