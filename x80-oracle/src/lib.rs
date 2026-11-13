@@ -92,6 +92,7 @@ pub enum Oracle {
     Exerciser8085,
     PreliminaryZ80,
     ExerciserZ80,
+    ExerciserAllZ80,
 }
 
 impl Oracle {
@@ -118,27 +119,22 @@ impl Oracle {
             "34923a7ed82285d3038b2d54bd64899e12173eebb61f9d07b4fc72e78af2ae8f" => {
                 Some(Self::ExerciserZ80)
             }
+            "6e2da55147a04f28d303d5da6a1e6b771557ac244653590a0f24a2d39c8537e8" => {
+                Some(Self::ExerciserAllZ80)
+            }
             _ => None,
-        }
-    }
-
-    /// Groups excluded before execution under decision-14, in table order.
-    pub fn not_run(self) -> &'static [&'static str] {
-        if self == Self::ExerciserZ80 {
-            &z80_oracles::NOT_RUN
-        } else {
-            &[]
         }
     }
 
     pub fn check_model(self, model: Model) -> io::Result<()> {
         match (self, model) {
-            (Self::PreliminaryZ80 | Self::ExerciserZ80, Model::I8080 | Model::I8085) => {
-                Err(io::Error::new(
-                    io::ErrorKind::InvalidInput,
-                    "Z80 oracle requires --model z80",
-                ))
-            }
+            (
+                Self::PreliminaryZ80 | Self::ExerciserZ80 | Self::ExerciserAllZ80,
+                Model::I8080 | Model::I8085,
+            ) => Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "Z80 oracle requires --model z80",
+            )),
             (Self::Preliminary | Self::Exerciser | Self::Exerciser8085, Model::Z80) => {
                 Err(io::Error::new(
                     io::ErrorKind::InvalidInput,
@@ -176,7 +172,9 @@ impl Oracle {
     fn validate_output(self, output: &[u8]) -> Result<(), String> {
         match self {
             Self::PreliminaryZ80 => return z80_oracles::validate_preliminary(output),
-            Self::ExerciserZ80 => return z80_oracles::validate_exerciser(output),
+            Self::ExerciserZ80 | Self::ExerciserAllZ80 => {
+                return z80_oracles::validate_exerciser(output)
+            }
             _ => {}
         }
         if self == Self::Preliminary {
@@ -348,6 +346,14 @@ pub enum Reason {
     HostError(String),
 }
 
+/// Cumulative host-inclusive totals at a complete Z80 group output boundary.
+#[derive(Debug, PartialEq, Eq)]
+pub struct GroupProgress {
+    pub group: usize,
+    pub steps: u64,
+    pub cycles: u64,
+}
+
 #[derive(Debug)]
 pub struct Outcome {
     pub steps: u64,
@@ -358,6 +364,7 @@ pub struct Outcome {
     /// Why a known program's output failed validation, independently of CPU exit.
     pub verdict_error: Option<String>,
     pub output: Vec<u8>,
+    pub groups: Vec<GroupProgress>,
 }
 
 impl Outcome {
@@ -574,7 +581,7 @@ pub fn run<W: Write>(program: &[u8], config: Config, console: &mut W) -> io::Res
     } else if config.model == Model::Z80 {
         return Err(io::Error::new(
             io::ErrorKind::InvalidInput,
-            "--model z80 refuses unknown digest; requires pinned prelim.com or zexdoc.com",
+            "--model z80 refuses unknown digest; requires pinned prelim.com, zexdoc.com or zexall.com",
         ));
     }
     match config.model {
@@ -602,8 +609,8 @@ fn run_cpu<C: Cpu, W: Write>(
         error: None,
     };
     host.ram[LOAD..LOAD + program.len()].copy_from_slice(program);
-    if oracle == Some(Oracle::ExerciserZ80) {
-        z80_oracles::patch_table(&mut host.ram[LOAD..LOAD + program.len()])?;
+    if matches!(oracle, Some(Oracle::ExerciserZ80 | Oracle::ExerciserAllZ80)) {
+        z80_oracles::audit_exerciser(program, oracle == Some(Oracle::ExerciserAllZ80))?;
     }
     // Host stubs implement the CALL 5 / JMP 0 ABI, rather than CPU facts.
     // 8080PRE.MAC:44,52,55,216–219,264–266: initial CALL needs a stack;
@@ -615,6 +622,7 @@ fn run_cpu<C: Cpu, W: Write>(
     host.ram[6..8].copy_from_slice(&STACK.to_le_bytes());
     let mut cpu = C::default();
     cpu.initialize();
+    let mut groups = Vec::new();
     let mut steps = 0_u64;
     let mut cycles = 0_u64;
     let reason = loop {
@@ -649,7 +657,19 @@ fn run_cpu<C: Cpu, W: Write>(
             {
                 host.awaiting_registers = false;
                 let (function, pointer) = cpu.bdos_arguments();
+                let before = host.output.len();
                 host.bdos(function, pointer);
+                if matches!(oracle, Some(Oracle::ExerciserZ80 | Oracle::ExerciserAllZ80))
+                    && host.output.len() > before
+                {
+                    if let Some(group) = z80_oracles::completed_group(&host.output) {
+                        groups.push(GroupProgress {
+                            group,
+                            steps,
+                            cycles,
+                        });
+                    }
+                }
                 if let Some(error) = host.error.take() {
                     break Reason::HostError(error);
                 }
@@ -687,6 +707,7 @@ fn run_cpu<C: Cpu, W: Write>(
         verdict,
         verdict_error,
         output: host.output,
+        groups,
     })
 }
 
@@ -1201,6 +1222,10 @@ mod tests {
                 "34923a7ed82285d3038b2d54bd64899e12173eebb61f9d07b4fc72e78af2ae8f",
                 Oracle::ExerciserZ80,
             ),
+            (
+                "6e2da55147a04f28d303d5da6a1e6b771557ac244653590a0f24a2d39c8537e8",
+                Oracle::ExerciserAllZ80,
+            ),
         ] {
             assert_eq!(Oracle::from_digest(digest), Some(oracle));
             assert!(oracle.check_model(Model::Z80).is_ok());
@@ -1214,16 +1239,8 @@ mod tests {
             Oracle::Exerciser8085,
         ] {
             assert!(oracle.check_model(Model::Z80).is_err());
-            assert!(oracle.not_run().is_empty());
         }
         assert_eq!(Oracle::identify(b"prelim.com"), None);
-        assert_eq!(
-            Oracle::ExerciserZ80.not_run(),
-            [
-                "alu8rx", "incxh", "incxl", "incyh", "incyl", "ld8ixy", "ld8rrx", "rotxy",
-                "rotz80",
-            ]
-        );
         let mut console = Vec::new();
         assert!(run(
             &[0x76],

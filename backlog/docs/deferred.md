@@ -83,8 +83,11 @@ The selected Q rule follows stable pattern A, qualified by the 8039 report;
 CMOS and other parts need separate evidence and a decision-6 scope decision;
 oracle CRCs alone cannot admit hardware facts.
 
-After §§2–3, all nine excluded ZEXDOC groups become runnable;
-ZEXALL can falsify full-byte flag rules after its own artifact audit. The six
+Decision-20 §7 now judges all 67 ZEXDOC groups, including the nine historical
+exclusions. ZEXALL has its own matched COM/source descriptors, FFh masks,
+digest pins and CP/M host audit; all 67 groups can falsify full-byte flag rules.
+Neither suite's unnamed-real-Z80 CRCs license semantics. Their host and
+campaigns are no longer deferred; final closure remains `x80-mn3.17`. The six
 z80test variants now have a Spectrum-style oracle host in `x80-oracle`, with
 fixed linked/data addresses and explicit input precheck accounting; see
 [commands](commands.md#z80test-v12a-spectrum-style-host). Its runs are non-final

@@ -91,9 +91,8 @@ including RETI, copy IFF2 into IFF1 (**L**); ED4D alone retains the peripheral
 RETI signature without a callback. The Z80 CP/M host uses a private
 `OUT FFh; RET` boundary stop, adding one step / 11 states per BDOS call and
 preserving Data reads of the stack word. The nine historically excluded ZEXDOC
-groups are now runnable under §§2–3; the existing host still judges its audited
-58-group subset. Section 4 now stores full F/F' images and implements the
-class rules below. ED63/6B remain four-byte pair loads. Decision-20 §2 now executes
+groups are judged alongside the other 58 under decision-20 §7. Section 4 now
+stores full F/F' images and implements the class rules below. ED63/6B remain four-byte pair loads. Decision-20 §2 now executes
 register-only index halves (**H** operation/flags, **L** costs), retains
 ordinary H/L beside indexed memory (**A/H**), and admits ignored/repeated
 DD/FD (**L**). Chains use the last selector, ED cancels it, CB selects indexed-CB,
@@ -176,16 +175,17 @@ edge cases and parity-note boundary timing retain decision-15's unverified
 qualifications; per-M1 R counting is derived. The complete residual list is in
 [PROVENANCE.md §3](../../PROVENANCE.md#residual-unverified-or-derived-facts-at-the-m4-closure-2026-11-13).
 
-The licensed, fetch-only Z80 oracles passed the decision-20 §1 release
-campaign on 2026-11-13 ([PROVENANCE.md §2](../../PROVENANCE.md#2-oracles);
-[commands](commands.md#oracle-runs)), **MEASURED**: prelim PASS, 899 steps /
-8,714 cycles; ZEXDOC **58/58 judged groups PASS**, 4,432,085,110 steps /
-35,946,551,658 cycles. Relative to the historical refusal rendezvous, the
-increases are 1 step / 11 cycles for prelim and 118 steps / 1,298 cycles for
-ZEXDOC: exactly one step / 11 cycles per BDOS call.
-Nine undocumented-encoding groups were **not run (decision-14)**. Expected CRCs
-are attributed to a real Z80 by the source, without a part/revision or per-group
-capture; passing does not establish silicon equivalence or license semantics.
+The decision-20 §7 CP/M host now judges all 67 ZEXDOC groups and accepts
+ZEXALL after its own COM/source, full-descriptor and host audit
+([PROVENANCE.md §2](../../PROVENANCE.md#2-oracles);
+[commands](commands.md#oracle-runs)). No descriptor table is filtered. The
+historical 58-group results remain in provenance. Worker release runs,
+**MEASURED 2026-11-13**: prelim PASS (899 steps / 8,714 cycles); ZEXDOC and
+ZEXALL each **67/67 judged OK**, normal exit, 5,764,169,747 steps /
+46,734,978,642 cycles. Fmt, clippy, workspace tests, doctests and the
+8080PRE/8080EXM/8085EXM release regressions pass. Supervisor review/gates/landing
+remain pending. Both suites' unnamed-real-Z80 CRCs are falsifiers only, never
+silicon confirmation or semantic authority.
 Closure duplication measurements retain decision-13's sharing boundary; see
 [architecture](architecture.md) and [plan §5](plan.md#5-milestones).
 

@@ -106,7 +106,7 @@ fn z80_unknown_digests_are_refused_before_any_guest_output() {
     std::fs::create_dir(&directory).unwrap();
     // Prints if run, but filename and --oracle cannot confer a pinned identity.
     let program = [0x1e, b'!', 0x0e, 2, 0xcd, 5, 0, 0xc3, 0, 0];
-    for name in ["prelim.com", "zexdoc.com", "renamed.com"] {
+    for name in ["prelim.com", "zexdoc.com", "zexall.com", "renamed.com"] {
         let path = directory.join(name);
         std::fs::write(&path, program).unwrap();
         for options in [vec![], vec!["--oracle", "pre"], vec!["--oracle", "exm"]] {
@@ -304,73 +304,62 @@ mod z80_protocol_unit {
     use super::z80_protocol::*;
     use std::io;
 
-    fn original_table() -> Vec<u8> {
-        // Synthetic image with the audited table only; no fetched files.
-        let mut image = vec![0xa5; 0xc2 + 16];
-        for (slot, pointer) in image[0x3a..0xc0]
+    fn original_image() -> (Vec<u8>, [u64; 67]) {
+        // Decision-20 §7: synthetic 67-record image; no GPL vectors/messages.
+        let mut image = vec![0xa5; 0xc2 + 67 * 96];
+        for (index, slot) in image[0x3a..0xc0]
             .as_chunks_mut::<2>()
             .0
             .iter_mut()
-            .zip((0x01c2_u16..=0x1a82).step_by(0x60))
+            .enumerate()
         {
-            slot.copy_from_slice(&pointer.to_le_bytes());
+            slot.copy_from_slice(&(0x01c2_u16 + index as u16 * 0x60).to_le_bytes());
         }
         image[0xc0..0xc2].fill(0);
-        image
+        for index in 0..67 {
+            image[0xc2 + index * 96..0xc2 + (index + 1) * 96].fill(index as u8);
+        }
+        let records = std::array::from_fn(|index| {
+            fingerprint(&image[0xc2 + index * 96..0xc2 + (index + 1) * 96]).1
+        });
+        (image, records)
     }
 
     #[test]
-    fn compacts_only_the_audited_pointer_table() {
-        let mut image = original_table();
+    fn audits_all_67_records_without_filtering_or_mutation() {
+        let (image, records) = original_image();
         let before = image.clone();
-        patch_table(&mut image).unwrap();
-        let pointers: Vec<_> = image[0x3a..0xae]
-            .as_chunks::<2>()
-            .0
-            .iter()
-            .map(|p| u16::from_le_bytes([p[0], p[1]]))
-            .collect();
-        // Independent literal addresses from the 58 judged PROVENANCE §2 rows.
-        assert_eq!(
-            pointers,
-            [
-                0x01c2, 0x0222, 0x0282, 0x02e2, 0x0342, 0x03a2, 0x0462, 0x04c2, 0x0522, 0x0582,
-                0x05e2, 0x0642, 0x06a2, 0x0702, 0x0762, 0x07c2, 0x0822, 0x0882, 0x08e2, 0x0942,
-                0x09a2, 0x0a02, 0x0a62, 0x0ac2, 0x0b22, 0x0b82, 0x0be2, 0x0dc2, 0x0e22, 0x0e82,
-                0x0ee2, 0x0f42, 0x0fa2, 0x1002, 0x1062, 0x10c2, 0x1122, 0x1182, 0x11e2, 0x1242,
-                0x12a2, 0x1302, 0x1362, 0x1422, 0x14e2, 0x1542, 0x15a2, 0x1602, 0x1662, 0x16c2,
-                0x1722, 0x1782, 0x18a2, 0x1902, 0x1962, 0x19c2, 0x1a22, 0x1a82,
-            ]
-        );
-        assert_eq!(&image[..0x3a], &before[..0x3a]);
-        assert!(image[0xae..0xc2].iter().all(|&b| b == 0));
-        assert_eq!(&image[0xc2..], &before[0xc2..]);
-        assert_eq!(before, original_table()); // Original caller bytes unchanged.
+        audit_image(&image, &records).unwrap();
+        audit_image(&image, &records).unwrap();
+        assert_eq!(image, before);
+        // Each real artifact has its own acceptance records, never a generic layout permit.
+        assert!(audit_exerciser(&image, false).is_err());
+        assert!(audit_exerciser(&image, true).is_err());
+        assert_eq!(completed_group(b"synthetic descriptor  OK\n\r"), None);
+        assert_eq!(completed_group(b"partial"), None);
     }
 
     #[test]
-    fn every_pointer_and_terminator_byte_is_verified_before_mutation() {
-        for offset in 0x3a..0xc2 {
-            let mut image = original_table();
+    fn every_pointer_terminator_and_record_byte_is_verified() {
+        let (original, records) = original_image();
+        for offset in 0x3a..original.len() {
+            let mut image = original.clone();
             image[offset] ^= 1;
             let before = image.clone();
-            let error = patch_table(&mut image).unwrap_err();
+            let error = audit_image(&image, &records).unwrap_err();
             assert_eq!(error.kind(), io::ErrorKind::InvalidData);
-            assert_eq!(image, before, "partial patch at {offset:04x}");
-        }
-        for len in [0, 0x39, 0x3a, 0xc0, 0xc1] {
-            let mut image = original_table()[..len].to_vec();
-            let before = image.clone();
-            assert!(patch_table(&mut image).is_err());
             assert_eq!(image, before);
         }
-        let mut image = original_table();
-        patch_table(&mut image).unwrap();
-        assert!(patch_table(&mut image).is_err()); // Already filtered is not original.
+        for len in [0, 0x39, 0x3a, 0xc0, 0xc1, 0xc2, original.len() - 1] {
+            assert!(audit_image(&original[..len], &records).is_err());
+        }
+        let mut wrong_artifact = records;
+        wrong_artifact[66] ^= 1;
+        assert!(audit_image(&original, &wrong_artifact).is_err());
     }
 
     fn fixture() -> (Vec<(usize, u64)>, Grammar, Vec<String>) {
-        let lines: Vec<_> = (0..58)
+        let lines: Vec<_> = (0..67)
             .map(|i| format!("synthetic group {i:02}  OK"))
             .collect();
         let descriptors = lines
@@ -395,13 +384,12 @@ mod z80_protocol_unit {
     }
 
     #[test]
-    fn grammar_judges_all_58_groups_and_rejects_failures_or_malformed_results() {
+    fn grammar_judges_all_67_groups_and_rejects_failures_or_malformed_results() {
         let (descriptors, grammar, lines) = fixture();
         let accepts = |lines: &[String]| validate_groups(&transcript(lines), &descriptors, grammar);
         assert!(accepts(&lines).is_ok());
         assert!(validate_exerciser(&transcript(&lines)).is_err());
-        assert_eq!(NOT_RUN.len(), 9);
-        for index in 0..58 {
+        for index in 0..67 {
             for suffix in [
                 "  ERROR expected:1234abcd found:5678abcd", // Complete judged failure.
                 "  ERROR expected:1234abcd",
@@ -419,7 +407,7 @@ mod z80_protocol_unit {
                 if suffix == "  ERROR expected:1234abcd found:5678abcd" {
                     assert_eq!(
                         error,
-                        format!("judged ZEXDOC group {} reports ERROR", index + 1)
+                        format!("judged Z80 exerciser group {} reports ERROR", index + 1)
                     );
                 }
             }
@@ -431,9 +419,9 @@ mod z80_protocol_unit {
         reordered.swap(0, 1);
         assert!(accepts(&reordered).is_err());
         let mut bad = lines.clone();
-        bad[57] = lines[56].clone();
+        bad[66] = lines[65].clone();
         assert!(accepts(&bad).is_err());
-        bad[57] = "unknown descriptor  OK".into();
+        bad[66] = "unknown descriptor  OK".into();
         assert!(accepts(&bad).is_err());
         bad = lines.clone();
         bad.push(lines[0].clone());

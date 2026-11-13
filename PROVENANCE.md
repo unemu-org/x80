@@ -747,7 +747,7 @@ not evidence.
 | Program | Origin paths at the above pin | SHA-256 (.COM; source) | Licence | CRC provenance and role |
 | --- | --- | --- | --- | --- |
 | Preliminary Z80 test | `test/prelim.com`, `test/prelim.z80` | `3b3578f19030a4df7e25ce852f763af26053b12582a576c4dffb014aa7c590d1`; `afefdd15c42ea8d0c123ad099108962ca5ad26b3ffd043d2ba578c2b01cab1fd` | GPL-2.0-or-later (source header) | No CRC: explicit comparisons and completion text; **judged**, documented encodings only |
-| ZEXDOC | `test/zexdoc.com`, `test/zexdoc.z80` | `34923a7ed82285d3038b2d54bd64899e12173eebb61f9d07b4fc72e78af2ae8f`; `4f7b83d5ed1b4ce34f1b6f19b996e40588e3698db9aa2e31bece377db5b91d99` | GPL-2.0-or-later (source header) | Source lines 34–39 say expected CRCs were measured on a real Z80; no part, revision, per-group contributor or capture is identified. 67 groups: **58 judged**, **9 not run** |
+| ZEXDOC | `test/zexdoc.com`, `test/zexdoc.z80` | `34923a7ed82285d3038b2d54bd64899e12173eebb61f9d07b4fc72e78af2ae8f`; `4f7b83d5ed1b4ce34f1b6f19b996e40588e3698db9aa2e31bece377db5b91d99` | GPL-2.0-or-later (source header) | Source lines 34–39 say expected CRCs were measured on a real Z80; no part, revision, per-group contributor or capture is identified. 67 groups; historical M4 scope: **58 judged**, **9 not run**; decision-20 §7 now judges all 67 |
 
 Local paths are under `oracles/z80-exercisers/`; byte sizes, raw URLs and the
 COPYING pin are in the stash's MANIFEST and SHA256SUMS.fetched. COPYING is the
@@ -755,7 +755,9 @@ GPL v2 text; the program headers permit version 2 or later. The claimed hardware
 origin of the CRCs is not independently authenticated. Source lines 49–51
 attribute the documented flag selection to the Mostek Z80 Technical Manual;
 that attribution does not make Mostek or these CRCs an authority for M4.
-“Judged” below means eligible for a later run, not a measured PASS.
+The table below retains the historical decision-14 M4 classification and CRCs;
+its nine exclusions are superseded by decision-20 §7. All 67 are now judged.
+“Judged” in that historical audit means eligible for a run, not a measured PASS.
 
 #### Binary/source correspondence and audit method
 
@@ -905,12 +907,10 @@ The nine **not run** labels are `alu8rx`, `incxh`, `incxl`, `incyh`,
   excluding S/P/V as well as bits 5 and 3. No group compares bits 5 or 3
   after its result mask. Masking flags does not legalize undocumented opcodes.
 
-The later oracle host must match the **original .COM digest above**, compact
-the in-memory pointer table to retain these 58 entries in order and write a
-zero terminator. It must report all nine excluded labels as **not run**, without
-executing their cases, rewriting their CRCs or suppressing Unsupported.
-The file on disk stays unchanged. No filtering or Z80 harness is implemented
-by this provenance change.
+The historical decision-14 host compacted the in-memory pointer table to 58
+entries and reported the nine exclusions. Decision-20 §7 supersedes that policy:
+all 67 original entries execute and are judged, without patching the table,
+CRCs, masks or instruction bytes. The descriptor-name correction above remains.
 
 #### Preliminary test and host services
 
@@ -933,26 +933,20 @@ only the completion message signifies success.
 | BDOS | CALL 0005h: C=2, character E; C=9, '$'-terminated text at DE (`allok`, `conout`) | Same functions through register-preserving `bdos` wrapper (lines 1194–1203); no disk or input functions |
 | SP | Host must supply a usable initial SP for CALL at 0111h, before the first LD SP. Then SP=04ACh (`regs1`), 04D4h (`regs2+20`), finally 0600h (`stack`); confirmed immediates in .COM | Entry loads SP from little-endian word 0006h (lines 80–81); host supplies safe stack RAM. Each test saves host SP, POPs state using msbt+2, loads trial SP from spbt, captures post-test SP and restores host SP (lines 1075–1095) |
 | Exit | JP 0000h on success and failure; HALT at 010Fh is an emergency, not success | JP 0000h after completion; group failures print ERROR and continue |
-| Completion | “Preliminary tests complete”; found at file 034Ah / guest 044Ah with '$' terminator | “Tests complete”; requires all 58 retained groups, results in pinned order and explicit not-run reporting for the other nine |
+| Completion | “Preliminary tests complete”; found at file 034Ah / guest 044Ah with '$' terminator | “Tests complete”; all 67 groups in pinned order under decision-20 §7 (historically 58 retained and nine reported not run) |
 | Interrupts / ports | No port device or injected interrupt needed | No ports; guest DI/EI around each case; no injected interrupt needed |
 
-The existing `x80-oracle` host recognizes only the 8080/8085 digests and models.
-Its synthetic 08h Unsupported rendezvous at BDOS entry cannot be carried into
-a Z80 host: 08h is documented EX AF,AF' (T8 p. 47). Selecting an appropriate
-Z80 host rendezvous and implementing digest-keyed table filtering belong to
-the later harness bead. Neither of these Z80 programs was executed in this audit.
-
-Results structure (x80-bi2.26): the digest-selected Z80 harness now runs prelim
-as judged and compacts ZEXDOC's verified in-memory table to the 58 judged groups,
-reporting the nine excluded labels as `not run (decision-14)`. Its private BDOS
-rendezvous now follows decision-20 §1/§7: instruction reads at 0005h supply
-`OUT FFh; RET`; only this stub's full-width output arms the next-boundary
-stop. The runner reads C/DE, services BDOS and resumes RET. This private
-harness ABI adds one retired instruction / 11 states per call. ED70 executes
-as input outside the stub. The audit above excludes ED holes from both
-guests. The host preserves 08h as EX AF,AF' and the Data stack word at 0006h.
-The exact output grammar and release commands are in
-[commands.md, Oracle runs](backlog/docs/commands.md#oracle-runs).
+The initial source audit did not execute these programs. The historical
+x80-bi2.26 harness judged 58 groups and excluded nine under decision-14; those
+measurements below remain historical. The current host judges all 67 under
+decision-20 §7 and retains exact output grammar, normal boot-exit and budget
+checks. Its private instruction-read `OUT FFh; RET` at 0005h stops at the next
+boundary for BDOS 2/9, then resumes RET. Only a complete stub-owned OUT arms
+service; Data reads retain the stack word at 0006h. This adds one retired
+instruction / 11 states per call over the historical refusal/RET rendezvous.
+ED70 and 08h execute normally outside the stub. Unknown digests, refused
+execution, incomplete/malformed output and timeouts never pass; see
+[commands.md](backlog/docs/commands.md#oracle-runs).
 
 Debug smoke, 2026-11-13, MEASURED: prelim exits 0, PASS, at 898 steps /
 8,703 cycles, boot-stub halt PC 0001h. ZEXDOC with cycle cap 5,000,000,000
@@ -973,7 +967,7 @@ cited pages and witnesses.
 #### Additional pinned Z80 oracles (M6; x80-mn3.5)
 
 READ/MEASURED locally, 2026-11-13: source/header/host and SHA-256 audit only;
-neither program was run. These pins supersede the earlier candidate-only
+neither program was run at that audit. These pins supersede the earlier candidate-only
 inventory without expanding the M4 host or its documented-encoding audit.
 
 | Program / revision | Files and SHA-256 | Licence | Decision-17 class, label and oracle role |
@@ -981,12 +975,50 @@ inventory without expanding the M4 host or its documented-encoding audit.
 | ZEXALL — Frank D. Cringle, ©1994, original yaze 1.14; same `993d8647eabf95c61e49b134198a240ab577358b` distribution pin as ZEXDOC | `z80-exercisers/zexall.com`: `6e2da55147a04f28d303d5da6a1e6b771557ac244653590a0f24a2d39c8537e8`; `z80-exercisers/zexall.z80`: `495f686b3f4418d50a110ba6ae4c6d86d715506e1eb6117040bd6f1eb4e011c5` | GPL-2.0-or-later (source header), same pinned COPYING as ZEXDOC; fetch-only | **B, reported hardware measurement; hardware-measured (Z80; exact part and measurer unverified)**. Source lines 34–39 say empirical real-Z80 CRCs but identify no maker, revision or capture. **Falsifier only**, never an independent identified-silicon confirmation. Includes flag bits 5/3 and undocumented encodings; shares origin with ZEXDOC |
 | Zilog Z80 CPU test suite (z80test) — Patrik Rak, v1.2a, 2 December 2023 (`changes.txt`) | `z80-exercisers/z80test-1.2a.zip`: `7df0443d703e6b3114ea04b4cdef3e13b91421c62e37185c1036d06864cacbaf` | MIT, `license.txt`, ©2012–2023 Patrik Rak; kept fetch-only | **B; hardware-measured (Zilog Z80 in a 48K Spectrum, by Patrik Rak)**. README: “values obtained from a real 48K Spectrum with Zilog Z80 CPU”. No package/date code or NMOS/CMOS revision specified. Identified-hardware CRCs **may confirm stated facts only where the groups discriminate them**, with an independent written origin; never license a fact alone |
 
-ZEXALL host, read at `org`, `start`, `done`, `bdos`: writable load/entry 0100h,
-SP from word 0006h, CALL 0005h BDOS functions 2 (E) and 9 ('$'-terminated DE),
-JP 0000h exit. DI/EI surrounds cases; no injected interrupt/port device needed.
-A source/binary correspondence and digest/encoding audit is still required for
-this artifact before a harness run; the existing ZEXDOC audit does not establish
-ZEXALL correspondence. No expectation was derived from distribution emulator code.
+#### ZEXALL independent correspondence and host ruling (decision-20 §7)
+
+READ/MEASURED, 2026-11-13: both ZEXALL hashes above match MANIFEST. Its own
+GPL-2.0-or-later header and unnamed-real-Z80 CRC claim were read (lines 1–39).
+Independent expansion of `tstr`/`tmsg` (170–193) matches every byte of all 67
+96-byte descriptors (195–731) to its COM loaded at 0100h, including the 67 FFh
+masks, vectors, CRCs and padded messages. Its ordered pointers at file 003Ah,
+terminator at 00C0h and descriptors at 00C2h + 60h×index match independently.
+These complete records have separate runtime fingerprints from ZEXDOC.
+This is structural correspondence, not whole-file reassembly.
+
+ZEXALL's own `stt` loads each mask into `flgmsk+1` (732–744); `test` masks
+post-instruction F at `flgmsk` (1102) before accumulating all 16 state bytes
+(1104–1111): memory word, IY, IX, HL, DE, BC, AF and SP. FFh therefore compares
+all eight F bits, including Y/X. All three vectors per group match the
+separately expanded ZEXDOC vectors, so instruction/state coverage and omissions
+above apply, including actual DD in `incyh`/`incyl`, skipped HALTs and no
+indexed-CB register copies. This does not observe alternate registers, exact
+WZ, Q, R, IFFs, physical timing or interrupts independently; hidden state can
+only influence tested results. Base/counter/shift coverage is finite, not
+exhaustive across arbitrary input states or predecessor histories.
+
+Direct COM checks match the 0113h entry/SP load, 013Ah table selection,
+0137h JP 0000h, 1AE2h descriptor-mask load/store to 1D65h, 1D64h AND immediate
+and 1DCEh register-preserving CALL 5 wrapper to those source operations.
+The independently checked COM header and support-code regions match ZEXDOC;
+the only binary differences are descriptor masks/CRCs. ZEXALL's `start`/`done`
+(80–98), state setup/capture (1075–1111), `bdos` (1194–1203) and result strings/
+`cmpcrc` (1205–1232) require writable RAM at 0100h, SP from word 0006h,
+CALL 0005h functions 2/9, DI/EI without injected interrupts, and JP 0000h.
+The same private output/RET boundary-stop ABI above meets these independently
+read requirements; no guest port device or extra rendezvous is needed. Every
+one of 67 ordered complete results must be OK, followed by completion and
+normal exit. ERROR, refusal, unknown digest or budget exhaustion fails.
+A failure challenges a rule/host/correspondence hypothesis against its written
+keys; unnamed CRCs and a PASS license no semantics (decision-17).
+
+Results, 2026-11-13, **MEASURED**, decision-20 §7 worker release campaign:
+ZEXDOC and ZEXALL each complete **67/67 judged OK**, exit 0 at the normal
+boot stub, **5,764,169,747 steps / 46,734,978,642 cycles** each; no filtering,
+refusal or timeout. Prelim passes at 899 steps / 8,714 cycles. No falsification
+candidate arose; these passes license no fact. Per-group coverage/counters
+and the 8080/8085 regression runs are in the worker report; historical 58-group
+measurements above remain separate. Supervisor review/gates/landing are pending.
 
 z80test archive URL, complete host requirements and coverage are also recorded
 in [MANIFEST's exerciser section](oracles/MANIFEST.md#z80-cpu-exercisers-x80-oracles-falsify-never-define--fetch-only).

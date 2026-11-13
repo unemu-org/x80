@@ -56,7 +56,7 @@ fn execute(args: Vec<OsString>) -> Result<u8, String> {
             Some("--help" | "-h") => {
                 println!("Usage: x80-oracle [--model 8080|8085|z80] [--cycle-cap N] [--slice-cycles N] [--oracle pre|exm] <program.COM>");
                 println!("       x80-oracle z80test --help");
-                println!("Model defaults to 8080. 8080EXM requires 8080; 8085EXM requires 8085; 8080PRE supports either. Z80 requires pinned prelim.com or zexdoc.com; unknown Z80 digests are refused. A known program/model mismatch is an error before execution.");
+                println!("Model defaults to 8080. 8080EXM requires 8080; 8085EXM requires 8085; 8080PRE supports either. Z80 requires pinned prelim.com, zexdoc.com or zexall.com; unknown Z80 digests are refused. A known program/model mismatch is an error before execution.");
                 return Ok(0);
             }
             Some(value) if value.starts_with('-') => {
@@ -84,7 +84,9 @@ fn execute(args: Vec<OsString>) -> Result<u8, String> {
         (true, Model::Z80) => Oracle::ExerciserZ80,
     });
     if let (Some(expected), Some(actual)) = (oracle, Oracle::identify(&program)) {
-        if expected != actual {
+        if expected != actual
+            && !(expected == Oracle::ExerciserZ80 && actual == Oracle::ExerciserAllZ80)
+        {
             return Err("--oracle does not match the program digest".into());
         }
     }
@@ -93,18 +95,16 @@ fn execute(args: Vec<OsString>) -> Result<u8, String> {
     let outcome = run(&program, config, &mut console).map_err(|error| error.to_string())?;
     console.flush().map_err(|error| error.to_string())?;
     if let Some(oracle) = Oracle::identify(&program) {
-        let not_run = oracle.not_run();
-        if !not_run.is_empty() {
-            // The guest's last line may lack a newline; keep the list on its own lines.
-            eprintln!();
-        }
-        for label in not_run {
-            eprintln!("{label}: not run (decision-14)");
-        }
         let output = String::from_utf8_lossy(&outcome.output);
         if let Some(line) = oracle.reported_not_judged(&output) {
             eprintln!("\nreported, not judged: {}", line.trim());
         }
+    }
+    for group in &outcome.groups {
+        eprintln!(
+            "group={:02} cumulative steps={} cycles={}",
+            group.group, group.steps, group.cycles
+        );
     }
     if let Some(error) = &outcome.verdict_error {
         eprintln!("\nverdict failure: {error}");

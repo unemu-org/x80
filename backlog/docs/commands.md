@@ -95,15 +95,16 @@ an unknown digest a verdict. No interrupts are requested. Only the 8085 and Z80
 BDOS stubs request host stop; on the 8085, SID is low and SOD notifications are
 ignored.
 
-For Z80, run the pinned preliminary test first, then the full 58-group release
-campaign (the larger cap accommodates the long ALU groups):
+For Z80, run the pinned preliminary test first, then both full 67-group release
+campaigns (the larger cap accommodates the long ALU groups):
 
 ```sh
 cargo run -p x80-oracle --release --offline --locked -j 4 -- --model z80 oracles/z80-exercisers/prelim.com
 cargo run -p x80-oracle --release --offline --locked -j 4 -- --model z80 oracles/z80-exercisers/zexdoc.com --cycle-cap 1000000000000
+cargo run -p x80-oracle --release --offline --locked -j 4 -- --model z80 oracles/z80-exercisers/zexall.com --cycle-cap 1000000000000
 ```
 
-The Z80 path accepts only the original `prelim.com` and `zexdoc.com` SHA-256
+The Z80 path accepts only the original `prelim.com`, `zexdoc.com` and `zexall.com` SHA-256
 pins in `oracles/SHA256SUMS.fetched`; unknown digests and model mismatches are
 errors before execution. Filenames and `--oracle pre|exm` cannot grant a verdict.
 No fetched program is needed for the harness unit or CLI tests.
@@ -125,26 +126,30 @@ Z80 refusals print PC, opcode and all preceding bytes; unexpected port accesses,
 including guest writes to A:FF outside the stub, report the full 16-bit port
 address (decision-15).
 
-ZEXDOC filtering happens in loaded RAM, after digest selection, without modifying
-the disk file, descriptors, expected CRCs or instruction bytes. The host first
-verifies all 67 original little-endian pointers at file offset 003Ah (guest
-013Ah), including the zero terminator at 00C0h; each descriptor address must be
-01C2h + 0060h × its original zero-based index. A mismatch fails before any patch
-or guest execution. The table is compacted to the 58 judged pointers in order,
-followed by zeroes. The nine excluded groups are each printed to stderr as
-`not run (decision-14)`: `alu8rx`, `incxh`, `incxl`, `incyh`, `incyl`, `ld8ixy`,
-`ld8rrx`, `rotxy`, `rotz80`. They never execute; no Unsupported result is waived.
+Decision-20 §7 admits all 67 ZEXDOC and all 67 ZEXALL groups; no table is
+filtered or patched. After digest selection, the host verifies all 67 original
+little-endian pointers at file offset 003Ah (guest 013Ah), the zero terminator
+at 00C0h, and each complete 96-byte descriptor against its artifact's own audit
+fingerprint. Descriptor addresses are 01C2h + 0060h × the zero-based index.
+The separate ZEXALL audit pins its FFh masks, vectors, expected CRCs and messages;
+ZEXDOC's audit cannot admit ZEXALL. Any mismatch fails before guest execution.
+The `incyh`/`incyl` labels still execute their original DD bytes, not inferred FD.
 
 Prelim requires its exact completion output; silent early failure, a printed
-failure address, extra lines or trailing text fail. ZEXDOC requires its banner,
-all 58 complete descriptor/results in audited order, and completion message.
+failure address, extra lines or trailing text fail. Both exercisers require their banner,
+all 67 complete descriptor/results in audited order, and completion message.
 Every nonempty line is consumed; unknown, missing, duplicated, reordered or
 extra lines fail. Each judged group must print the program's exact OK suffix,
-which follows comparison with all four expected CRC bytes. ZEXDOC does not
-print CRCs on OK. ERROR results include eight lowercase hexadecimal digits in
+which follows comparison with all four expected CRC bytes. Neither exerciser
+prints CRCs on OK. ERROR results include eight lowercase hexadecimal digits in
 each expected/found field and always fail; malformed or partial results also
 fail. Exit 0 additionally requires the boot-stub halt at PC 0001h. A timeout
-remains FAIL even if earlier groups printed OK.
+remains FAIL even if earlier groups printed OK. The CLI reports cumulative,
+host-inclusive steps/cycles at each complete group output boundary, as well as
+final totals. These counters include the private BDOS stub; they are diagnostic
+observations, independent of the full-output verdict. `--oracle exm` accepts
+either pinned Z80 exerciser; it cannot override identity. Both are unnamed-real-Z80
+CRC falsifiers only (decision-17); a PASS licenses no hardware rule.
 
 A bounded debug smoke can be run without the release campaign:
 
