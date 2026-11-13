@@ -1,4 +1,4 @@
-//! 8-Bit Load Group: encoding data only (decision-13 rule 2).
+//! 8-Bit Load Group (decision-13 rule 2).
 //!
 //! Primary: Zilog UM008011-0816, rev. 11 (August 2016), pp. 70–97.
 //! Entry citations below use printed pages; PDF = printed + 14.
@@ -6,11 +6,11 @@
 //! (PDF = printed + 6). Whole-instruction lengths and T-state totals include
 //! every prefix, operand and displacement (decision-13 rules 3–5).
 
-use super::cpu::Decoded;
+use super::cpu::{Decoded, IndexRegister, Table};
 use super::opcodes::{Encoding, Instruction, States};
-use super::Z80;
+use super::{Registers, Z80};
 use crate::decode::Path;
-use crate::Bus;
+use crate::{Bus, MemoryAccess};
 
 pub(super) const MAIN: &[Encoding] = &[
     // UM LD r,r', p. 71.
@@ -60,18 +60,135 @@ pub(super) const ED: &[Encoding] = &[
 /// Flip only this group-owned switch when its executor is complete. Until
 /// then dispatch refuses before any operand/data/stack/port access
 /// (decision-5 item 7 staging; decision-14 rule 4).
-pub(super) const LANDED: bool = false;
+pub(super) const LANDED: bool = true;
 
 /// Final executor seam (decision-13 rule 4). PC is after prefix/key bytes;
 /// read remaining operands through Z80::fetch_operand. INDEX d is executor-
 /// owned; INDEX_CB d is in Decoded. Return the complete instruction's path.
 /// Repeating blocks rewind PC by two and return Path::Taken (rule 11).
 pub(super) fn execute<S: Bus>(
-    _cpu: &mut Z80,
-    _system: &mut S,
+    cpu: &mut Z80,
+    system: &mut S,
     _instruction: &Instruction,
-    _decoded: &Decoded,
+    decoded: &Decoded,
 ) -> Path {
-    // Unreachable while LANDED is false; never a panic or a public stub.
+    let opcode = decoded.opcode;
+    if decoded.table == Table::Ed {
+        // UM pp. 94–97; TM Table 7.0-1 p. 44. Decision-15 rule 6:
+        // both fetch increments precede execution, including LD R,A.
+        match opcode {
+            0x47 => cpu.registers_mut().i = cpu.registers().a,
+            0x4F => cpu.registers_mut().r = cpu.registers().a,
+            0x57 | 0x5F => {
+                let value = if opcode == 0x57 {
+                    cpu.registers().i
+                } else {
+                    cpu.registers().r
+                };
+                let iff2 = cpu.latches().iff2;
+                let registers = cpu.registers_mut();
+                registers.a = value;
+                registers.flags.sign = value & 0x80 != 0;
+                registers.flags.zero = value == 0;
+                registers.flags.half_carry = false;
+                registers.flags.parity_overflow = iff2;
+                registers.flags.subtract = false;
+                // Carry is unchanged. Decision-15 rule 10 adopts this
+                // unverified boundary interpretation of the interrupt note.
+                cpu.latches_mut().parity_note_pending = true;
+            }
+            _ => {}
+        }
+        return Path::Untaken;
+    }
+
+    // UM pp. 74–87; TM p. 44. INDEX d is fetched before n and is a
+    // two's-complement displacement. Wrapping the sum is derived from
+    // the 16-bit index width (UM Registers p. 3). Decision-15 rule 5
+    // maps instruction operands to OperandFetch and memory data to Data.
+    let address = if decoded.table == Table::Index {
+        let displacement = i16::from(cpu.fetch_operand(system) as i8);
+        let base = match decoded.index {
+            Some(IndexRegister::Ix) => cpu.registers().ix,
+            Some(IndexRegister::Iy) => cpu.registers().iy,
+            None => cpu.registers().hl(),
+        };
+        base.wrapping_add_signed(displacement)
+    } else {
+        cpu.registers().hl()
+    };
+
+    // The map admits only the listed load encodings (decision-14 rule 1).
+    // UM pp. 71–87; TM p. 44. Capture source/address before destination
+    // writes, including H/L beside indexed memory; no index-half operands.
+    if opcode & 0xC0 == 0x40 {
+        let source = opcode & 7;
+        let destination = (opcode >> 3) & 7;
+        let value = if source == 6 {
+            system.read(address, MemoryAccess::Data)
+        } else {
+            read_register(cpu.registers(), source)
+        };
+        if destination == 6 {
+            system.write(address, value, MemoryAccess::Data);
+        } else {
+            write_register(cpu.registers_mut(), destination, value);
+        }
+    } else if opcode & 0xC7 == 0x06 {
+        let value = cpu.fetch_operand(system);
+        let destination = (opcode >> 3) & 7;
+        if destination == 6 {
+            system.write(address, value, MemoryAccess::Data);
+        } else {
+            write_register(cpu.registers_mut(), destination, value);
+        }
+    } else {
+        // UM pp. 88–93; TM p. 44. Absolute addresses have low n first;
+        // both operand reads precede the data access (decision-15 rule 5).
+        let address = match opcode {
+            0x02 | 0x0A => cpu.registers().bc(),
+            0x12 | 0x1A => cpu.registers().de(),
+            0x32 | 0x3A => {
+                let low = cpu.fetch_operand(system);
+                let high = cpu.fetch_operand(system);
+                u16::from_le_bytes([low, high])
+            }
+            _ => address,
+        };
+        if opcode & 0x08 != 0 {
+            cpu.registers_mut().a = system.read(address, MemoryAccess::Data);
+        } else {
+            system.write(address, cpu.registers().a, MemoryAccess::Data);
+        }
+    }
+    // All ordinary loads leave every flag unchanged (UM pp. 71–93).
+    // Both States slots agree for this group (decision-13 rule 5).
     Path::Untaken
+}
+
+// Register fields: UM p. 71 (also pp. 72,74–83); TM p. 44.
+// Only register codes reach these helpers: memory code 110 is handled above.
+// Decision-14 rule 1 excludes index halves and F operands.
+fn read_register(registers: &Registers, code: u8) -> u8 {
+    match code {
+        0 => registers.b,
+        1 => registers.c,
+        2 => registers.d,
+        3 => registers.e,
+        4 => registers.h,
+        5 => registers.l,
+        _ => registers.a,
+    }
+}
+
+fn write_register(registers: &mut Registers, code: u8, value: u8) {
+    match code {
+        0 => registers.b = value,
+        1 => registers.c = value,
+        2 => registers.d = value,
+        3 => registers.e = value,
+        4 => registers.h = value,
+        5 => registers.l = value,
+        _ => registers.a = value,
+    }
 }
