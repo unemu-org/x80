@@ -108,6 +108,7 @@ fn all_256_cb_terminals_have_literal_results_flags_access_refresh_and_costs() {
         bus.load(0x8181, &[0x81]);
         bus.load(0xFFFE, &[0xCB, opcode]);
         let mut expected = cpu.clone();
+        expected.latches_mut().q = opcode < 0x80;
         expected.registers_mut().pc = 0;
         expected.registers_mut().r = 0x81;
         let bit = usize::from((opcode >> 3) & 7);
@@ -166,6 +167,7 @@ fn sll_every_register_and_hl_literal_carry_sign_zero_and_parity() {
                 bus.load(0x8181, &[old]);
                 bus.load(0xFFFE, &[0xCB, 0x30 + code]);
                 let mut expected = cpu.clone();
+                expected.latches_mut().q = true;
                 expected.registers_mut().pc = 0;
                 expected.registers_mut().r = 0x81;
                 set_register(expected.registers_mut(), code, value);
@@ -190,6 +192,7 @@ fn all_256_ddcb_and_fdcb_terminals_copy_ordinary_registers_or_alias_bit() {
             bus.load(0xFFFE, &[prefix, 0xCB, 0xFF, opcode]);
             bus.load(address, &[0x81]);
             let mut expected = cpu.clone();
+            expected.latches_mut().q = opcode < 0x80;
             expected.latches_mut().wz = address;
             expected.registers_mut().pc = 2;
             expected.registers_mut().r = 0x81;
@@ -274,6 +277,7 @@ fn write_ignoring_device_still_copies_computed_result_without_reread() {
             bus.0.load(0xFFFE, &[prefix, 0xCB, 0xFF, opcode]);
             bus.0.load(0x2000, &[0x81]);
             let mut expected = cpu.clone();
+            expected.latches_mut().q = opcode < 0x80;
             expected.latches_mut().wz = 0x2000;
             expected.registers_mut().pc = 2;
             expected.registers_mut().r = 0x81;
@@ -303,6 +307,7 @@ fn repeated_selectors_into_indexed_sll_use_last_index_one_boundary_and_extra_m1_
     bus.load(0xFFFE, &[0xDD, 0xFD, 0xDD, 0xFD, 0xCB, 0xFF, 0x35]);
     bus.load(0x3000, &[0x81]);
     let mut expected = cpu.clone();
+    expected.latches_mut().q = true;
     expected.latches_mut().wz = 0x3000;
     expected.registers_mut().pc = 5;
     expected.registers_mut().r = 0x84;

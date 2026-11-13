@@ -118,7 +118,7 @@ below and in a bead.
 | Z80 indexed-CB fourth-byte cycle | UM008011-0816 BIT b,(IX+d) p. 247 (PDF 261): DD CB d op and 20 (4,4,3,5,4); 03-0029-01 §3 p. 7 (PDF 13) covers two-byte opcodes without expressly resolving this four-byte form | decision-15 rules 5–6: unverified reading assigns OperandFetch to both d and the fourth operation byte, OpcodeFetch to DD/FD and CB, hence two R increments. The byte order is stated; the fourth byte's non-M1 classification is not explicit on the inspected pages and is not proved by its T-state count |
 | Z80 R fetch count, interrupt count and LD ordering | UM008011-0816 Registers p. 3, Figs 9/10 pp. 13–14, LD A,R p. 95, LD R,A p. 97, LDIR p. 132 (PDF 17, 27–28, 109, 111, 146); 03-0029-01 §2 p. 4, §3 p. 7, §4 pp. 16, 18 (PDF 10, 13, 22, 24); 03-0002-01 LD A,R p. 49/PDF 53, LD R,A p. 51/PDF 55 | decision-15 rule 6: seven incremented bits and retained bit 7 are stated. Once per M1, including prefixes and one per successful NMI/INT acceptance, is derived from fetch/refresh descriptions. Fetch increments precede LD execution: LD A,R sees its own increments; LD R,A replaces them with all eight A bits. That ordering is derived, not explicit microcycle text. Unsupported restores R |
 | Z80 refresh omitted from Bus | UM008011-0816 Instruction Fetch p. 8 (PDF 22): RD is absent during refresh; Registers p. 3 (PDF 17) describes I/R on the address bus; 03-0029-01 §2 p. 4 (PDF 10) agrees on refresh addressing | decision-15 rules 6/14: stated API choice makes no refresh bus call and exposes refresh only as R, subject to the HALT departure. Absence of RD is stated hardware behaviour; omission of refresh addresses is library scope |
-| Z80 EI delay edge cases | UM008011-0816 Table 1 p. 18, DI p. 182, EI p. 183, NMI Pin Functions p. 6 (PDF 32, 196–197, 20); 03-0029-01 §8 pp. 55–56, §3 p. 8 (PDF 61–62, 14) | decision-15 rule 7: ordinary one-instruction EI inhibition, both-IFF writes and NMI eligibility are stated. Unverified edge-case model: EI EI re-arms, DI cancels the pending delay, NMI acceptance preserves it until an ordinary instruction/iteration completes. The inspected pages do not specify those latch interactions |
+| Z80 EI delay edge cases | UM008011-0816 Table 1 p. 18, DI p. 182, EI p. 183, NMI Pin Functions p. 6 (PDF 32, 196–197, 20); 03-0029-01 §8 pp. 55–56, §3 p. 8 (PDF 61–62, 14) | decision-15 rule 7: ordinary one-instruction EI inhibition, both-IFF writes and NMI eligibility are stated. Unverified edge-case model: EI EI re-arms, DI cancels the pending delay, NMI acceptance preserves it until an ordinary instruction/iteration completes. The inspected pages do not specify those latch interactions. Decision-20 §6 retains this L mapping; `z80_q_repeat.rs` pins NMI during EI with IFF2 preserved; no new anomaly admitted |
 | Z80 HALT exit, R and resume PC | UM008011-0816 HALT Exit p. 14, HALT p. 181, RETN example p. 290 (PDF 28, 195, 304); 03-0029-01 §4 p. 18 (PDF 24) | decision-15 rule 7: stated departure retains decision-2's prompt Halt exit with no idle steps/cycles, fetches or R increments, although hardware fetches NOPs and refreshes. Entry's 4 states and NMI/eligible-INT wake are stated; keeping the post-HALT resume PC is derived from completed entry and the interrupt return-PC contract |
 | Z80 CALL carry-condition flag label | UM008011-0816 CALL cc,nn p. 284 (PDF 298) labels cc=011 Carry (C) with relevant flag Z; its RET cc table p. 286 (PDF 300) gives C, and 03-0029-01 Table 7.0-10 p. 53 (PDF 59) identifies cc=011 as carry | Derived resolution (x80-bi2.20, both manuals rechecked on enlarged 200 dpi crops): use carry, agreeing with the primary's condition name and RET table and the second witness; CALL's Z is a flag-label misprint. Pinned by `call_c_uses_carry_independently_of_zero_despite_primary_table_label` with opposite C/Z values |
 | Z80 RETI IFF reading and device notification | UM008011-0816 RETI p. 288 (PDF 302); 03-0002-01 RETI p. 246/PDF 255; MK78515 Table 2-1 p. 2-15/PDF 29 and RETI p. 2-200/PDF 214 | decision-15 rule 7: stated documented reading leaves IFF1/IFF2 unchanged; MK expressly says so. RETN's IFF2-to-IFF1 copy remains separate (UM p. 290/PDF 304; ALPM p. 248/PDF 257). No contrary IFF effect found in these pages. Stated API choice exposes RETI through its two opcode fetches without adding a device callback |
@@ -127,13 +127,13 @@ below and in a bead.
 | Z80 IM 0 accepted-byte restriction | UM008011-0816 CPU Response p. 19 (PDF 33); 03-0029-01 §8 p. 56 (PDF 62): hardware allows other instructions including a three-byte CALL | decision-15 rule 9: stated library scope restriction accepts RST only. Other bytes give Unsupported with acknowledge=true, no preceding bytes and full boundary restoration; only the acknowledge read survives externally. This restricts documented hardware capability; it is not a claim that other bytes are undocumented |
 | Z80 odd IM 2 vector refusal | UM008011-0816 CPU Response/Mode 2 p. 20, Fig. 17 (PDF 34); 03-0029-01 §8 p. 57 (PDF 63): bit 0 must be zero; table low byte first; acknowledge/save/table costs 7/6/6 | decision-15 rule 9: stated library restriction refuses an odd acknowledge before writes/vector reads, restores boundary state and reports acknowledge=true. Hardware's odd-vector outcome is unverified, not extrapolated. For even vectors the PC-save then two Data-read order and total 19 are stated |
 | Z80 IM 0 RST and IM 1 totals | UM008011-0816 CPU Response p. 19 (PDF 33): normal restart plus two clocks; RST p. 293 (PDF 307): 11; 03-0029-01 §8 p. 56 and Table 7.0-10 p. 53 (PDF 62, 59) | decision-15 rule 9: derived 13 states for each (11+2), one step per successful acceptance. Both sources state the operands of the derivation, rather than an explicit 13-state acceptance entry |
-| Z80 LD A,I / LD A,R interrupt parity note | UM008011-0816 entries pp. 94–95 and Table 1 p. 18 (PDF 108–109, 32); 03-0002-01 LD A,I p. 48/PDF 52 has the interrupt note, LD A,R p. 49/PDF 53 omits it | decision-15 rule 10: IFF2-to-P/V is stated. Primary gives the interrupt-clears-parity note for both; second-witness omission gives no contrary result. Unverified interpretation uses one latch: successful NMI or INT acceptance immediately after the load clears P/V; an ordinary next instruction expires it, ineligible requests do not apply it. Budget preserves it; Stop/Unsupported restore it |
+| Z80 LD A,I / LD A,R interrupt parity note | UM008011-0816 entries pp. 94–95 and Table 1 p. 18 (PDF 108–109, 32); 03-0002-01 LD A,I p. 48/PDF 52 has the interrupt note, LD A,R p. 49/PDF 53 omits it | decision-15 rule 10: IFF2-to-P/V is stated. Primary gives the interrupt-clears-parity note for both; second-witness omission gives no contrary result. Unverified interpretation uses one latch: successful NMI or INT acceptance immediately after the load clears P/V; an ordinary next instruction expires it, ineligible requests do not apply it. Budget preserves it; Stop/Unsupported restore it. Decision-20 §6 retains this L window; `z80_q_repeat.rs` pins acceptance/expiry/ineligibility/rollback, without new NMOS anomaly or timing confirmation |
 | Z80 block iteration retirement and two States slots | UM008011-0816 LDIR p. 132, LDDR p. 136, CPIR p. 139, CPDR p. 142, INIR p. 300, INDR p. 304, OTIR pp. 311–312, OTDR pp. 315–316 (PDF printed+14); 03-0029-01 Tables 7.0-3 p. 46 and 7.0-11 p. 54 (PDF 52, 60); 03-0002-01 OTIR p. 269/PDF 279 | decision-15 rule 11: PC rewind by two and per-iteration interrupt recognition/refresh are stated. Stated API choice retires one iteration per step and refetches at the next boundary. Stated 16 terminating and 21 repeating map to untaken/taken respectively; the shared machinery acquires no hardware fact |
 | Z80 LDIR/LDDR P/V on a repeating iteration | UM008011-0816 LDIR p. 133/PDF 147 states "P/V is set if BC – 1 ≠ 0; otherwise, it is reset." LDDR p. 137/PDF 151 states "P/V is reset." LDI p. 130/PDF 144 and LDD p. 134/PDF 148 give the counter rule. 03-0029-01 Table 7.0-3 p. 46/PDF 52 prints P/V = 0 for both LDIR and LDDR, alongside 21 states "If BC ≠ 0" and 16 states "If BC = 0"; note 1 (P/V = 0 iff BC−1 = 0) applies to LDI/LDD. The three differing pages were re-read on 200 dpi images and enlarged crops | Supervisor ruling accepted by the maintainer (2026-11-13), replacing an earlier literal-entry reset ruling: every LDIR/LDDR iteration sets P/V = (BC after decrement != 0), exactly as LDI/LDD. Stated for LDIR by UM p. 133; derived for LDDR intermediate iterations from the LDIR/LDD entries. Interpret LDDR's own reset entry and TM's zero entries as the completed-instruction result, when BC = 0, rather than flags for each exposed iteration (decision-15 rule 11). Pinned by `ldir_sets_pv_until_final_iteration` and `lddr_sets_pv_until_final_iteration_derived`: starting BC = 2, the first step leaves BC = 1, PC rewound, 21 states and P/V = 1; the final step leaves BC = 0, PC advanced, 16 states and P/V = 0. No hardware/oracle measurement claimed |
 | Z80 CPIR/CPDR terminating timing condition | UM008011-0816 CPIR p. 139/PDF 153 and CPDR p. 142/PDF 156: prose terminates on exhausted count OR match; 16-state headings say count zero AND match. 03-0029-01 Table 7.0-3 p. 46/PDF 52 says OR for the 16-state path. MK78515 V2.0 CPIR p. 2-63/PDF 77 and CPDR p. 2-59/PDF 73 independently print OR and 16 | Resolved by accepted decision-15 rule 11: use the primary's descriptions and the second witnesses' OR; the primary timing headings are treated as a conjunction misprint. Repeating path remains count nonzero AND no match, 21 states. Both images re-read at 200 dpi with enlarged crops; x80-bi2.24 additionally re-read both Mostek/UM pairs at 200 dpi with enlarged crops. Pinned by `cpir_repeats_or_stops_on_either_match_or_exhaustion` and `cpdr_repeats_or_stops_on_either_match_or_exhaustion`, each covering early match with count remaining and exhaustion without a match; independently timed by `ed_all_58_encodings_and_all_repeat_termination_paths` in `tests/z80_timing.rs`. No hardware/oracle measurement claimed |
 | Z80 CPDR repeat-sentence equality | UM008011-0816 CPDR p. 142/PDF 156 says to repeat when BC is nonzero and A = (HL), contradicting its preceding match-termination sentence and its 21-state heading (A ≠ (HL)). 03-0029-01 Table 7.0-3 p. 46/PDF 52 repeats only for nonzero BC and A ≠ (HL) | Derived resolution (x80-bi2.13; both images re-read at 200 dpi with enlarged crops): the repeat sentence's equality is a misprint. Use the primary's termination sentence and 21-state heading, agreeing with the second witness and decision-15 rule 11. Pinned by `cpdr_repeats_or_stops_on_either_match_or_exhaustion`, including an early match with count remaining and a non-matching repeat |
 | Z80 continuing INIR/INDR WZ | Pinned MEMPTR (©2006), INIR/INDR headings: exactly as INI/IND on each execution, hence BC_before_decrement ±1; z80test v1.2a `src/tests.asm` `.inir_nop` lines 1040–1046 / `.indr_nop` lines 1048–1054, with `idea.asm`, `testmacros.asm`, `crctab.asm` (pins below) | **Falsified, MEASURED 2026-11-13:** independent in-memory enumeration/post-BIT projection gives 0A537B63 for each group under M's rule, versus pinned F3B1BE2F. WZ=(address of this iteration's ED byte+1) modulo 65536 reproduces F3B1BE2F for both; accepted decision-20 §5 selects it as **L**, extending M's explicit continuing LDIR/LDDR/CPIR/CPDR form. M does not state that INxR equation; no independent written INxR key or whole-word licence is inferred from CRCs. Terminating INxR retains BC_before_decrement ±1. The other six continuing block rules reproduce their groups' pinned CRCs, subject to the output-repeat blind spot detailed in decision-20 §5; no CPU/oracle program or hardware run |
-| Z80 reset preservation, sampler bookkeeping and construction defaults | UM008011-0816 RESET p. 6, Table 1 p. 18, HALT p. 181 (PDF 20, 32, 195); 03-0029-01 RESET p. 9, Fig. 8.0-1 p. 56 (PDF 15, 62); MK78515 Table 2-1 p. 2-15/PDF 29 | decision-15 rule 12: stated reset clears both IFFs, PC, I, R, sets IM 0 and leaves halt. Preserving other registers/flags, clearing EI/parity bookkeeping, setting NMI history to not asserted and making no calls are stated library choices, not undocumented reset facts. Zero-register Default with disabled IFFs/IM 0, no delay/halt/parity-note pending state and not-asserted NMI history is a library construction choice |
+| Z80 reset preservation, sampler bookkeeping and construction defaults | UM008011-0816 RESET p. 6, Table 1 p. 18, HALT p. 181 (PDF 20, 32, 195); 03-0029-01 RESET p. 9, Fig. 8.0-1 p. 56 (PDF 15, 62); MK78515 Table 2-1 p. 2-15/PDF 29 | decision-15 rule 12: stated reset clears both IFFs, PC, I, R, sets IM 0 and leaves halt. Preserving other registers/flags, clearing EI/parity bookkeeping, setting NMI history to not asserted and making no calls are stated library choices, not undocumented reset facts. Decision-20 §6 additionally clears Q on reset. Zero-register Default with Q=0, disabled IFFs/IM 0, no delay/halt/parity-note pending state and not-asserted NMI history is a library construction choice |
 | Z80 Unsupported payload and transactional restoration | decision-5 items 6/10; decision-14 payload extension; UM008011-0816 Interrupt Enable/Disable p. 18 (PDF 32) states IFF clearing on maskable acceptance | decision-15 rule 13: stated API choice adds fact-free preceding bytes (fixed three-byte capacity plus length), keeps pc/opcode/acknowledge meanings, and broadens one-read wording to reads of the reported bytes. All CPU boundary state including R and sampler/parity/delay latches is restored with zero contributed progress. Device effects of reads cannot be undone. Interrupt refusal rollback is a departure from hardware acceptance |
 | Z80 omitted arbitration, waits and pin timing | UM008011-0816 Pin Functions pp. 6–7, Instruction Fetch p. 8, Bus Request/Interrupt Request p. 12 (PDF 20–22, 26); 03-0029-01 §3 pp. 8–9, §4 p. 16 (PDF 14–15, 22) | decision-15 rule 14: stated API scope excludes BUSREQ/BUSACK, WAIT, pin timing and refresh bus addresses. Hardware's INT/BUSREQ condition and bus-request inhibition of interrupts are therefore not additional gates. Documented automatic acknowledge waits stay in totals; external waits add no modelled time |
 
@@ -540,9 +540,9 @@ Linked chip photographs/screens are absent and were not claimed read.
 | WZ indexed operands, interrupts and unlisted preservation / §5 | M indexed/interrupt headings and opening preservation sentence; R indexed page-local vectors/no injected interrupts | **L** effective address for every indexed-memory form; actual handler destination on successful interrupt; unlisted operations preserve, refusals restore. No complete word/reset/interrupt second key |
 | z80memptr discrimination / §5 | R `idea.asm`124–127 loads HL,data then BIT0,(HL); `z80memptr.asm`/README expressly disclaims stress coverage | **Library judging limit** only WZ13/11 plus C reaches post-BIT flags CRC; other word bits invisible, setup state not arbitrary. Fixed-page addresses cannot distinguish many +1/old/new candidates. The §5 worker campaign now passes 156/156 judged groups (four diagnostics skipped); the per-vector differential audit is reported with the worker evidence. No exact-latch row is upgraded from L |
 | SCF/CCF predecessor rule / §6 | Y §8.5 p. 30 unconditional A versus B “SCF/CCF” / S stable pattern A; R `z80ccf`, post-CCF macros and `.scf`/`.ccf`/paired/POP groups independently acquire predecessor observations | Select deterministic pattern A: flag-modifying predecessor→A5/3, else old F5/3 OR A5/3. **hardware-measured (Zilog NMOS Z80 date code 8039, by David Banks)**, corroborated only in R's separate specimen scope. Not a universal NMOS equation; preserve each origin/part label |
-| Q specimen disagreement / §6 | Full S Conclusions reports 8039 stable A, 8811 stable unconditional-A B, unstable conclusion 8634 versus result page/path8644. `Results-Zilog-NMOS-Date-Code-8817.md` own heading/image roots say CMOS. All these Markdown pages reread in full | **Library selection** pattern A, no randomness/profile; 8811 and unstable cases explicitly outside equivalence claim. Preserve 8634/8644 identity ambiguity; exclude 8817 from named-NMOS evidence. Per-page SHA-256 values in decision-20/source manifest; no absent images claimed audited |
-| Q classification/prefix/reset / §6 | B explicitly excludes POP AF; update literally9/7/2026 says DD/FD before SCF/CCF loses predecessor state; R post-CCF groups cover many ordinary instructions, not that new prefix case or reset/interrupts | **L** boolean classification, not F-byte inequality; DD/FD clears Q without retiring; terminal instruction class sets it. Universal table, EX AF classification, Q=0 Default/reset/interrupt entry and full snapshot/rollback are library bookkeeping; prefix update lacks independent matching key |
-| Repeat-boundary flags / §6 | B “Interrupted block instructions” exact PC/high-bit and I/O PV/H equations; R `.ldir_nop`/`.lddr_nop` and `.inir_nop`/`.indr_nop` exposes repeat state without actual interrupt | **H** only discriminated LDxR/INxR observations; **L** arbitrary p routing, CPxR/OTxR interrupt paths/full formula domain. Apply extra-five-state changes on every continuing iteration, before boundary; no override on termination. Y's omission is an incomplete earlier account, not a contradictory intermediate capture; no SCF date-code retroassignment |
+| Q specimen disagreement / §6 | Full S Conclusions reports 8039 stable A, 8811 stable unconditional-A B, unstable conclusion 8634 versus result page/path8644. `Results-Zilog-NMOS-Date-Code-8817.md` own heading/image roots say CMOS. All these Markdown pages reread in full | **B8039/H library selection** pattern A, no randomness/profile; 8811 and unstable cases explicitly outside equivalence claim. Preserve 8634/8644 identity ambiguity; exclude 8817 from named-NMOS evidence. Per-page SHA-256 values in decision-20/source manifest; no absent images claimed audited |
+| Q classification/prefix/reset / §6 | B explicitly excludes POP AF; update literally9/7/2026 says DD/FD before SCF/CCF loses predecessor state; R post-CCF groups cover many ordinary instructions, not that new prefix case or reset/interrupts | **L** boolean classification, not F-byte inequality; DD/FD clears Q without retiring; terminal instruction class sets it. Universal table, EX AF classification, Q=0 Default/reset/interrupt entry and full snapshot/rollback are library bookkeeping; prefix update lacks independent matching key. Implemented and pinned by `z80_q_repeat.rs` |
+| Repeat-boundary flags / §6 | B “Interrupted block instructions” exact PC/high-bit and I/O PV/H equations; R `.ldir_nop`/`.lddr_nop` and `.inir_nop`/`.indr_nop` exposes repeat state without actual interrupt | **H** only discriminated LDxR/INxR observations; **L** arbitrary p routing, CPxR/OTxR interrupt paths/full formula domain. Apply extra-five-state changes on every continuing iteration, before boundary; no override on termination. Y's omission is an incomplete earlier account, not a contradictory intermediate capture; no SCF date-code retroassignment. Implemented with literal repeat/termination/PV/H/self-overwrite/budget witnesses in `z80_q_repeat.rs` |
 | LD A,I/R P/V / §6 | U pp. 94–95 explicitly notes interrupt-during-execution P/V=0; Y ordinary IFF2 statement; R has no injected interrupt vector | **A** manufacturer note, **L** decision-15 rule10 boundary pending-note window for NMI/INT/expiry/rollback; NMOS-exclusive scope, CMOS contrast and precise timing remain unverified |
 | EI/NMI page / §6 | Banks NMI notes20October2018, wiki pin49e542d…, SHA-256 `0effe42fea3f73f690985d648b673d50c98552adf6ea1f807d1fa15c256b50ba`; opening says simulator IFF2=0 is erroneous, desired IFF1=0/IFF2=1; no independent named-chip acquisition | **Unverified; no new anomaly.** Exclude linked simulator/transistor discussion as confirmation. Retain **L** decision-15 EI-delay mapping, EI sets both, NMI clears IFF1/preserves IFF2. Page title cannot license an IFF2-clearing quirk |
 | Odd IM2 claim / §7 | Y §5.2 p. 20 reports an unidentified-chip odd-vector experiment against the manual's even-vector requirement (U p. 20/T p. 57, already recorded M4); R no vector acceptance capture | No independent identified-silicon key: retain **L library refusal**, not a hardware odd-vector claim. IM0 stays RST-only; normal fetched completion does not extend acknowledge scope |
@@ -560,7 +560,8 @@ ED cancellation, last selector, HALT, indexed-CB, no mid-chain polls, long
 PC/R wrapping and block refetch. Section 3 removes the former fetched-refusal
 fixture; interrupt payload/rollback remains independently witnessed. This introduces no
 new hardware claim. Section 4 now supplies full flags as described below;
-Section 5 now supplies WZ; Q and continuing-step flag overrides remain deferred.
+Sections 5–6 now supply WZ, Q and continuing-step flag overrides, with the
+accepted per-fact L/H/specimen limits.
 
 Decision-20 §3 implementation (`x80-mn3.10`): SLL operations/flags and
 indexed-CB computed memory/register results and BIT aliases retain the H labels
@@ -575,112 +576,46 @@ Unsupported/rollback. Section 4 now supplies full flag storage and BIT
 S/PV; this earlier implementation introduces no new hardware claim.
 
 
-### Decision-20 §4 implementation — x80-mn3.15
+### Decision-20 §§4–6 implementation
 
-Full F/F' storage is now implemented in the Z80 model. The public boolean
-representation adds independent `y` (bit 5) and `x` (bit 3); input, POP, PUSH
-and EX AF,AF' retain every bit. Default clears F/F'; reset preserves both by
-**L library policy**. **H** transfers, result/operand-selected Y/X, BIT S/PV,
-and ordinary block formulas retain the per-vector qualifications in the
-“Z80 undocumented rulings” table above. **A** documented flags and input-old-B /
-output-new-B ordering remain except for the explicitly superseded block flags.
-BIT-register Y/X remains **L**: Rak discriminates original-register selection,
-but Young §4.1's contrary masked-operand statement leaves the written key missing.
-DAA changes only Y/X from adjusted A; accepted correction/H rules are retained.
-All admitted flag witnesses compare eight bits. Source-defined ZEXDOC and
-z80test documented-mask projections remain distinct diagnostic campaigns;
-the oracle harness needed no six-bit fixture or mask changes.
+Full F/F' storage and ordinary Y/X, BIT S/PV and block-I/O flags now execute
+with the rulings and H/L limits above. BIT-register Y/X retains the independent
+written-key gap. DAA's accepted correction/H rules are unchanged.
+`x80-core/tests/z80_undocumented_flags.rs` pins literal full-byte results;
+`z80_wz.rs` pins §5's exact **L** latch equations and **H** discriminated BIT
+projections. WZ=(ED address+1) for continuing INxR remains the explicitly
+selected **L** replacement for the falsified BC rule; no whole-word hardware
+licence follows from a projected CRC. WZ defaults to zero and survives reset
+by library choice.
 
-**Historical §4 staging (WZ portions superseded by §5 below), L:** until §5 (`x80-mn3.11`), BIT (HL) preserves old Y/X
-instead of reading nonexistent retained WZ; indexed BIT uses the effective
-address high byte directly. Until §6 (`x80-mn3.16`), SCF/CCF uses unconditional
-yx(A), and continuing blocks apply ordinary §4 flags without repeat-boundary
-overrides. Terminating repeats implement §4 completely. Comments and dedicated
-witness names identify these staging rules; they are not final hardware claims.
+`Latches.q` now records the predecessor's instruction class, including when F
+is numerically unchanged. SCF/CCF implement §6's **B8039/H** selected pattern A
+with the specimen limits above. Universal classification, POP/exchange handling,
+DD/FD clearing, interrupt-entry/default/reset Q=0, complete snapshots and
+Stop/Unsupported rollback remain **L**. Budget preserves Q; prompt Halt adds
+no idle predecessor. Continuing iterations first compute ordinary flags, then
+apply p-derived Y/X and I/O PV/H before the boundary, including self-overwrite:
+**H** only for discriminated LDxR/INxR observations, **L** for arbitrary PC,
+CPxR/OTxR paths and the complete I/O domain. Terminating iterations retain
+ordinary flags.
 
-Independent literal eight-bit witnesses live in
-`x80-core/tests/z80_undocumented_flags.rs`; existing instruction-family witnesses
-also compare full flags. Their comments retain the decision-20 §4 and
-primary-source/independent Rak locators, with the H/L qualifications above.
+`x80-core/tests/z80_q_repeat.rs` supplies independent literal class/probe,
+prefix, interrupt-entry, snapshot/rollback/reset/Halt, repeat/termination,
+PV/H branch, self-overwrite and budget-continuation witnesses. Its
+`ld_a_i_r_retains_iff2_source_and_l_pending_note_acceptance_window` pins the
+retained **L** decision-15 rule 10 interpretation of the **A** manufacturer's
+note (UM pp. 94–95). Its
+`nmi_during_ei_preserves_iff2_and_pending_delay_no_new_anomaly_admitted`
+pins retained **L** rules 7–8: IFF2 and pending EI delay survive NMI; no new
+anomaly is admitted. NMOS-specific parity scope, CMOS contrast and precise
+interrupt window remain unverified. Oracle runs cannot upgrade these labels.
 
-#### Measured campaigns, 2026-11-13
-
-Commands used offline/locked release builds with `-j 4`, the task's separate
-target directory, empty RUSTC_WRAPPER and SDK sysroot RUSTFLAGS/RUSTDOCFLAGS.
-Every Cargo command was invoked through `nice -n 20`; the sandbox reported
-`setpriority: Operation not permitted`, so lowered priority could not be enforced.
-Heavy campaigns were serialized. No network, source audit expansion or oracle
-source implementation was used.
-
-Local verification, **MEASURED**: `cargo fmt --all --check` PASS;
-`cargo clippy --workspace --all-targets --all-features --offline --locked -j 4
--- -D warnings` PASS; `cargo test --workspace --all-features --offline --locked
--j 4` PASS (1,213 unit/integration tests across 68 targets, plus 15 doctests);
-separate `cargo test --workspace --doc --all-features --offline --locked -j 4`
-PASS (15 doctests). The zero-dependency boundary test passes. These are local
-worker checks; supervisor review and landing remain separate.
-
-| Campaign | MEASURED result | Steps | Cycles |
-| --- | --- | ---: | ---: |
-| Z80 prelim | PASS | 899 | 8,714 |
-| ZEXDOC, cap 10^12 | PASS, 58/58 judged; 9 historical excluded groups not run | 4,432,085,110 | 35,946,551,658 |
-| 8080PRE, 8080 | PASS | 1,060 | 7,804 |
-| 8080EXM, cap 10^11 | PASS, 25/25 judged | 2,919,050,421 | 23,803,378,398 |
-| 8080PRE, 8085 | PASS | 1,061 | 7,750 |
-| 8085EXM, cap 10^11 | PASS, 24/24 judged; third ALU group reported PASS CRC=0cfd75b5, not judged | 2,919,050,719 | 23,955,340,446 |
-| z80test z80full | Non-final: judged OK=148, FAILED=8 | 204,226,187 | 1,229,822,827 |
-| z80test z80doc | Non-final: judged OK=156, FAILED=0 | 189,077,297 | 1,139,700,409 |
-| z80test z80flags | Non-final: judged OK=148, FAILED=8 | 88,382,941 | 604,706,518 |
-| z80test z80docflags | Non-final: judged OK=156, FAILED=0 | 81,680,617 | 559,087,557 |
-
-All four z80test variants completed 160/160 groups with zero `.incheck` failures;
-each has 156 judged and 4 diagnostic groups. `z80doc`/`z80docflags` skip all
-four diagnostics; full/flags execute them (2 diagnostic FAILED, 2 OK).
-Full/flags first judged failures: **001 SCF, 002 CCF**; all remaining judged
-failures: **071 BIT N,(HL), 072 BIT N,[R,(HL)], 089 LDIR->NOP', 090 LDDR->NOP',
-102 INIR->NOP', 103 INDR->NOP'**. These are consistent with the staged
-WZ/Q/continuing-step limits, not evidence licensing a rule change. ST groups
-005/006 also fail, explicitly diagnostic. No variant is claimed final conformance.
-Host RET overhead remains included: full 3,268 steps/32,680 cycles; doc
-2,910/29,100; flags 3,269/32,690; docflags 2,916/29,160. Input reads 5,661
-each, port writes 12,705 for full/flags and 12,701 for doc/docflags.
-ZEXALL was **not run**: the CP/M host accepts only audited prelim/ZEXDOC
-digests; its independent artifact/host audit remains `x80-mn3.13`.
-
-### Decision-20 §5 implementation — x80-mn3.11
-
-The Z80 now carries public `Latches.wz: u16` in supplied/cloned state and
-complete rollback snapshots. Default=0000h, reset preservation, Budget
-preservation and Stop/Unsupported restoration are **L library policy**,
-not hardware reset claims (UM RESET p. 6 / TM p. 9 omit WZ).
-Group executors implement every row of §5's **L exact-latch table**, following
-the pinned MEMPTR instruction headings with the accepted completions and
-continuing-INxR replacement. No shared-family register, dependency or bus
-access was added. BIT (HL) now observes retained WZ13/11; indexed BIT sets
-WZ=effective address before observing those bits. Those discriminated
-projections retain the **H** limits in the rulings table; whole-word equations
-remain **L**, including old-destination+1 for pair arithmetic.
-
-`x80-core/tests/z80_wz.rs` supplies 21 independent literal row/state
-witnesses. Every row class is followed by repeated BIT (HL) probes with
-conflicting HL/data/old flags. Coverage includes 27FFh→2800h and FFFFh wrap,
-A-high/low-only no-carry stores/OUT, all pair memory forms including ED63/6B,
-stack exchange, old arithmetic destination, nibble rotates, taken and untaken
-flow, all port register codes, every block path, this iteration's ED address
-after ignored prefixes, every indexed-memory class, all accepted interrupt
-modes, unlisted preservation, default/reset, Budget/Stop/refusals and
-new/clone continuation. The retained WZ and indexed BIT witnesses replace
-the earlier §4 staging assertions.
-
-Oracle results, **MEASURED 2026-11-13** (release): prelim PASS; ZEXDOC 58/58
-judged PASS (nine historical groups not run); 8080/8085 exercisers unchanged.
-Non-final z80test: z80memptr 156/156 judged OK (003–006 skipped diagnostics),
-doc/docflags 156/156, full/flags 150/156 with 001 SCF, 002 CCF, 089/090
-LDxR->NOP' and 102/103 INxR->NOP' awaiting §6, ccf 89/156 awaiting Q;
-071/072 BIT (HL) now pass. No WZ equation was changed to fit a CRC; every
-exact latch row retains **L**. The per-vector projection and block-CRC audits
-(what each z80memptr group can and cannot discriminate) are recorded on bead
-`x80-mn3.11`; they are not hardware captures or a licence upgrade.
+Oracle results, **MEASURED 2026-11-13**, release: prelim PASS, ZEXDOC 58/58
+judged PASS (nine historical exclusions), 8080PRE/8080EXM/8085EXM PASS.
+All six z80test variants complete 160/160 groups with 156/156 judged OK,
+zero input-check failures and NEC/ST diagnostics 003–006 skipped. No remaining
+reported failures; these are non-final diagnostics until `x80-mn3.17`, not
+silicon confirmation or an upgrade of any evidence label.
 
 ### Discovery inventory
 
@@ -796,8 +731,8 @@ Maintainer decision, 2026-11-13 (x80-bi2.5): M4 covers documented Z80 behavior
 only. That historical refusal policy is superseded by decision-20 §§1–3:
 all ED terminals, index halves, ignored/repeated DD/FD, SLL and indexed-CB
 copies/BIT aliases now execute with the A/H/L limits in §1. No normally fetched
-Z80 encoding refuses; §4 now implements full flags and §5 WZ/MEMPTR. Q and
-continuing-step flag overrides await §6. The two programs
+Z80 encoding refuses; §§4–6 now implement full flags, WZ/MEMPTR, Q and
+continuing-step flag overrides with the per-fact limits above. The two programs
 below are falsifying oracles, never sources of semantics. GPL files, including
 sources and COPYING, are fetched locally and never committed. Pins and fetch
 entries occupy separate Z80 exerciser blocks in the shared stash.
@@ -1391,7 +1326,7 @@ library contract from a stated hardware fact.
 - Decision-20 §1 ED admission replaces the old refusals: **A/H** ED70 flags-only input (TM Table 7.0-11 p. 54; UM pp. 296–297; Rak `.in_c`), **H** NEG/return operations and ED71 CPU preservation, **L** ED71 emitted zero, alias costs/IM assignments and 178 NOP holes (Young v0.91 §3.4 pp. 12–13 / §§8.5/8.10/8.11 pp. 30/34/35). `opcodes/tests.rs`, `z80_coverage.rs`, `z80_undocumented_ed.rs`; §4 now supplies full-byte flags.
 - Decision-20 §3 completes fetched admission: **H** SLL operation/flags, indexed-CB copies to ordinary registers and BIT aliases (Young v0.91 §§3.1/3.5–3.6 pp. 11/13–14 / §§8.7–8.8 pp. 32–33; Rak v1.2a `.slia_a`/`.slia_r`, `.sro_xyd_r`, `.bit_n_xyd_`, `.set_n_xyd_`/`.res_n_xyd_`); **L** new 8/15/20/23-state totals, §2 access/R mapping, no Bus write for BIT and computed-result copies despite ignored writes. `z80_undocumented_cb.rs`, `opcodes/tests.rs`, `z80_coverage.rs`, `z80_timing.rs`; §4 now replaces six-bit storage and BIT S/PV preservation.
 - Decision-20 §4 full F/F' image: eight independent stored bits, unmasked input/POP/PUSH/EX transfers; **H** transfers (Young v0.91 §2.3 p. 8 / §§8.2–8.3 pp. 28–29; Rak `.selftest`/`.poppush_af`/`.ex_af_af`), **L** public `Flags.y`/`Flags.x` representation, Default=0 and reset preservation. `z80_undocumented_flags.rs`, `z80_registers.rs`, `z80_load16.rs`.
-- Decision-20 §4 replaces former unknown preservation/masks with **H** BIT S/PV and block-I/O flag equations (Young v0.91 §§4.1/4.3 pp. 15–17; Rak corresponding groups). Unexercised input-domain extension remains **L**. All admitted bits compare unmasked. Decision-20 §5 now replaces both BIT staging rules: BIT (HL) uses retained WZ13/11, indexed BIT sets WZ=EA first. Exact words remain **L** (MEMPTR ©2006, instruction list; Rak only projected observations); `z80_wz.rs` pins every row and `z80_undocumented_flags.rs` replaces the interim witness. Interim **L** rules remain for SCF/CCF unconditional A until §6 Q and ordinary continuing-block flags until §6 overrides. These interim results are not final conformance claims.
+- Decision-20 §4 replaces former unknown preservation/masks with **H** BIT S/PV and block-I/O flag equations (Young v0.91 §§4.1/4.3 pp. 15–17; Rak corresponding groups). Unexercised input-domain extension remains **L**. All admitted bits compare unmasked. Decision-20 §5 now replaces both BIT staging rules: BIT (HL) uses retained WZ13/11, indexed BIT sets WZ=EA first. Exact words remain **L** (MEMPTR ©2006, instruction list; Rak only projected observations); `z80_wz.rs` pins every row and `z80_undocumented_flags.rs` replaces the interim witness. Decision-20 §6 now supplies **B8039/H** specimen-qualified SCF/CCF pattern A with **L** Q classification/prefix/default/reset/interrupt and snapshot bookkeeping, and **H** discriminated LDxR/INxR repeat flags with **L** arbitrary-PC/CPxR/OTxR/full-I/O-domain extensions; `z80_q_repeat.rs` pins independent literals. These labels do not claim final conformance.
 - Library source precedence for definedness: follow primary H rules for CCF/pair arithmetic over TM unknown marks; decision-20 §4 supersedes the former unaffected-C block-I/O rule; IN r,(C) clears H, also explicit in ALPM; §1 / decision-14 rule 6 (UM pp. 178, 188, 190, 192, 194, 196, 297–298, 301–302, 305, 309, 312–313, 316; TM pp. 48–49, 54; ALPM p. 255), `z80_general_control.rs`, `z80_arithmetic16.rs`, `z80_input_output.rs`.
 - Derived BIT H/N label resolution: the second H in two flag lists means N reset; §1 / decision-14 rule 6 (UM pp. 244, 246, 248, 250; TM p. 51), `z80_bit_set_reset_test.rs`.
 - Derived SBC overflow wording resolution: P/V sets on subtraction overflow; AND/OR use result parity, following the general definitions and second table over entry slips; §1 (UM pp. 67, 156, 158, 160; TM §6 p. 39, Table 7.0-4 p. 47), `alu.rs`, `z80_arithmetic_reference/`.
@@ -1410,11 +1345,11 @@ library contract from a stated hardware fact.
 - Library bus/API representation: provided `input16`/`output16` forward low bytes by default; Z80 uses full-width addresses, Intel models keep eight-bit calls; decision-15 rule 4 (UM pp. 295–296, 298, 300, 302, 304, 306–307, 309, 311, 313, 315; TM p. 54; ALPM pp. 267, 269), `input_output.rs`, `root_contract.rs`, `z80_input_output.rs`.
 - Library access-kind mapping: memory M1s (prefixes included) use OpcodeFetch, immediate/displacement reads OperandFetch, other memory Data, SP accesses Stack and INT reads InterruptAcknowledge; decision-15 rule 5 (UM pp. 3, 6, 247; TM pp. 4, 7), `cpu.rs`, group/interrupt trace witnesses.
 - Unverified indexed-CB fourth-byte cycle: DD/FD and CB are OpcodeFetch, d and terminal op OperandFetch, so R increments twice; byte order is stated but non-M1 classification is not established by the timing tuple; decision-15 rules 5–6 (UM p. 247; TM §3 p. 7), `cpu.rs`, `z80_run.rs`, indexed bit/rotate witnesses.
-- Derived R accounting and load ordering: once per M1 including prefixes and successful NMI/INT fetches; LD A,R sees its own increments, LD R,A replaces them with all A bits; decision-15 rule 6 (UM pp. 3, 13–14, 95, 97, 132; TM pp. 4, 7, 16, 18; ALPM pp. 49, 51), `cpu.rs`, `z80_load8.rs`, interrupt tests.
+- Derived R accounting and load ordering: once per M1 including prefixes and successful NMI/INT fetches; LD A,R sees its own increments, LD R,A replaces them with all A bits; decision-15 rule 6 (UM pp. 3, 13–14, 95, 97, 132; TM pp. 4, 7, 16, 18; ALPM pp. 49, 51), `cpu.rs`, `z80_load8.rs`, interrupt tests and `z80_q_repeat.rs::ld_a_i_r_retains_iff2_source_and_l_pending_note_acceptance_window` (decision-20 §6 L mapping retained).
 - Library poll polarity/order and boundary accounting: asserted-true NMI/INT (inactive by default); budget, stop/NMI/INT polls, stop, NMI, eligible INT, halt, execution; complete costs/overshoot, saturating counters and one step per acceptance; decisions 2/5 and decision-15 rules 1/3 (UM pp. 6, 12–14, 183; TM pp. 8, 16, 18, 55), `interrupt.rs`, `cpu.rs`, `z80_run.rs`, `z80_determinism.rs`.
 - Library NMI sampler/restoration: consecutive committed levels detect the edge, initial/reset history is inactive, sub-poll pulses can be missed; Budget does not sample, Stop/Unsupported restore history, Halt retains it; decision-15 rule 2 (UM p. 6; TM p. 8), `cpu.rs`, `z80_interrupts_nmi.rs`.
-- Unverified EI-delay edge cases: EI EI re-arms, DI cancels, NMI preserves the delay until an ordinary instruction/iteration completes; Stop/Budget/Unsupported do not consume it; decision-15 rule 7 (UM pp. 6, 18, 182–183; TM pp. 8, 55–56), `cpu.rs`, `z80_machine_control.rs`, interrupt tests.
-- Unverified parity-note window: successful NMI or INT immediately after LD A,I/R clears P/V; an ordinary next instruction expires the note, an ineligible request does not apply it, Budget preserves it and Stop/Unsupported restore it; decision-15 rule 10 (UM pp. 18, 94–95; ALPM pp. 48–49), `cpu.rs`, `z80_load8.rs`, interrupt tests.
+- Unverified EI-delay edge cases: EI EI re-arms, DI cancels, NMI preserves the delay until an ordinary instruction/iteration completes; Stop/Budget/Unsupported do not consume it; decision-15 rule 7 (UM pp. 6, 18, 182–183; TM pp. 8, 55–56), `cpu.rs`, `z80_machine_control.rs`, interrupt tests and `z80_q_repeat.rs::nmi_during_ei_preserves_iff2_and_pending_delay_no_new_anomaly_admitted` (decision-20 §6: no new anomaly admitted).
+- Unverified parity-note window: successful NMI or INT immediately after LD A,I/R clears P/V; an ordinary next instruction expires the note, an ineligible request does not apply it, Budget preserves it and Stop/Unsupported restore it; decision-15 rule 10 (UM pp. 18, 94–95; ALPM pp. 48–49), `cpu.rs`, `z80_load8.rs`, interrupt tests and `z80_q_repeat.rs::ld_a_i_r_retains_iff2_source_and_l_pending_note_acceptance_window` (decision-20 §6 L mapping retained).
 - Derived post-HALT resume PC / stated library departure: retain PC after entry and return prompt Halt with no idle steps, cycles, fetches or R advance, unlike hardware's NOP-fetch/refresh loop; decision-15 rule 7 (UM pp. 14, 181, 290; TM p. 18), `z80_machine_control.rs`, interrupt halt witnesses.
 - Library RETI notification scope: observe ED 4D fetches without a daisy-chain callback; unchanged IFFs are the stated documented reading, not a RETN alias; decision-15 rule 7 / §1 (UM p. 288; ALPM p. 246; MK Table 2-1 p. 2-15, p. 2-200), `call_return.rs`, `z80_call_return.rs`.
 - Derived NMI mapping/total: one discarded OpcodeFetch at unchanged boundary PC and 11 states from restart equivalence and RST's total, not an explicit NMI total on the response pages; decision-15 rule 8 (UM pp. 13–14, 19, 290, 293; TM pp. 18, 53, 56; ALPM p. 248), `nmi.rs`, `z80_interrupts_nmi.rs`, `z80_timing.rs`.
@@ -1423,8 +1358,8 @@ library contract from a stated hardware fact.
 - Library IM 0 restriction: accept RST only; other documented injected instructions, including CALL, return Unsupported with full restoration; decision-15 rule 9 (UM p. 19; TM p. 56), `acknowledge.rs`, `z80_interrupts_int.rs`.
 - Library odd IM 2 refusal / unverified hardware outcome: reject bit 0 set before writes/table reads, rather than extrapolate hardware; decision-15 rule 9 (UM p. 20, Fig. 17; TM p. 57), `acknowledge.rs`, `z80_interrupts_int.rs`.
 - Library block retirement: one iteration per step; map stated 16 terminating / 21 repeating to Untaken/Taken, retaining refetch and boundary polls on repeat; decisions 13 rule 5 / 15 rule 11 (UM pp. 132, 136, 139, 142, 300, 304, 311–312, 315–316; TM pp. 46, 54; ALPM p. 269), block and determinism witnesses.
-- Library reset preservation/bookkeeping: preserve SP, both general/AF sets, IX/IY, flags and WZ (decision-20 §5 L); clear EI/parity bookkeeping and initialise NMI history inactive, with no bus/polls or elapsed-cycle report; decision-15 rule 12 (UM pp. 6, 18, 181; TM pp. 9, 56; MK p. 2-15), `cpu.rs`, `z80_model.rs`.
-- Library construction/packing: zero registers/flags and WZ (decision-20 §5 L), disabled IFFs, IM 0 and clear delay/halt/parity/NMI history are Default values, not power-up claims; pair and AF/AF' packing are model-owned API representations; decisions 13 rule 1 / 15 rule 12 (UM pp. 2–3; TM pp. 3–5), `state.rs`, `flags.rs`, `z80_model.rs`, `z80_registers.rs`.
+- Library reset preservation/bookkeeping: preserve SP, both general/AF sets, IX/IY, flags and WZ (decision-20 §5 L); clear Q (decision-20 §6 L), EI/parity bookkeeping and initialise NMI history inactive, with no bus/polls or elapsed-cycle report; decision-15 rule 12 (UM pp. 6, 18, 181; TM pp. 9, 56; MK p. 2-15), `cpu.rs`, `z80_model.rs`.
+- Library construction/packing: zero registers/flags and WZ (decision-20 §5 L), disabled IFFs, IM 0 and clear Q (decision-20 §6 L)/delay/halt/parity/NMI history are Default values, not power-up claims; pair and AF/AF' packing are model-owned API representations; decisions 13 rule 1 / 15 rule 12 (UM pp. 2–3; TM pp. 3–5), `state.rs`, `flags.rs`, `z80_model.rs`, `z80_registers.rs`.
 - Library Unsupported transaction/payload / derived capacity: restore all CPU boundary state including WZ/R/samplers/delay/parity, contribute zero progress, preserve irreversible effects of consumed reads; decision-20 §3 removes all fetched refusal fixtures; the fixed payload remains for IM0 non-RST and odd-IM2 acknowledges (acknowledge=true, no preceding bytes), with consumed acknowledge reads observable; decision-14 rules 2–4 / decision-15 rule 13 (UM p. 247; TM p. 51), `cpu.rs`, `z80_interrupts_int.rs`, `z80_interrupts_nmi.rs`, `z80_run.rs`, `root_contract.rs`; interrupt rollback deliberately departs from acceptance IFF clearing (UM p. 18).
 - Library timing scope: no BUSREQ/BUSACK or external WAIT gating/time, pin timing, refresh-address bus calls or sub-instruction polls; automatic acknowledge waits stay in totals, R is the refresh exposure subject to HALT's departure; decision-15 rules 6/14 (UM pp. 6–8, 12; TM pp. 4, 8–9, 16), `cpu.rs`, boundary/interrupt witnesses.
 - Unverified oracle CRC provenance / library judging scope: ZEXDOC source lines 34–39 attribute expected CRCs to a real Z80 without part/revision or per-group capture; §2 pins the GPL-2.0-or-later artifacts, source/binary audit, 58 judged groups and nine not run under decision-14. `x80-oracle` keeps digest checks, filtering and the decision-20 §7 output/RET host rendezvous outside core semantics; the recorded PASS licenses no hardware fact.

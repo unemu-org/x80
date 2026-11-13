@@ -1,7 +1,7 @@
 //! Decision-20 §4 replaces zero Y/X and former unknown preservation here.
 //! H class rules: Young v0.91 §§4.1–4.3 pp. 15–17 / §§8.1–8.11 pp. 26–35;
 //! Rak z80test v1.2a corresponding load/ALU/BIT/block-I/O groups, pinned in
-//! PROVENANCE §1. SCF/CCF stay interim L until §6; parity-window rules stay L.
+//! PROVENANCE §1. SCF/CCF use decision-20 §6 Q; parity-window rules stay L.
 //! Machine-control witnesses: decisions 13–15. Zilog UM008011-0816
 //! rev. 11 (August 2016), NOP/EI/DI/HALT/IM pp. 180–186 (PDF 194–200);
 //! 03-0029-01 (1977), Table 7.0-5 p. 48 (PDF 54). Rendered at 150 dpi.
@@ -48,6 +48,7 @@ fn cpu_at(pc: u16) -> Z80 {
             r: 0xFF,
         },
         Latches {
+            q: false,
             wz: 0,
             iff1: false,
             iff2: true,
@@ -174,6 +175,7 @@ fn asserted_int_after_ei_allows_following_instruction_through_run() {
     expected.registers_mut().r = 0x81;
     expected.registers_mut().a = 0x8C;
     expected.registers_mut().flags = Flags::from_byte(0x9F);
+    expected.latches_mut().q = true;
     expected.latches_mut().ei_delay = false;
     assert_eq!(cpu, expected);
     assert_eq!(bus.memory, memory);

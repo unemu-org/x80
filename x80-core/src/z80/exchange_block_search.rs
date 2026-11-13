@@ -202,8 +202,8 @@ fn block<S: Bus>(cpu: &mut Z80, system: &mut S, opcode: u8) -> Path {
         r.flags.subtract = false;
     }
     // H ordinary Y/X: decision-20 §4; Young v0.91 §4.2 p. 16;
-    // Rak .ldi… .lddr 912–938 / .cpi… .cpdr 954–980. §6 continuing
-    // PC-derived overrides remain x80-mn3.16; use ordinary flags here.
+    // Rak .ldi… .lddr 912–938 / .cpi… .cpdr 954–980.
+    // Compute ordinary flags before §6's continuing-step overrides.
     let t = if compare {
         r.a.wrapping_sub(value)
             .wrapping_sub(u8::from(r.flags.half_carry))
@@ -219,6 +219,10 @@ fn block<S: Bus>(cpu: &mut Z80, system: &mut S, opcode: u8) -> Path {
     // Taken=21; termination means Untaken=16. PC wrap is DERIVED.
     if repeating && count != 0 && (!compare || !r.flags.zero) {
         r.pc = r.pc.wrapping_sub(2);
+        // H LDxR observed projections / L CPxR and arbitrary p routing:
+        // decision-20 §6; Banks “Interrupted block instructions” (wiki
+        // 49e542d); Rak .ldir_nop/.lddr_nop. p is this iteration's ED.
+        r.flags.set_yx((r.pc >> 8) as u8);
         // L: decision-20 §5; MEMPTR (©2006), continuing LDxR/CPxR.
         // PC now names this iteration's ED, even after ignored prefixes.
         cpu.latches_mut().wz = cpu.registers().pc.wrapping_add(1);

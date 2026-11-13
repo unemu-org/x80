@@ -189,7 +189,6 @@ pub(super) fn execute<S: Bus>(
             // Young v0.91 §4.3 pp. 16–17 / §8.11 p. 35; Rak .ini/.ind/
             // .outi/.outd/.inir/.indr/.otir/.otdr (input restricted to BFh).
             // Supersedes UM's N=1/C-unaffected and unknown S/H/PV entries.
-            // §6 continuing-step overrides remain x80-mn3.16.
             let offset = if opcode & 1 == 0 {
                 registers
                     .c
@@ -227,6 +226,25 @@ pub(super) fn execute<S: Bus>(
             };
             if continuing {
                 registers.pc = registers.pc.wrapping_sub(2);
+                // H discriminated INxR observations / L OTxR, arbitrary p
+                // and full formula domain: decision-20 §6; Banks
+                // “Interrupted block instructions” (wiki 49e542d), exact
+                // PV/H equations; Rak .inir_nop/.indr_nop. Apply on every
+                // extra-five-state path, before Budget/Stop can observe it.
+                registers.flags.set_yx((registers.pc >> 8) as u8);
+                let b = registers.b;
+                let parity_arg = if registers.flags.carry {
+                    if data & 0x80 != 0 {
+                        registers.flags.half_carry = b & 0x0F == 0;
+                        b.wrapping_sub(1)
+                    } else {
+                        registers.flags.half_carry = b & 0x0F == 0x0F;
+                        b.wrapping_add(1)
+                    }
+                } else {
+                    b
+                };
+                registers.flags.parity_overflow ^= !(parity_arg & 7).count_ones().is_multiple_of(2);
                 cpu.latches_mut().wz = wz;
                 return Path::Taken;
             }

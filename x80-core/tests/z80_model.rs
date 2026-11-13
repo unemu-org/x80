@@ -59,6 +59,7 @@ const ZERO_REGISTERS: Registers = Registers {
     r: 0,
 };
 const RESET_LATCHES: Latches = Latches {
+    q: false,
     wz: 0,
     iff1: false,
     iff2: false,
@@ -95,6 +96,7 @@ const DIRTY_REGISTERS: Registers = Registers {
     r: 0x89,
 };
 const DIRTY_LATCHES: Latches = Latches {
+    q: true,
     wz: 0x2800,
     iff1: true,
     iff2: true,

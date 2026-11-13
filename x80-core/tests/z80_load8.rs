@@ -1,7 +1,7 @@
 //! Decision-20 §4 replaces zero Y/X and former unknown preservation here.
 //! H class rules: Young v0.91 §§4.1–4.3 pp. 15–17 / §§8.1–8.11 pp. 26–35;
 //! Rak z80test v1.2a corresponding load/ALU/BIT/block-I/O groups, pinned in
-//! PROVENANCE §1. SCF/CCF stay interim L until §6; parity-window rules stay L.
+//! PROVENANCE §1. SCF/CCF use decision-20 §6 Q; parity-window rules stay L.
 //! 8-bit load witnesses, decisions 13–15. Primary: Zilog UM008011-0816,
 //! rev. 11 (August 2016), 8-Bit Load Group pp. 70–97 (PDF = printed + 14).
 //! Second cross-read: 03-0029-01 (1977), Table 7.0-1 p. 44 (PDF 50).
@@ -49,6 +49,7 @@ fn cpu_at(pc: u16, flags: u8) -> Z80 {
             r: 0xFF,
         },
         Latches {
+            q: false,
             wz: 0,
             iff1: false,
             iff2: true,
@@ -65,6 +66,7 @@ fn after(cpu: &Z80, pc: u16, r: u8) -> Z80 {
     let mut expected = cpu.clone();
     expected.registers_mut().pc = pc;
     expected.registers_mut().r = r;
+    expected.latches_mut().q = false;
     expected.latches_mut().ei_delay = false;
     expected.latches_mut().nmi_asserted = false;
     expected.latches_mut().parity_note_pending = false;
@@ -488,6 +490,7 @@ fn ld_a_i_flags_take_iff2_instead_of_value_parity_or_iff1() {
                     carry: carry == 1,
                 };
                 expected.latches_mut().parity_note_pending = true;
+                expected.latches_mut().q = true;
                 let mut bus = RecordingBus::new();
                 bus.load(0xFFFF, &[0xED, 0x57]);
                 let memory = bus.memory.clone();
@@ -534,6 +537,7 @@ fn ld_a_r_observes_own_two_fetch_increments_with_bit_seven_retained() {
                     carry: carry == 1,
                 };
                 expected.latches_mut().parity_note_pending = true;
+                expected.latches_mut().q = true;
                 let mut bus = RecordingBus::new();
                 bus.load(0xFFFF, &[0xED, 0x5F]);
                 let memory = bus.memory.clone();
@@ -601,6 +605,7 @@ fn parity_note_is_set_after_step_and_cleared_before_next_ordinary_instruction() 
             carry: true,
         };
         expected.latches_mut().parity_note_pending = true;
+        expected.latches_mut().q = true;
         let mut bus = RecordingBus::new();
         bus.load(0x1000, &[0xED, opcode, 0]);
         let memory = bus.memory.clone();

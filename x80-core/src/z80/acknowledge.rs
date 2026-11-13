@@ -57,6 +57,8 @@ pub(super) fn accept<S: Bus>(cpu: &mut Z80, system: &mut S) -> Option<Result<u8,
     cpu.latches_mut().iff1 = false;
     cpu.latches_mut().iff2 = false;
     cpu.latches_mut().halted = false;
+    // L: decision-20 §6 interrupt-entry classification, no hardware claim.
+    cpu.latches_mut().q = false;
     cpu.consume_parity_note();
 
     let states = match mode {

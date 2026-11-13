@@ -1,7 +1,7 @@
 //! Decision-20 §4 replaces zero Y/X and former unknown preservation here.
 //! H class rules: Young v0.91 §§4.1–4.3 pp. 15–17 / §§8.1–8.11 pp. 26–35;
 //! Rak z80test v1.2a corresponding load/ALU/BIT/block-I/O groups, pinned in
-//! PROVENANCE §1. SCF/CCF stay interim L until §6; parity-window rules stay L.
+//! PROVENANCE §1. SCF/CCF use decision-20 §6 Q; parity-window rules stay L.
 //! Documented Z80 I/O witnesses: decisions 13–15.
 //!
 //! Primary: UM008011-0816, rev. 11 (August 2016), Input and Output Group,
@@ -100,10 +100,10 @@ fn retired(steps: u64, cycles: u64) -> Report {
     }
 }
 
-fn complete(cpu: &Z80, report: Report, expected: Registers, cycles: u64, wz: u16) {
+fn complete(cpu: &Z80, report: Report, expected: Registers, cycles: u64, wz: u16, q: bool) {
     assert_eq!(report, retired(1, cycles));
     assert_eq!(*cpu.registers(), expected);
-    assert_eq!(*cpu.latches(), Latches { wz, ..latches() });
+    assert_eq!(*cpu.latches(), Latches { q, wz, ..latches() });
 }
 
 #[test]
@@ -140,6 +140,7 @@ fn immediate_input_uses_old_a_for_the_full_port_and_preserves_flags() {
                     },
                     11,
                     port.wrapping_add(1),
+                    false,
                 );
                 assert_eq!(bus.memory, memory);
                 let mut trace = fetch(pc, 0xDB);
@@ -177,6 +178,7 @@ fn immediate_output_places_a_on_both_data_and_high_address_bits() {
             },
             11,
             0x2302,
+            false,
         );
         assert_eq!(bus.memory, memory);
         let mut trace = fetch(0xFFFF, 0xD3);
@@ -234,7 +236,7 @@ fn every_register_input_samples_old_bc_and_sets_sz_parity_clearing_hn() {
                 bus.inputs.push_back(value);
                 let memory = bus.memory.clone();
                 let report = cpu.step(&mut bus);
-                complete(&cpu, report, expected, 12, 0xB2C4);
+                complete(&cpu, report, expected, 12, 0xB2C4, true);
                 assert_eq!(bus.memory, memory);
                 let mut trace = ed_fetch(0x2000, 0x2001, opcode);
                 trace.push(Event::Input16 {
@@ -280,6 +282,7 @@ fn every_register_output_uses_bc_and_preserves_all_registers_and_flags() {
                 },
                 12,
                 0xB2C4,
+                false,
             );
             assert_eq!(bus.memory, memory);
             let mut trace = ed_fetch(0x2000, 0x2001, opcode);
@@ -361,6 +364,19 @@ fn block_io_hardware_results_ports_order_wraps_and_both_repeat_paths() {
                     (false, true, 1) => 0x55,
                     (false, true, _) => 0xBD,
                 };
+                let image = if repeat && next_b != 0 {
+                    // Decision-20 §6: literal p=2000 and PV/H branch results.
+                    match (input, decrement, b) {
+                        (true, _, 2) => 0x27,
+                        (true, _, _) => 0xA3,
+                        (false, false, 2) => 0x20,
+                        (false, false, _) => 0xA4,
+                        (false, true, 2) => 0x25,
+                        (false, true, _) => 0xB5,
+                    }
+                } else {
+                    image
+                };
                 assert_eq!(cpu.registers().flags.to_byte(), image);
                 complete(
                     &cpu,
@@ -384,6 +400,7 @@ fn block_io_hardware_results_ports_order_wraps_and_both_repeat_paths() {
                             1
                         })
                     },
+                    true,
                 );
                 assert_eq!(bus.memory, memory);
                 let mut trace = ed_fetch(0x2000, 0x2001, opcode);
@@ -550,17 +567,17 @@ fn all_repeating_forms_resume_after_a_cycle_budget_splits_the_block() {
                 l: l2,
                 r: 0x83,
                 flags: Flags::from_byte(match opcode {
-                    0xB2 => 0x06,
-                    0xBA => 0x06,
-                    0xB3 => 0x02,
-                    _ => 0x17,
-                }), // §4 ordinary flags until §6.
+                    0xB2 | 0xBA => 0x2A,
+                    0xB3 => 0x2E,
+                    _ => 0x2F,
+                }), // Decision-20 §6, p=FFFF.
                 ..before
             }
         );
         assert_eq!(
             *cpu.latches(),
             Latches {
+                q: true,
                 wz: match opcode {
                     0xB2 | 0xBA => 0,
                     0xB3 => 0x0108,
@@ -611,6 +628,7 @@ fn all_repeating_forms_resume_after_a_cycle_budget_splits_the_block() {
         assert_eq!(
             *cpu.latches(),
             Latches {
+                q: true,
                 wz: match opcode {
                     0xB2 => 0x0108,
                     0xBA => 0x0106,

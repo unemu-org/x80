@@ -24,6 +24,8 @@ pub(super) fn accept<S: Bus>(cpu: &mut Z80, system: &mut S) -> Option<u8> {
     let pc = cpu.registers().pc;
     system.read(pc, MemoryAccess::OpcodeFetch);
     cpu.increment_r();
+    // L: decision-20 §6 interrupt-entry classification, no hardware claim.
+    cpu.latches_mut().q = false;
     cpu.consume_parity_note();
     cpu.latches_mut().iff1 = false;
     cpu.latches_mut().halted = false;

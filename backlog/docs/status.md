@@ -114,8 +114,7 @@ rules retain their **H** observed-vector limits; BIT-register Y/X remains
 **L** with an explicit written-key gap. DAA's accepted correction is unchanged.
 `tests/z80_undocumented_flags.rs` supplies independent literal full-byte
 witnesses; existing six-bit/unknown-preservation assertions are replaced.
-The changed-assertion inventory and measured campaigns are in PROVENANCE §1,
-“Decision-20 §4 implementation”. Decision-20 §5 now supplies public
+Rulings, witness pointers and residual evidence gaps are in PROVENANCE §1. Decision-20 §5 now supplies public
 `Latches.wz`: Z80-owned 16-bit state, Default=0000h, preserved by reset,
 included in supplied/cloned boundary snapshots, deterministic continuation,
 Budget preservation and Stop/Unsupported rollback. Every exact update rule
@@ -126,28 +125,31 @@ their **H** vector limits; they do not establish whole-word hardware state.
 `tests/z80_wz.rs` has 21 literal row/state witnesses, with carry/no-carry,
 wrapping, both block paths, ignored prefixes and BIT projection probes.
 Existing full-state expectations now include WZ without added bus accesses.
-**Interim L:** SCF/CCF uses unconditional A until §6 Q (`x80-mn3.16`). Continuing repeats use
-ordinary §4 flags until §6's boundary overrides; terminating iterations use
-§4 in full. These staged results do not claim final Z80 conformance.
+Decision-20 §6 now supplies `Latches.q` and SCF/CCF pattern A
+(**B8039/H**, with specimen limits; **L** classification, prefix clearing,
+interrupt/default/reset and snapshot bookkeeping). Continuing block iterations
+expose p-derived Y/X and I/O PV/H at every boundary, including self-overwrite
+and Budget/Stop: **H** discriminated LDxR/INxR observations; **L** arbitrary PC,
+CPxR/OTxR and the complete I/O formula domain. Terminating iterations retain
+ordinary §4 flags. `tests/z80_q_repeat.rs` supplies literal class, state,
+repeat and interrupt-quirk witnesses. Decision-15's **L** LD A,I/R pending-note
+window and NMI-during-EI mapping are retained; no new anomaly is admitted.
 
 `tests/z80_coverage.rs` independently enumerates literal admitted and empty
 refused key sets for every table, distinguishing dispatch slots. Every admitted
 encoding completes one step from neutral state. Interrupt API refusals retain
 zero contributed progress and full CPU restoration, including R, alternate
-registers, EI delay, parity-note, NMI history and WZ. Per-group witnesses pin semantics,
+registers, EI delay, parity-note, NMI history, WZ and Q. Per-group witnesses pin semantics,
 flags, timing and bus accesses with the A/H/L limits of the accepted contracts.
 
-The §5 worker campaign is **MEASURED**, offline, 2026-11-13: fmt, clippy,
-workspace tests (1,234 tests plus 15 doctests) and separate doctests PASS;
-release prelim PASS, ZEXDOC 58/58 judged PASS, 8080PRE/8080EXM/8085EXM PASS.
-All six z80test variants complete 160/160 groups with zero input-check
-failures: memptr/doc/docflags 156 judged OK, full/flags 150 OK / 6 FAILED,
-ccf 89 OK / 67 FAILED. Memptr groups 000–002 and 007–159 are OK; diagnostics
-003–006 are skipped. Full/flags now pass both BIT (HL) groups; remaining
-failures are SCF/CCF and the four continuing LDxR/INxR self-overwrite groups,
-consistent with the deferred §6 flags. No final conformance claim follows.
-Full campaign totals and changed-assertion inventory are in PROVENANCE §1,
-“Decision-20 §5 implementation”. Supervisor gates/review/landing are separate.
+The §6 worker campaign is **MEASURED**, offline, 2026-11-13: fmt, clippy,
+workspace tests and separate doctests PASS; release prelim PASS, ZEXDOC
+58/58 judged PASS, 8080PRE/8080EXM/8085EXM PASS. All six z80test variants
+complete 160/160 groups, 156/156 judged OK, zero judged failures and zero
+input-check failures. NEC/ST diagnostics 003–006 are skipped in every variant;
+there are no remaining reported failures. Campaigns remain non-final until
+`x80-mn3.17`; no evidence label is upgraded by a CRC. Supervisor
+gates/review/landing remain separate.
 
 NMI and INT acceptance execute, including HALT wakeup, RETN/RETI, EI delay,
 IM 0's RST-only restriction, IM 1's fixed vector and IM 2's even-vector table

@@ -1,7 +1,7 @@
 //! Decision-20 §4 replaces zero Y/X and former unknown preservation here.
 //! H class rules: Young v0.91 §§4.1–4.3 pp. 15–17 / §§8.1–8.11 pp. 26–35;
 //! Rak z80test v1.2a corresponding load/ALU/BIT/block-I/O groups, pinned in
-//! PROVENANCE §1. SCF/CCF stay interim L until §6; parity-window rules stay L.
+//! PROVENANCE §1. SCF/CCF use decision-20 §6 Q; parity-window rules stay L.
 //! INT acceptance witnesses: decision-15 rules 1–3, 6–7, 9–10, 13.
 //!
 //! Primary: UM008011-0816 rev. 11 (August 2016), printed pp. 3, 6,
@@ -808,6 +808,7 @@ fn ld_a_i_then_int_clears_pv_but_an_intervening_nop_expires_the_note() {
         assert_eq!(
             *cpu.latches(),
             Latches {
+                q: true,
                 parity_note_pending: true,
                 ..latches(InterruptMode::Mode1)
             }

@@ -4,7 +4,8 @@ Do not implement these unprompted. Open work is tracked in beads.
 
 Undocumented-family work is tracked under epic `x80-mn3`, always on with no
 embedder profile. All ten 8085 extensions now execute; no fetched 8085 byte
-is refused. Zilog NMOS Z80 decision-20 §§1–4 ED, index-prefix, CB and full flag behavior now executes;
+is refused. Zilog NMOS Z80 decision-20 §§1–6 ED, index-prefix, CB, full flags, WZ, Q
+and continuing-block flag behavior now executes;
 undocumented 8080 research is `x80-mn3.4`.
 The maintainer's 2026-11-13 evidence rule is recorded in [decision-17](<../decisions/decision-17 - Two-key-evidence-rule-for-undocumented-behaviour.md>).
 Source pins, two-key evidence and later per-model records precede implementation;
@@ -18,11 +19,13 @@ including unbounded chains with no intermediate boundary. Section 3 adds H SLL, 
 and computed-result copies even when a device ignores the write. No normally
 fetched Z80 encoding refuses. Section 4 implements all eight F/F' bits,
 ordinary Y/X classes, BIT S/PV and block-I/O formulas. BIT-register Y/X stays
-L (independent written key missing). Interim L until `x80-mn3.11` (§5):
-BIT (HL) preserves old Y/X and indexed BIT uses the effective address directly.
-Interim L until `x80-mn3.16` (§6): SCF/CCF uses unconditional yx(A), and every
-continuing block iteration keeps ordinary §4 flags until boundary overrides
-are implemented. Terminating repeats already use the complete §4 rules.
+L (independent written key missing). Section 5 supplies retained WZ and
+BIT projections; exact words remain L. Section 6 implements specimen-qualified
+SCF/CCF pattern A (B8039/H), L Q bookkeeping/prefix/default/reset/interrupt
+and snapshot rules, and continuing-step flags (H discriminated LDxR/INxR;
+L arbitrary PC, CPxR/OTxR and full I/O equation domain). Terminating repeats
+keep ordinary §4 flags. `z80_q_repeat.rs` pins these rules and the retained L
+LD A,I/R parity-note and NMI-during-EI mappings; no new anomaly is admitted.
 Beads `x80-mn3.9` to `x80-mn3.17` carry the implementation track.
 
 The accepted 8085 contract is [decision-18](<../decisions/decision-18 - 8085-undocumented-instructions-and-V-K-flags.md>)
@@ -85,11 +88,12 @@ ZEXALL can falsify full-byte flag rules after its own artifact audit. The six
 z80test variants now have a Spectrum-style oracle host in `x80-oracle`, with
 fixed linked/data addresses and explicit input precheck accounting; see
 [commands](commands.md#z80test-v12a-spectrum-style-host). Its runs are non-final
-baselines. Section 5's WZ implementation now passes all 156 judged
-z80memptr groups, with 003–006 skipped diagnostics, zero input-check failures
-and 160/160 groups complete (worker campaign, MEASURED 2026-11-13).
+baselines. After §6, all six variants complete 160/160 groups with 156/156
+judged OK, 003–006 skipped diagnostics and zero input-check failures (worker
+campaign, MEASURED 2026-11-13). Final closure remains `x80-mn3.17`.
 The exact latch table remains **L**; WZ implementation is no longer deferred.
-Q and continuing-step flag overrides remain staged for §6. A MEMPTR
+Section 6 now supplies Q and continuing-step flags; implementation is no
+longer deferred, while the evidence limits above remain. A MEMPTR
 CRC observes a two-bit projection, not an entire latch; post-CCF observes only
 tested predecessor distinctions. The decision-20 source audit itself did not run
 these campaigns. The Z80 CP/M host now uses a private

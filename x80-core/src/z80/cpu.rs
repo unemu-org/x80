@@ -101,8 +101,9 @@ impl Z80 {
     /// Preserving SP, both general/AF register sets, IX, IY and flags is a
     /// library choice: those reset descriptions do not specify their values.
     /// WZ is also preserved (decision-20 §5, L library policy).
-    /// Clearing EI delay and the parity-note latch and setting NMI history
-    /// to not asserted are library bookkeeping choices, not hardware claims.
+    /// Clearing Q (decision-20 §6), EI delay and the parity-note latch, and
+    /// setting NMI history to not asserted are library bookkeeping choices,
+    /// not hardware claims.
     /// No bus access or poll occurs, and no elapsed cycles are reported.
     pub fn reset(&mut self) {
         self.registers.pc = 0;
@@ -288,6 +289,9 @@ impl Z80 {
             let byte = self.fetch_opcode(system);
             match byte {
                 0xDD | 0xFD => {
+                    // L: decision-20 §6; Banks “SCF/CCF”, update 9/7/2026
+                    // (pinned wiki 49e542d). No independent prefix capture.
+                    self.latches.q = false;
                     decoded.index = Some(if byte == 0xDD {
                         IndexRegister::Ix
                     } else {
@@ -348,7 +352,32 @@ impl Z80 {
             return Err(unsupported);
         };
         let path = self.execute_group(system, instruction, &decoded);
+        self.latches.q = Self::modifies_flags(instruction.group, &decoded);
         Ok(extra_states.saturating_add(u64::from(instruction.states.of(path))))
+    }
+
+    /// L classification bookkeeping: decision-20 §6's two class lists.
+    /// Banks “SCF/CCF” excludes POP AF; Rak v1.2a post-CCF groups
+    /// discriminate ordinary classes, but do not license a universal table.
+    /// Assign after execution so SCF/CCF can read the predecessor's Q.
+    fn modifies_flags(group: Group, decoded: &Decoded) -> bool {
+        match group {
+            Group::Arithmetic8 | Group::RotateShift => true,
+            Group::Arithmetic16 => decoded.table == Table::Ed || decoded.opcode & 0x0F == 9,
+            Group::BitSetResetTest => decoded.opcode & 0xC0 == 0x40,
+            Group::Load8 => decoded.table == Table::Ed && matches!(decoded.opcode, 0x57 | 0x5F),
+            Group::ExchangeBlockSearch => decoded.table == Table::Ed,
+            Group::InputOutput => {
+                decoded.table == Table::Ed
+                    && (decoded.opcode & 0xC7 == 0x40 || decoded.opcode & 0xE4 == 0xA0)
+            }
+            Group::GeneralArithmeticCpuControl => match decoded.table {
+                Table::Main => matches!(decoded.opcode, 0x27 | 0x2F | 0x37 | 0x3F),
+                Table::Ed => decoded.opcode & 0xC7 == 0x44,
+                _ => false,
+            },
+            Group::Load16 | Group::Jump | Group::CallReturn => false,
+        }
     }
 
     fn execute_group<S: Bus>(

@@ -154,7 +154,14 @@ fn witness(
     let mut cpu = Z80::new(before, latches());
     assert_eq!(cpu.step(&mut bus), report(1, cycles), "{fetches:02X?}");
     assert_eq!(*cpu.registers(), after, "{fetches:02X?}");
-    assert_eq!(*cpu.latches(), Latches { wz, ..latches() });
+    assert_eq!(
+        *cpu.latches(),
+        Latches {
+            q: fetches[0].1 == 0xED,
+            wz,
+            ..latches()
+        }
+    );
     // Decision-20 §4: full F/F' compared with Registers above.
     assert_eq!(bus.memory, memory, "unexpected memory effect");
     assert_eq!(bus.take_log(), trace(fetches, accesses));
@@ -428,6 +435,10 @@ fn searches(opcode: u8, next_l: u8, repeating: bool) {
                 .wrapping_sub(u8::from(output & 0x10 != 0));
             after.flags = flags(output | ((t & 2) << 4) | (t & 8));
             let repeats = repeating && repeats;
+            if repeats {
+                // Decision-20 §6 L CPxR p=2000 replaces Y/X.
+                after.flags = flags(output | 0x20);
+            }
             after.pc = if repeats { 0x2000 } else { 0x2002 };
             after.r = 0x81;
             witness(
@@ -537,7 +548,7 @@ fn repeating_transfer(opcode: u8, next_e: u8, next_l: u8) {
             after.flags = flags(if count == 1 {
                 final_output | 8
             } else {
-                repeating_output | 8
+                repeating_output | 0x20 // §6 H LDxR, p=2000.
             });
             after.pc = pc;
             after.r = 0x81;
@@ -574,7 +585,7 @@ fn repeating_transfer(opcode: u8, next_e: u8, next_l: u8) {
     };
     for (count, e, l, image, pc, r, cycles, source, destination, value) in [
         (
-            1, next_e, next_l, 0xCD, 0x2000, 0x81, 21, 0x9ABC, 0x5678, 0x88,
+            1, next_e, next_l, 0xE5, 0x2000, 0x81, 21, 0x9ABC, 0x5678, 0x88,
         ),
         (
             0,
@@ -601,6 +612,7 @@ fn repeating_transfer(opcode: u8, next_e: u8, next_l: u8) {
         assert_eq!(
             *cpu.latches(),
             Latches {
+                q: true,
                 wz: 0x2001,
                 ..latches()
             }
@@ -693,12 +705,13 @@ fn every_repeating_form_resumes_after_a_mid_block_step_budget() {
         if transfer {
             [middle.d, middle.e] = destination3.to_be_bytes();
         }
-        middle.flags = flags(if transfer { 0xE5 } else { 0x3F }); // §4 H t-bit rule.
+        middle.flags = flags(if transfer { 0xE5 } else { 0x37 }); // §6 p=2000.
         middle.r = 0x83;
         assert_eq!(*cpu.registers(), middle);
         assert_eq!(
             *cpu.latches(),
             Latches {
+                q: true,
                 wz: 0x2001,
                 ..latches()
             }
@@ -729,6 +742,7 @@ fn every_repeating_form_resumes_after_a_mid_block_step_budget() {
         assert_eq!(
             *cpu.latches(),
             Latches {
+                q: true,
                 wz: if transfer {
                     0x2001
                 } else if opcode == 0xB1 {
@@ -769,7 +783,7 @@ fn repeating_transfers_wrap_pointers_and_rewind_pc_across_zero() {
         after.c = 1;
         [after.h, after.l] = next.to_be_bytes();
         [after.d, after.e] = next.to_be_bytes();
-        after.flags = flags(0xCD); // Decision-20 §4: t=7D/48, X set.
+        after.flags = flags(0xED); // Decision-20 §6: p=FFFF, both Y/X set.
         after.r = 0x81;
         witness(
             before,
@@ -806,7 +820,7 @@ fn all_search_forms_wrap_hl_and_pc() {
         after.h = next_h;
         after.l = next_l;
         // 00-ED = 13h; 00-A9 = 57h; 00-B9 = 47h: H,PV,N,C set.
-        after.flags = flags(0x37); // Decision-20 §4: t=12/56/46, Y set.
+        after.flags = flags(if cycles == 21 { 0x3F } else { 0x37 }); // §6 p=FFFF.
         after.pc = pc;
         after.r = 0x81;
         witness(

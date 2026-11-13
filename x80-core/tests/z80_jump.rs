@@ -61,6 +61,7 @@ fn registers(pc: u16, image: u8) -> Registers {
 
 fn latches() -> Latches {
     Latches {
+        q: false,
         wz: 0,
         iff1: true,
         iff2: true,

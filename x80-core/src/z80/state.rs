@@ -172,6 +172,11 @@ pub enum InterruptMode {
 /// executors own their instruction-specific changes.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 pub struct Latches {
+    /// Preceding instruction's flag-modifying classification, not whether
+    /// F changed numerically (decision-20 §6, L bookkeeping). DD/FD fetches
+    /// and successful interrupt entry clear it; the terminal sets its class.
+    /// Default/reset clear Q. Complete snapshots and rollback include Q.
+    pub q: bool,
     /// Retained 16-bit WZ/MEMPTR, exposed for supplied state and complete
     /// snapshots (decision-20 §5, superseding decision-15's omission).
     /// Exact update equations are L library rules following pinned MEMPTR

@@ -89,10 +89,18 @@ pub(super) fn execute<S: Bus>(
         // H unknown. Existing PROVENANCE §1 H-definedness row and
         // decision-14 rule 6 follow the primary, including H in witnesses.
         (Table::Main, 0x3F) => {
-            // Interim L: decision-20 §4; Young v0.91 §8.5 p. 30.
-            // Unconditional A until §6 Q (x80-mn3.16), not the final Q rule.
+            // B8039/H specimen-qualified pattern A: decision-20 §6;
+            // Banks SCF/CCF / S 8039 result; Rak v1.2a post-CCF groups.
+            // Other specimens need not follow this selected equation.
+            let q = cpu.latches().q;
             let registers = cpu.registers_mut();
-            registers.flags.set_yx(registers.a);
+            let yx = registers.a
+                | if q {
+                    0
+                } else {
+                    registers.flags.to_byte() & 0x28
+                };
+            registers.flags.set_yx(yx);
             let flags = &mut registers.flags;
             flags.half_carry = flags.carry;
             flags.carry = !flags.carry;
@@ -100,10 +108,18 @@ pub(super) fn execute<S: Bus>(
         }
         // UM SCF p. 179: C=1, H=N=0, S/Z/P-V unchanged.
         (Table::Main, 0x37) => {
-            // Interim L: decision-20 §4; Young v0.91 §8.5 p. 30.
-            // Unconditional A until §6 Q (x80-mn3.16), not the final Q rule.
+            // B8039/H specimen-qualified pattern A: decision-20 §6;
+            // Banks SCF/CCF / S 8039 result; Rak v1.2a post-CCF groups.
+            // Other specimens need not follow this selected equation.
+            let q = cpu.latches().q;
             let registers = cpu.registers_mut();
-            registers.flags.set_yx(registers.a);
+            let yx = registers.a
+                | if q {
+                    0
+                } else {
+                    registers.flags.to_byte() & 0x28
+                };
+            registers.flags.set_yx(yx);
             let flags = &mut registers.flags;
             flags.carry = true;
             flags.half_carry = false;

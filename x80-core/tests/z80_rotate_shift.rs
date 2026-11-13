@@ -109,6 +109,7 @@ fn completed(cpu: &Z80, report: Report, expected: Registers, cycles: u64, wz: u1
     assert_eq!(
         *cpu.latches(),
         Latches {
+            q: true,
             wz,
             ei_delay: false,
             parity_note_pending: false,

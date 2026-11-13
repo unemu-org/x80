@@ -503,30 +503,6 @@ fn all_eight_block_io_formulas_literal_carry_half_parity_and_port_order() {
 }
 
 #[test]
-fn interim_l_scf_ccf_use_unconditional_a_until_x80_mn3_16_q() {
-    // Interim L: decision-20 §4 staging; Y §8.5 p. 30 unconditional A.
-    // §6 B/S/R predecessor-dependent selection is deferred to x80-mn3.16.
-    for (op, a, before, expected) in [
-        (0x37, 0x28, 0, 0x29),
-        (0x3F, 0x28, 1, 0x38),
-        (0x37, 0, 0x28, 1),
-        (0x3F, 0, 0x28, 1),
-    ] {
-        let (cpu, _) = run(
-            &[op],
-            Registers {
-                a,
-                flags: Flags::from_byte(before),
-                ..registers()
-            },
-            0,
-            0,
-        );
-        assert_eq!(cpu.registers().flags.to_byte(), expected);
-    }
-}
-
-#[test]
 fn remaining_classes_preserve_full_flags() {
     // H for ordinary tested classes, L universal preservation: decision-20
     // §4; Y §§8.1–8.11 pp. 26–35 / R corresponding load/flow/RES/SET groups.

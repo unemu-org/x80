@@ -24,6 +24,11 @@
 //! snapshots and deterministic continuation (decision-20 §5 / §7).
 //! Exact update equations, Default=0 and reset preservation are L library
 //! rules; only the discriminated BIT projections have hardware observations.
+//! `Latches::q` records the preceding flag-modifying instruction class
+//! (decision-20 §6, L bookkeeping); SCF/CCF use selected pattern A,
+//! B8039/H with specimen limits, not a universal NMOS equation.
+//! Continuing repeats expose §6 flags before every boundary (H observed
+//! LDxR/INxR projections; L CPxR/OTxR and complete I/O formula domain).
 //! Stop/Unsupported preserve the complete state; Budget does not sample it.
 //!
 //! ```

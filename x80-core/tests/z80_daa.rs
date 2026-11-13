@@ -111,6 +111,7 @@ fn check(a: u8, before_f: u8, result: u8, result_f: u8) {
             r: 0xFF,
         },
         Latches {
+            q: false,
             wz: 0,
             iff1: true,
             iff2: false,
@@ -130,6 +131,7 @@ fn check(a: u8, before_f: u8, result: u8, result_f: u8) {
     // DERIVED wrap from 16-bit PC (UM p. 3); R accounting: rule 6.
     after.registers_mut().pc = 0;
     after.registers_mut().r = 0x80;
+    after.latches_mut().q = true;
     after.latches_mut().ei_delay = false;
     after.latches_mut().nmi_asserted = false;
     after.latches_mut().parity_note_pending = false;

@@ -1,7 +1,7 @@
 //! Decision-20 §4 replaces zero Y/X and former unknown preservation here.
 //! H class rules: Young v0.91 §§4.1–4.3 pp. 15–17 / §§8.1–8.11 pp. 26–35;
 //! Rak z80test v1.2a corresponding load/ALU/BIT/block-I/O groups, pinned in
-//! PROVENANCE §1. SCF/CCF stay interim L until §6; parity-window rules stay L.
+//! PROVENANCE §1. SCF/CCF use decision-20 §6 Q; parity-window rules stay L.
 //! Decision-20 §2 witnesses, independent of private maps/helpers.
 //!
 //! H: Young, The Undocumented Z80 Documented v0.91 (2005-09-18),

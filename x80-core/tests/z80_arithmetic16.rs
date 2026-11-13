@@ -69,6 +69,7 @@ fn sample(f: u8) -> Registers {
 
 fn latches() -> Latches {
     Latches {
+        q: false,
         wz: 0,
         iff1: true,
         iff2: false,
@@ -175,6 +176,7 @@ fn witness(code: &[u8], before: Registers, mut expected: Registers, f: u8, cycle
     assert_eq!(
         *cpu.latches(),
         Latches {
+            q: arithmetic, // L classification: decision-20 §6.
             // L exact word: decision-20 §5; literal edge witnesses in z80_wz.
             wz: if arithmetic {
                 match code[0] {

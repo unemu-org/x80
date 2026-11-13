@@ -90,6 +90,7 @@ fn ed70_discards_input_uses_full_bc_and_sets_eight_stored_flags() {
             let mut cpu = cpu_at(0xFFFF);
             cpu.registers_mut().flags = Flags::from_byte(0xD6 | carry);
             let mut expected = cpu.clone();
+            expected.latches_mut().q = true;
             expected.latches_mut().wz = 0xABCE;
             expected.registers_mut().pc = 1;
             expected.registers_mut().r = 0x81;
@@ -145,6 +146,7 @@ fn every_neg_encoding_has_literal_results_flags_and_alias_cost() {
             let mut cpu = cpu_at(0x1234);
             cpu.registers_mut().a = a;
             let mut expected = cpu.clone();
+            expected.latches_mut().q = true;
             expected.registers_mut().a = result;
             expected.registers_mut().flags = Flags::from_byte(f | (result & 0x28));
             expected.registers_mut().pc = 0x1236;

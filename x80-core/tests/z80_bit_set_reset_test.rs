@@ -163,6 +163,7 @@ fn cpu(flags_byte: u8) -> Z80 {
             r: 0xFF,
         },
         Latches {
+            q: false,
             wz: 0,
             iff1: true,
             iff2: true,
@@ -237,6 +238,7 @@ fn expected(mut before: Z80, operation: Operation, zero: bool, sign: bool, yx: u
         before.registers_mut().flags.half_carry = true;
         before.registers_mut().flags.subtract = false;
     }
+    before.latches_mut().q = operation == Operation::Bit;
     before.latches_mut().ei_delay = false;
     before.latches_mut().nmi_asserted = false;
     before.latches_mut().parity_note_pending = false;

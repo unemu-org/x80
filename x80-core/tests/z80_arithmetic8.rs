@@ -51,6 +51,7 @@ fn cpu_at(pc: u16, a: u8, flags: u8) -> Z80 {
             r: 0xFF,
         },
         Latches {
+            q: false,
             wz: 0,
             iff1: true,
             iff2: true,
@@ -68,6 +69,7 @@ fn after(cpu: &Z80, pc: u16, r: u8, flags: u8) -> Z80 {
     expected.registers_mut().pc = pc;
     expected.registers_mut().r = r;
     expected.registers_mut().flags = Flags::from_byte(flags);
+    expected.latches_mut().q = true;
     expected.latches_mut().ei_delay = false;
     expected.latches_mut().nmi_asserted = false;
     expected.latches_mut().parity_note_pending = false;
