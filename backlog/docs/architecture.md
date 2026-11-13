@@ -131,5 +131,6 @@ selected model and gives a verdict only for their pinned SHA-256 digests
 
 Any future dependency-bearing oracle harness will also be separate and unpublished.
 The Z80 module waits for its milestone beads.
+Its layout is planned (decision-13, accepted): [Z80 model, prefix tables and sharing](<../decisions/decision-13 - z80-model-layout-prefix-tables-and-sharing.md>).
 The V20 adapter belongs to the embedder; x80 will expose only agreed boundaries.
 Keep this map current when modules change.

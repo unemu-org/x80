@@ -57,5 +57,7 @@ interrupt structure (TRAP, RST 5.5/6.5/7.5, INTR; SID/SOD). The maintainer chose
 
 ## Revisit when
 
+The M4 layout and sharing revisit is recorded in [decision-13](<decision-13 - z80-model-layout-prefix-tables-and-sharing.md>) (accepted 2026-11-13).
+
 M4 starts, an embedder asks for a run-time wrapper, or the duplication measured after M3
 argues for a different split.
