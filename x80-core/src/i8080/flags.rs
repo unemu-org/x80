@@ -111,4 +111,16 @@ impl crate::intel::FlagRules for Flags {
     fn carry(self) -> bool {
         self.carry
     }
+
+    // PSW image: 98-153B (September 1975) Ch. 4 p. 4-13;
+    // second witness: 9800301-04 (May 1981) Ch. 3 pp. 3-43/3-45.
+    // Design: decision-16 rule 3; witnesses: i8080_registers and
+    // i8080_stack_io_control. Delegate to the existing model conversion.
+    fn to_byte(self) -> u8 {
+        Flags::to_byte(self)
+    }
+
+    fn from_byte(byte: u8) -> Self {
+        Flags::from_byte(byte)
+    }
 }

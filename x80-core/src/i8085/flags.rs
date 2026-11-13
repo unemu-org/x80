@@ -64,4 +64,17 @@ impl crate::intel::FlagRules for Flags {
     fn carry(self) -> bool {
         self.carry
     }
+
+    // PSW image: 205775-002 (January 1983) §5.6.5 pp. 5-15/5-16;
+    // second witness: 9800301-04 (May 1981) Ch. 3 pp. 3-43/3-45.
+    // Undefined filler bits retain decision-11's library choice.
+    // Design: decision-16 rule 3; witnesses: i8085_registers and
+    // i8085_stack_io_control. Delegate to the existing model conversion.
+    fn to_byte(self) -> u8 {
+        Flags::to_byte(self)
+    }
+
+    fn from_byte(byte: u8) -> Self {
+        Flags::from_byte(byte)
+    }
 }

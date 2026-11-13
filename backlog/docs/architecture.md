@@ -122,31 +122,30 @@ cite the pinned manuals by page. There is no family-wide public CPU or register
 type and no model trait.
 
 Intel-family tier ([decision-16](<../decisions/decision-16 - Intel-family-shared-executors-for-the-8080-and-8085.md>),
-accepted 2026-11-13; View and access helpers implemented in `x80-8sg.2`):
+accepted 2026-11-13; access helpers and the Data Transfer, Branch and Stack/IO bodies implemented in `x80-8sg.2` to `x80-8sg.5`):
 
 ```text
 x80-core/src/intel/             private to the crate
-  mod.rs                       View and condition-only FlagRules contract
+  mod.rs                       View and the FlagRules contract (condition accessors, PSW image)
   access.rs                    operand/location/pair/condition/address and push-and-jump helpers
-  data_transfer.rs             planned shared Data Transfer body
-  branch.rs                    planned shared Branch body, per-model untaken-read constant
-  stack_io.rs                  planned shared PUSH/POP, XTHL, SPHL, IN and OUT subset
+  data_transfer.rs             shared Data Transfer body
+  branch.rs                    shared Branch body, per-model untaken-read constant (BranchFacts)
+  stack_io.rs                  shared PUSH/POP, XTHL, SPHL, IN and OUT subset (per-model XTHL order)
   logical.rs                   planned shared Logical body, per-model AND rule
   arithmetic.rs                planned shared Arithmetic body including qualified DAA rules
 ```
 
 Each Intel model builds a concrete borrowed `View` from its own registers in a
-private `view` function. Its existing executors call the shared access helpers;
-executor bodies remain per model at this step. Later extractions introduce thin
-wrappers handling model-owned arms before the shared fallback.
+private `view` function. Data Transfer, Branch and the Stack/IO subset run in the
+shared bodies behind thin per-model wrappers that handle model-owned arms first;
+the Logical and Arithmetic bodies are still per model (maintainer checkpoint).
 Public types, ALU/flag rules and `FlagRules` implementations, encoding lists,
 state totals, map witnesses, run loops, reset, interrupts, EI/DI/HLT/NOP and
-RIM/SIM stay per model. `FlagRules` currently has only `sign`, `zero`, `parity`
-and `carry` accessors, implemented in each model's `flags.rs`. Later steps may
+RIM/SIM stay per model. `FlagRules` currently has the `sign`, `zero`, `parity`
+and `carry` accessors and the PSW image conversions, implemented in each model's `flags.rs`. Later steps may
 introduce the remaining flag/ALU methods listed in decision-16; methods beyond
 that list need an amendment, and latch, interrupt, timing and bus members are
-forbidden. `BranchFacts` is planned for the Branch extraction; untaken operand
-reads and PC advancement currently remain in each model's executor. Facts that
+forbidden. Each model supplies its `BranchFacts` (untaken operand reads). Facts that
 differ or lack statements in both primaries remain model-owned rules/constants,
 including qualified DAA carry and XTHL order; matching code does not upgrade
 evidence.

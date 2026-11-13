@@ -11,8 +11,12 @@
 
 use super::opcodes::{Encoding, Instruction, Path, States};
 use super::I8085;
-use crate::intel::access::operand;
-use crate::{Bus, MemoryAccess};
+use crate::intel::stack_io::{self, XthlOrder};
+use crate::Bus;
+
+// PUSH rp timing reconciliation retained: 9800301-04 Ch. 3 p. 3-44 says
+// "11 (13 on 8085)"; 205775-002 §5.6.5 p. 5-15 and Table 5-1 p. 5-19,
+// also 9800301-04 App. A p. A-2, say 12. Follow the primary ruling.
 
 /// Complete group list, in per-instruction page order.
 /// PUSH/POP allow B, D and H pairs, with PSW as a separate entry
@@ -53,6 +57,16 @@ pub(super) const ENCODINGS: &[Encoding] = &[
     Encoding::new(b"00000000", 1, States::single(4)),
 ];
 
+// XTHL unverified address order: 205775-002 (January 1983) §5.6.5
+// p. 5-16 and Table 5-1 p. 5-19, 9800301-04 (May 1981) Ch. 3 p. 3-69
+// give the byte mapping and RRWW, but not the order within RR/WW. Model
+// reads SP then SP+1, writes SP+1 then SP. Witnesses pin this choice, not
+// a stated hardware fact (decision-16 rule 6; i8085_stack_io_control).
+const XTHL_ORDER: XthlOrder = XthlOrder {
+    reads: [0, 1],
+    writes: [1, 0],
+};
+
 /// Executes an encoding that the opcode map assigns to this group.
 pub(super) fn execute<S: Bus>(
     cpu: &mut I8085,
@@ -60,75 +74,7 @@ pub(super) fn execute<S: Bus>(
     opcode: u8,
     instruction: Instruction,
 ) -> Path {
-    let registers = cpu.registers_mut();
     match opcode {
-        // 205775-002 §5.6.5 p. 5-15: high at SP-1, low at SP-2,
-        // SP -= 2, flags unchanged; Table 5-1 p. 5-19: SWW, 12 states.
-        // 9800301-04 pp. 3-44/3-45 gives the same byte order. Timing
-        // disagreement: p. 3-44 says "11 (13 on 8085)" for PUSH rp;
-        // the primary's entry/table and the second witness's App. A p. A-2
-        // say 12. Follow the primary per the supervisor ruling.
-        // PUSH PSW stores A then five flags; undefined bits follow the
-        // decision-11 library image, not an 8085 hardware claim.
-        0xC5 | 0xD5 | 0xE5 | 0xF5 => {
-            let word = match opcode {
-                0xC5 => registers.bc(),
-                0xD5 => registers.de(),
-                0xE5 => registers.hl(),
-                _ => registers.psw(),
-            };
-            let [high, low] = word.to_be_bytes();
-            system.write(registers.sp.wrapping_sub(1), high, MemoryAccess::Stack);
-            system.write(registers.sp.wrapping_sub(2), low, MemoryAccess::Stack);
-            registers.sp = registers.sp.wrapping_sub(2);
-        }
-        // 205775-002 pp. 5-15/5-16; 9800301-04 p. 3-43: low from
-        // SP, high from SP+1, SP += 2; only PSW restores the five flags,
-        // discarding bits 5/3/1. Table 5-1: FRR, 10 states.
-        0xC1 | 0xD1 | 0xE1 | 0xF1 => {
-            let low = system.read(registers.sp, MemoryAccess::Stack);
-            let high = system.read(registers.sp.wrapping_add(1), MemoryAccess::Stack);
-            let word = u16::from_be_bytes([high, low]);
-            match opcode {
-                0xC1 => registers.set_bc(word),
-                0xD1 => registers.set_de(word),
-                0xE1 => registers.set_hl(word),
-                _ => registers.set_psw(word),
-            }
-            registers.sp = registers.sp.wrapping_add(2);
-        }
-        // 205775-002 p. 5-16; 9800301-04 p. 3-69: exchange L/[SP],
-        // H/[SP+1], leave SP/flags unchanged; Table 5-1: FRRWW, 16 states.
-        // Unverified bus detail: these pages give RRWW but not the address
-        // order within each pair. Model reads SP then SP+1, writes SP+1
-        // then SP; witnesses pin this choice, not a stated hardware fact.
-        0xE3 => {
-            let low = system.read(registers.sp, MemoryAccess::Stack);
-            let high = system.read(registers.sp.wrapping_add(1), MemoryAccess::Stack);
-            system.write(
-                registers.sp.wrapping_add(1),
-                registers.h,
-                MemoryAccess::Stack,
-            );
-            system.write(registers.sp, registers.l, MemoryAccess::Stack);
-            registers.h = high;
-            registers.l = low;
-        }
-        // 205775-002 p. 5-16; 9800301-04 p. 3-61: SP <- HL, no flags;
-        // Table 5-1: S (six-state fetch), no data accesses.
-        0xF9 => registers.sp = registers.hl(),
-        // 205775-002 p. 5-16; 9800301-04 pp. 3-24/3-25, 3-41:
-        // IN loads A, OUT sends A, byte 2 is the port, no flags changed.
-        // Table 5-1: FRI/FRO; §2.3.2 p. 2-12 and §2.3.3 p. 2-13:
-        // the I/O cycle is third, after the second instruction byte.
-        0xDB | 0xD3 => {
-            let port = operand(&super::view(registers), system, 1);
-            if opcode == 0xDB {
-                registers.a = system.input(port);
-            } else {
-                system.output(port, registers.a);
-            }
-        }
         // 205775-002 p. 5-17; 9800301-04 pp. 3-22/3-23: EI enables
         // following the next instruction; DI disables immediately. Both
         // are F, four states (Table 5-1), and preserve registers/flags.
@@ -148,7 +94,15 @@ pub(super) fn execute<S: Bus>(
         // 205775-002 p. 5-17; 9800301-04 App. A p. A-4: NOP, F,
         // four states, no operation or flag changes.
         0x00 => {}
-        _ => unreachable!("opcode map dispatches only this group's encodings"),
+        _ => {
+            return stack_io::execute(
+                &mut super::view(cpu.registers_mut()),
+                system,
+                opcode,
+                instruction.length,
+                XTHL_ORDER,
+            );
+        }
     }
     // Sequential PC: 205775-002 §5.4 p. 5-3. PC/SP wrap is derived
     // from their 16-bit widths (§2.2.2 p. 2-2), not explicitly stated.
