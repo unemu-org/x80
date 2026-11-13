@@ -7,6 +7,10 @@ status: accepted
 
 Decider: maintainer (2026-11-13).
 
+Rules 1, 2, 5 and 6 superseded, and rules 3–4 narrowed, by
+[decision-20](<decision-20 - Z80-undocumented-behaviour-Zilog-NMOS.md>) §7: the
+full normal-fetch map, full F/F' images and the undocumented flag rules.
+
 ## Context
 
 The Z80 counterpart of decisions 3 and 11 (bead `x80-bi2.3`). M4 covers documented

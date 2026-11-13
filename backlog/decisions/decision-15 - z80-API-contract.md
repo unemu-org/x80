@@ -7,6 +7,10 @@ status: accepted
 
 Decider: maintainer (2026-11-13).
 
+Supplemented by [decision-20](<decision-20 - Z80-undocumented-behaviour-Zilog-NMOS.md>) §7:
+WZ and Q state, prefix/R/access rules, widened cost accounting, the RETI IFF
+copy and continuing-block flags. Rules 9–10 and 14 stay.
+
 ## Context
 
 The Z80 extends decision-5's model-neutral bus, budget, report and exits within
