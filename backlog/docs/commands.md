@@ -125,16 +125,34 @@ explicit `--files <paths...>` or run the checks directly.
 Stages: pre-commit = hygiene, fmt and GPG UID consistency; pre-push = clippy.
 Neither config nor bootstrap enables GPG signing automatically.
 
-## CI decision
+## CI
 
-The reference Forgejo workflow assumes a particular container runner, installs
-Nix with runner-specific flags, fetches x86-only corpora, cross-checks FreeBSD and
-posts custom commit statuses. It is not generic enough to copy safely; no
-`.forgejo/workflows/ci.yml` is created, as the brief permits.
+The [CI workflow](../../.forgejo/workflows/ci.yml) runs manually
+(`workflow_dispatch`) on the project's shared Forgejo runner. Pushes do not start
+CI. The `ubuntu-latest` label runs an x86-64 Linux job in a `node:20-bookworm`
+container as root without systemd. Runs are serialized on the shared runner;
+a newer dispatch on the same ref cancels an earlier run.
 
-Once hosting and runner provisioning are chosen, CI should check out without
-persisted credentials, enter the pinned shell, then run fmt, clippy, workspace
-nextest, doctests, deny and the MSRV test using the commands above. Ordinary
-tests need no manuals or oracle downloads. Keep failed gates visible; missing
-tools/data must not become successful checks. No remote or publication is
-configured here.
+CI checks out without persisted credentials, installs pinned Nix and enters the
+pinned dev shell without updating the lock file. It runs fmt, clippy with
+`-D warnings`, workspace nextest with `--no-fail-fast`, doctests and cargo deny,
+then tests `x80-core` in the separate MSRV shell. Cargo gates use the offline
+commands above, with `--locked` where supported. Ordinary tests need no manuals
+or oracle downloads. Oracle/exerciser campaigns and pre-commit stay local;
+pre-commit includes the local `gpg-uid-guard` signing check.
+
+After pushing the intended ref to origin, dispatch from an authenticated Forgejo
+CLI configured for this repository:
+
+```sh
+fj actions dispatch ci.yml <ref>
+```
+
+Confirm that a new run for the intended ref appears in Forgejo Actions before
+waiting for it. Read the result in the `ci / x86_64` commit status; its target
+links to the run. The description names failed or skipped steps and includes
+short failure excerpts when available. Every gate runs after a successful dev
+shell even if an earlier gate failed. A failed, skipped or missing required step
+makes the final report step fail, so missing tools cannot produce a passing run.
+Gate output is teed to `ci-logs/<step>.log` in the job workspace. If posting the
+commit status fails, consult the Actions job log and result for the gate verdict.
