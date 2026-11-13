@@ -76,6 +76,8 @@ x80-core/
   tests/z80_<group>.rs          independent instruction semantics, flags, timing and bus witnesses
   tests/z80_interrupts_nmi.rs   NMI acceptance, priority, edge and halt witnesses
   tests/z80_interrupts_int.rs   IM 0/1/2 acceptance, refusal and halt witnesses
+  tests/z80_timing.rs           independent whole-set/path and interrupt T-state witnesses
+  tests/z80_arithmetic_reference/ independent byte/pair ALU and flag witnesses
   tests/z80_model.rs            ownership, construction, reset, input defaults and recording polls
   tests/z80_registers.rs        main/alternate register pairs and F/F' image witnesses
   tests/i8080_run.rs            budget, boundary sequence, exit precedence, step, determinism
@@ -115,6 +117,31 @@ manuals. Each CPU model is its own module and type: `x80_core::i8080`,
 `Latches` and `Inputs`.
 Hardware facts live in the model and cite the pinned manuals by page. There is
 no family-wide CPU or register type and no model trait.
+
+M4 closure duplication (2026-11-13, `x80-bi2.27`, base `37571c9`),
+**MEASURED** using decision-13 rule 7's comment-stripped, nonblank, trimmed-line
+LCS, exact and with CPU type/module names normalised: the unchanged five-group
+8080/8085 baseline reproduces 570/556 lines, LCS 488 exact / 498 normalised;
+complete `execute` functions (signatures included) have 319/310 lines, LCS
+279 / 284. Z80 groups split the Intel groups differently, so semantic module
+pairs are measured separately, without summing overlapping comparisons.
+For example, Z80 `load8` versus either Intel `data_transfer` has 133/116 lines,
+LCS 44 / 46; `call_return` versus 8080/8085 `branch` has 100/121 and 100/117
+lines, LCS 62 / 64 and 56 / 58. Register-only read/write helpers match 10 lines
+against the Intel 12-line register/M helpers; this is similarity evidence, not
+an extraction decision. `bit_set_reset_test` has no Intel instruction-group
+counterpart; block/search, alternate-register exchange, indexed/CB/ED forms,
+refresh and NMI-specific helpers also lack direct counterparts. The worker's
+closure report supplies full per-pair and private-helper numbers for the
+supervisor to record on `x80-bi2`.
+
+State/flag images, ALU rules (including AND auxiliary/half carry, subtraction
+and parity versus overflow), encoding restrictions, T-state totals, conditional
+operand reads, interrupt sources and EI/DI rules, reset, Z80 prefix/R rules,
+full-width ports and block iteration semantics must remain cited and witnessed
+per model. Only fact-free `decode`, `progress` and test support are shared;
+no executor/register trait or helper extraction is authorised by this measurement
+(decision-13 rule 7). A crate run-time wrapper still needs an embedder request.
 
 Root-contract extensions (decision-14 rule 3; decision-15 rules 4/5/13):
 `Bus::input16` and `output16` accept the full A0-A15 port address, defaulting
@@ -262,9 +289,12 @@ witnesses. Witness expectations are literals derived from the cited pages,
 never crate helpers.
 
 `x80-oracle/` is an unpublished workspace member with no dependencies beyond
-`x80-core`: a CP/M-style host that runs the pinned 8080/8085 exercisers on the
-selected model and gives a verdict only for their pinned SHA-256 digests
-(commands.md, "Oracle runs"; PROVENANCE.md §2).
+`x80-core`: a CP/M-style host that runs the pinned exercisers on the
+selected 8080/8085/Z80 model and gives a verdict only for the pinned SHA-256 digests
+(commands.md, "Oracle runs"; PROVENANCE.md §2). Z80 prelim is judged and
+ZEXDOC runs the 58 audited documented groups; nine groups are not run under
+decision-14. Its private ED 70 BDOS rendezvous and digest-keyed in-memory table
+filtering belong to the host, outside core instruction semantics.
 
 Any future dependency-bearing oracle harness will also be separate and unpublished.
 The Z80 layout follows decision-13 (accepted): [Z80 model, prefix tables and sharing](<../decisions/decision-13 - z80-model-layout-prefix-tables-and-sharing.md>).

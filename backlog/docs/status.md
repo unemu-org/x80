@@ -73,12 +73,15 @@ offline ([commands](commands.md)); on 2026-11-12 8080PRE passed and 8080EXM pass
 all 25 groups, about 16 s for 2.9 billion instructions in a release build.
 M2 remains in progress: its x80-side work (beads `x80-pzp.1` to `.5`) runs from the
 pinned NEC manual, and its joint witnesses wait on x86jit's V20/V30 bead (C4).
-M4 execution coverage (2026-11-13): the `z80` model executes every documented
+
+**M4: done (2026-11-13, epic `x80-bi2`).** The `z80` model executes every documented
 instruction through `run`/`step`, including all prefixed forms and repeating
 blocks (decisions 13–15). The eleven group executors dispatch directly; the
 temporary documented-but-unimplemented path and all group staging switches
-are removed. The five tables contain MAIN 252, CB 248, ED 58, INDEX 39 and
-INDEX_CB 31 terminal entries. Shared DD/FD maps represent 698 logical
+are removed. `tests/z80_timing.rs` independently checks every encoding and
+conditional/repeat path total, plus NMI and all interrupt modes, against the
+primary and Mostek second witness. The five tables contain MAIN 252, CB 248,
+ED 58, INDEX 39 and INDEX_CB 31 terminal entries. Shared DD/FD maps represent 698 logical
 encodings. ED 63/6B are included; ED 70/71, CB 30–37, index halves and
 ignored-prefix forms remain excluded (decision-14; PROVENANCE.md §1).
 
@@ -110,9 +113,18 @@ unknown flags, reset preservation and sampler bookkeeping remain library
 choices. Source pins, page maps, reconciliations and the shared Zilog lineage
 caveat remain in PROVENANCE.md §1. INDEX_CB's fourth-byte access kind, EI-delay
 edge cases and parity-note boundary timing retain decision-15's unverified
-qualifications; per-M1 R counting is derived. Further M4 closure work remains
-tracked in beads.
-See [architecture](architecture.md) and [plan §5](plan.md#5-milestones).
+qualifications; per-M1 R counting is derived. The complete residual list is in
+[PROVENANCE.md §3](../../PROVENANCE.md#residual-unverified-or-derived-facts-at-the-m4-closure-2026-11-13).
+
+The licensed, fetch-only Z80 oracles passed in the supervisor's optional release
+campaign on 2026-11-13 ([PROVENANCE.md §2](../../PROVENANCE.md#2-oracles);
+[commands](commands.md#oracle-runs)): prelim PASS, 898 steps / 8,703 cycles;
+ZEXDOC **58/58 judged groups PASS**, 4,432,084,992 steps / 35,946,550,360 cycles.
+Nine undocumented-encoding groups were **not run (decision-14)**. Expected CRCs
+are attributed to a real Z80 by the source, without a part/revision or per-group
+capture; passing does not establish silicon equivalence or license semantics.
+Closure duplication measurements retain decision-13's sharing boundary; see
+[architecture](architecture.md) and [plan §5](plan.md#5-milestones).
 
 **M3: done (2026-11-13, epic `x80-4gk`).** The `i8085` model executes every
 documented instruction, including RIM/SIM, and all five interrupt sources with

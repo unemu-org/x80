@@ -247,7 +247,7 @@ no 8080 corpus is pinned yet.
 | M1 — 8080 | Complete documented instruction behavior, interrupts and halt, manual-derived cycle counts, per-opcode witnesses, and a licensed diagnostic run where a licence permits one (decision-5). Done 2026-11-12 (epic `x80-ecy`). |
 | M2 — V20 integration | Agree the shared contract with x86jit; borrowed-state/memory entry, RETEM/CALLN and interrupt handoffs pass joint witnesses. |
 | M3 — 8085 | Pin 8085 sources; record its unsupported-encoding policy; add the `i8085` model, extracting what it shares with the 8080; implement and test model-specific instructions, flags, interrupts and timing without changing 8080 witnesses. Done 2026-11-13 (epic `x80-4gk`). |
-| M4 — Z80 | Pin Zilog sources; record its unsupported-encoding policy; add the `z80` model with its own state, prefix decoding, input lines and timing; revisit the port address in the bus contract; model-specific witnesses and licensed oracles. |
+| M4 — Z80 | Pin Zilog sources; record its unsupported-encoding policy; add the `z80` model with its own state, prefix decoding, input lines and timing; revisit the port address in the bus contract; model-specific witnesses and licensed oracles. Done 2026-11-13 (epic `x80-bi2`). |
 
 These are planning landmarks; after setup, beads holds priorities, dependencies
 and claims. Do not turn this draft into a second task tracker.
@@ -267,10 +267,14 @@ Decided items cite their record; the rest stay open.
    archived vendor-file pin and the shared Zilog lineage caveat are in
    PROVENANCE.md §1. The NEC V20/V30 source for M2 is also pinned there.
 2. Decided in decision-1: synchronous, infallible bus; no wait states;
-   instruction-boundary timing for M1.
+   instruction-boundary timing for M1. Settled for M4 in decision-15: provided
+   16-bit port methods retain the 8-bit defaults; Z80 instructions report complete
+   T-state totals, without BUSREQ/BUSACK, external WAIT or pin timing.
 3. Decided in decision-2: overshoot at completed instruction boundaries; prompt
    halt exit; interrupt-acceptance cycles count; saturating `u64` counters.
    Exit precedence and the step count of an accepted interrupt: decision-5.
+   M4 retains these choices (decision-15), retires one block iteration per step,
+   and keeps prompt Halt without idle fetches or refresh.
 4. Is a safe borrowed-register trait sufficient for V20, and which execution
    latches must the embedder retain across native/emulation transitions? x86jit's
    view (2026-11-12): by-value copy-in/copy-out through `I8080::new`,
@@ -290,14 +294,24 @@ Decided items cite their record; the rest stay open.
    through the host stop (§3). Still open with C4: handoff timing, event precedence and
    the items listed at the end of §3.
 7. Decided for the 8080 in decision-3: undocumented encodings return a typed
-   unsupported exit; 8085 and Z80 revisit it at M3 and M4. Oracle licences
-   decided for the 8080 (PROVENANCE.md §2): 8080PRE and 8080EXM, GPL-2.0-or-later,
-   pinned fetch-only and run locally.
+   unsupported exit. Settled for the 8085 in decision-11 and for the Z80 in
+   decision-14: documented encodings only; Z80 F bits 5/3 read zero and flags
+   printed unknown are preserved by library choice. decision-15 limits IM 0 to
+   RST and refuses odd IM 2 vectors. Oracle licences and pins are recorded in
+   PROVENANCE.md §2: 8080PRE/8080EXM, 8085EXM and Z80 prelim/ZEXDOC are
+   GPL-2.0-or-later, fetch-only and run locally. M4 prelim and all 58 judged
+   ZEXDOC groups passed; nine groups are not run under decision-14. CRC
+   provenance qualifications remain in PROVENANCE.md §§2–3.
 8. Decided in decision-4: keep no_std and no allocation; MSRV 1.95, tested by
    the `msrv` dev shell gate ([commands](commands.md#msrv)).
 9. Decided by the maintainer, recorded in decision-6: per-model types with a
    model-neutral core, variants as construction-time values, integration
    profiles as a separate axis (§2.6). Decided for M3 in decision-10: no crate run-time
-   wrapper; the oracle harness keeps its own enum.
+   wrapper; the oracle harness keeps its own enum. M4 decision-13 retains
+   model-owned state, executors, ALU/flags, interrupts and reset, sharing only
+   fact-free decode/progress and test support. The closure measurement is
+   summarised in architecture.md; helper extraction remains a later decision.
+   NMOS/CMOS equivalence is unverified, with no Z80 variant yet. A crate run-time
+   wrapper remains deferred until an embedder requests it.
 10. Which parts beyond the 8080, 8085 and Z80, if any, enter scope, and with
     which primary sources?
