@@ -1,13 +1,14 @@
 //! Final NMI acceptance seam (decision-15 rules 3, 6–8, 10).
 //!
-//! x80-bi2.22 implements this module and its own interrupt witnesses; it
-//! never edits cpu.rs or tests/z80_run.rs. The loop selects only a fresh NMI
-//! edge, independently of IFF1/EI delay, and has committed sample history.
+//! The loop selects only a fresh NMI edge, independently of IFF1/EI delay,
+//! and has committed sample history. Independent literal witnesses live in
+//! `tests/z80_interrupts_nmi.rs`.
 
-use super::Z80;
-use crate::Bus;
+use super::{call_return, Z80};
+use crate::{Bus, MemoryAccess};
 
-/// None declines acceptance WITHOUT any CPU/bus effect (staging only).
+/// The run loop has selected a fresh edge; acceptance always completes.
+/// The optional return type preserves the acceptance-seam contract.
 /// Some(states) completes one interrupt step with its whole cost; no handler
 /// instruction executes in that step. No retirement is done in this seam.
 ///
@@ -19,6 +20,16 @@ use crate::Bus;
 /// CPU Response/Table 1 p. 19, RST p. 293, RETN p. 290; 03-0029-01 (1977),
 /// §4 p. 18, §8 p. 56 and Table 7.0-10 p. 53. Rules 7/10's EI-delay and
 /// parity-note boundary interpretations remain explicitly unverified.
-pub(super) fn accept<S: Bus>(_cpu: &mut Z80, _system: &mut S) -> Option<u8> {
-    None
+pub(super) fn accept<S: Bus>(cpu: &mut Z80, system: &mut S) -> Option<u8> {
+    let pc = cpu.registers().pc;
+    system.read(pc, MemoryAccess::OpcodeFetch);
+    cpu.increment_r();
+    cpu.consume_parity_note();
+    cpu.latches_mut().iff1 = false;
+    cpu.latches_mut().halted = false;
+    call_return::push_pc_and_jump(cpu, system, pc, 0x0066);
+
+    // DERIVED: restart equivalence (UM CPU Response p. 19; TM §8 p. 56)
+    // plus RST's 11 (5,3,3) states (UM p. 293; TM Table 7.0-10 p. 53).
+    Some(11)
 }
