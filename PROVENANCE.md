@@ -622,8 +622,10 @@ at 0006h. Decision-18 admits all 256 opcodes, so 08h (DSUB) can no longer be
 an Unsupported rendezvous. Only the stub's reserved-port write requests a
 boundary stop; the runner reads C/DE, services BDOS 2/9 and resumes at RET.
 This is a private harness ABI, not a hardware claim, and costs one additional
-step / 10 cycles per BDOS call. The 8080 08h and Z80 ED 70 rendezvous,
-digest identities and output grammar are unchanged. Synthetic CLI fixtures
+step / 10 cycles per BDOS call. The 8080 08h rendezvous, digest identities
+and output grammar are unchanged.
+Decision-20 §1/§7 replaces the Z80 ED70 rendezvous with the output/RET
+boundary-stop ABI described below. Synthetic CLI fixtures
 witness repeated calls, split budgets, preserved registers/flags/stack word,
 port/BDOS errors and the overall cap at the OUT boundary.
 
@@ -874,8 +876,11 @@ the later harness bead. Neither of these Z80 programs was executed in this audit
 Results structure (x80-bi2.26): the digest-selected Z80 harness now runs prelim
 as judged and compacts ZEXDOC's verified in-memory table to the 58 judged groups,
 reporting the nine excluded labels as `not run (decision-14)`. Its private BDOS
-rendezvous is ED 70, recognized only at PC 0005h by the complete Unsupported
-payload (preceding ED, opcode 70); the audit above excludes ED holes from both
+rendezvous now follows decision-20 §1/§7: instruction reads at 0005h supply
+`OUT FFh; RET`; only this stub's full-width output arms the next-boundary
+stop. The runner reads C/DE, services BDOS and resumes RET. This private
+harness ABI adds one retired instruction / 11 states per call. ED70 executes
+as input outside the stub. The audit above excludes ED holes from both
 guests. The host preserves 08h as EX AF,AF' and the Data stack word at 0006h.
 The exact output grammar and release commands are in
 [commands.md, Oracle runs](backlog/docs/commands.md#oracle-runs).
@@ -1205,7 +1210,7 @@ library contract from a stated hardware fact.
 - Derived arithmetic bit-diagram resolution: DD 8E d and FD B6 d follow hex annotations and both tables; §1 (UM pp. 50, 151, 159; TM p. 47), `opcodes/tests.rs::arithmetic_entry_bit_diagrams_use_the_agreeing_hex_and_table_readings`.
 - Derived rotate bit-diagram resolution: FD CB d 0E for RRC and CB 00011rrr for RR follow agreeing hex/compact/second-table readings; §1 (UM pp. 54, 225, 228; TM p. 50), `opcodes/tests.rs::rotate_entry_bit_diagrams_use_the_agreeing_hex_and_table_readings`.
 - Derived RRCA example resolution: 11h rotates to 88h, C=1, rather than the example's 98h; §1 (UM pp. 209–210; TM p. 50), `z80_rotate_shift.rs::rrca_preserves_szpv_despite_worked_example_bit_four`.
-- Library source-precedence choice: ED 70 remains Unsupported under the primary's undefined classification despite TM's flag-only input; ED 71 has no listed operand; §1 / decision-14 rules 1–2 (UM pp. 296, 307; TM p. 54), `opcodes/tests.rs`, `z80_coverage.rs`.
+- Decision-20 §1 ED admission replaces the old refusals: **A/H** ED70 flags-only input (TM Table 7.0-11 p. 54; UM pp. 296–297; Rak `.in_c`), **H** NEG/return operations and ED71 CPU preservation, **L** ED71 emitted zero, alias costs/IM assignments and 178 NOP holes (Young v0.91 §3.4 pp. 12–13 / §§8.5/8.10/8.11 pp. 30/34/35). `opcodes/tests.rs`, `z80_coverage.rs`, `z80_undocumented_ed.rs`; bits 5/3 await §4.
 - Library F/F' image: six flags only, bits 5/3 read zero and are ignored on input, including AF/AF' loads; this is not a physical zero-bit claim; decision-14 rule 5 (UM pp. 65–66), `flags.rs`, `state.rs`, `z80_registers.rs`, `z80_load16.rs`.
 - Library unknown-flag values / derived masks: preserve primary-entry unknown flags; hardware comparisons use D7h normally, 53h for BIT and 43h for block I/O, with separate unmasked preservation witnesses; decision-14 rules 5–6 (UM pp. 243–250, 298, 301–302, 305, 309, 312–313, 316), `bit_set_reset_test.rs`, `input_output.rs` and their witnesses.
 - Library source precedence for definedness: follow primary H rules for CCF/pair arithmetic and unaffected C for block I/O over TM unknown marks; IN r,(C) clears H, also explicit in ALPM; §1 / decision-14 rule 6 (UM pp. 178, 188, 190, 192, 194, 196, 297–298, 301–302, 305, 309, 312–313, 316; TM pp. 48–49, 54; ALPM p. 255), `z80_general_control.rs`, `z80_arithmetic16.rs`, `z80_input_output.rs`.
@@ -1243,7 +1248,7 @@ library contract from a stated hardware fact.
 - Library construction/packing: zero registers/flags, disabled IFFs, IM 0 and clear delay/halt/parity/NMI history are Default values, not power-up claims; pair and AF/AF' packing are model-owned API representations; decisions 13 rule 1 / 15 rule 12 (UM pp. 2–3; TM pp. 3–5), `state.rs`, `flags.rs`, `z80_model.rs`, `z80_registers.rs`.
 - Library Unsupported transaction/payload / derived capacity: restore all CPU boundary state including R/samplers/delay/parity, contribute zero progress, expose only reported-byte reads with irreversible device effects; three preceding bytes suffice for the longest admitted refusal DD/FD CB d op; decision-14 rules 2–4 / decision-15 rule 13 (UM p. 247; TM p. 51), `cpu.rs`, `z80_coverage.rs`, `root_contract.rs`; interrupt rollback deliberately departs from acceptance IFF clearing (UM p. 18).
 - Library timing scope: no BUSREQ/BUSACK or external WAIT gating/time, pin timing, refresh-address bus calls or sub-instruction polls; automatic acknowledge waits stay in totals, R is the refresh exposure subject to HALT's departure; decision-15 rules 6/14 (UM pp. 6–8, 12; TM pp. 4, 8–9, 16), `cpu.rs`, boundary/interrupt witnesses.
-- Unverified oracle CRC provenance / library judging scope: ZEXDOC source lines 34–39 attribute expected CRCs to a real Z80 without part/revision or per-group capture; §2 pins the GPL-2.0-or-later artifacts, source/binary audit, 58 judged groups and nine not run under decision-14. `x80-oracle` keeps digest checks, filtering and ED 70 host rendezvous outside core semantics; the recorded PASS licenses no hardware fact.
+- Unverified oracle CRC provenance / library judging scope: ZEXDOC source lines 34–39 attribute expected CRCs to a real Z80 without part/revision or per-group capture; §2 pins the GPL-2.0-or-later artifacts, source/binary audit, 58 judged groups and nine not run under decision-14. `x80-oracle` keeps digest checks, filtering and the decision-20 §7 output/RET host rendezvous outside core semantics; the recorded PASS licenses no hardware fact.
 
 ## 4. License surface and boundary
 

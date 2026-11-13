@@ -945,6 +945,8 @@ fn each_mode_consumes_pending_parity_only_and_clears_both_iff_polarities() {
 
 #[test]
 fn reti_after_im2_service_restores_pc_without_reenabling_interrupts() {
+    // Decision-20 §1: L RETI copies IFF2 (Young v0.91 §5.3 pp. 20–21);
+    // IM2 service cleared both, so this expectation remains disabled.
     // UM p. 20/RETI p. 288; TM pp. 57/53; MK Table 2-1 p. 2-15
     // explicitly leaves both IFFs unchanged (decision-15 rule 7).
     let mut cpu = Z80::new(registers(), latches(InterruptMode::Mode2));

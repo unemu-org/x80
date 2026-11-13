@@ -79,15 +79,24 @@ instruction through `run`/`step`, including all prefixed forms and repeating
 blocks (decisions 13–15). The eleven group executors dispatch directly; the
 temporary documented-but-unimplemented path and all group staging switches
 are removed. `tests/z80_timing.rs` independently checks every encoding and
-conditional/repeat path total, plus NMI and all interrupt modes, against the
-primary and Mostek second witness. The five tables contain MAIN 252, CB 248,
-ED 58, INDEX 39 and INDEX_CB 31 terminal entries. Shared DD/FD maps represent 698 logical
-encodings. ED 63/6B are included; ED 70/71, CB 30–37, index halves and
-ignored-prefix forms remain excluded (decision-14; PROVENANCE.md §1).
+conditional/repeat path total, plus NMI and all interrupt modes. Documented
+totals use the primary and Mostek second witness; decision-20 §1 supplies the
+labelled L alias/hole totals. The five tables contain MAIN 252, CB 248,
+ED 256, INDEX 39 and INDEX_CB 31 terminal entries: 896 logical encodings.
+Decision-20 §1 admits ED70 flags-only input (**A/H**), ED71 zero output
+(**L**, CPU preservation **H**), NEG/return aliases (**H**, alias costs **L**),
+IM aliases (**L**) and 178 two-byte, 8-state NOP holes (**L**). All ED returns,
+including RETI, copy IFF2 into IFF1 (**L**); ED4D alone retains the peripheral
+RETI signature without a callback. The Z80 CP/M host uses a private
+`OUT FFh; RET` boundary stop, adding one step / 11 states per BDOS call and
+preserving Data reads of the stack word. The nine ZEXDOC groups needing §§2–3
+remain not run. Bits 5/3 await §4; current six-flag storage
+is retained. ED63/6B remain four-byte pair loads. CB30–37, index halves and
+ignored-prefix forms remain refused until decision-20 §§2–3.
 
-`tests/z80_coverage.rs` independently enumerates literal documented and
-undocumented key sets for every table, distinguishing dispatch slots. Every
-documented encoding completes one step from neutral state; every undocumented
+`tests/z80_coverage.rs` independently enumerates literal admitted and
+refused key sets for every table, distinguishing dispatch slots. Every
+admitted encoding completes one step from neutral state; every remaining refused
 encoding has the exact decision-14 refusal reads and payload, zero contributed
 progress and full CPU restoration, including R, alternate registers, EI delay,
 parity-note and NMI history. Both index prefixes, wrapped fetch addresses and
@@ -99,7 +108,9 @@ IM 0's RST-only restriction, IM 1's fixed vector and IM 2's even-vector table
 lookup (decision-15 rules 7–10). Refused interrupt acknowledges restore the
 complete boundary state. `tests/z80_interrupts_nmi.rs` and
 `tests/z80_interrupts_int.rs` pin acceptance and refusal traces. The boundary
-witnesses in `tests/z80_run.rs` remain unchanged after staging removal.
+witnesses in `tests/z80_run.rs` use still-refused DD forms for rollback;
+`tests/z80_undocumented_ed.rs` pins the full ED map, aliases, ports, unequal
+IFFs, NOP traces, wrapping PC/R and one retirement (decision-20 §1).
 `tests/z80_determinism.rs` pins a 40-step, 410-state mixed program with CB, ED,
 DD, FD and DD CB, an NMI between LDIR iterations, full-width port I/O and
 scripted IM 1/IM 2 interrupts after HALT. Unlimited execution, individual steps,
@@ -116,10 +127,13 @@ edge cases and parity-note boundary timing retain decision-15's unverified
 qualifications; per-M1 R counting is derived. The complete residual list is in
 [PROVENANCE.md §3](../../PROVENANCE.md#residual-unverified-or-derived-facts-at-the-m4-closure-2026-11-13).
 
-The licensed, fetch-only Z80 oracles passed in the supervisor's optional release
+The licensed, fetch-only Z80 oracles passed the decision-20 §1 release
 campaign on 2026-11-13 ([PROVENANCE.md §2](../../PROVENANCE.md#2-oracles);
-[commands](commands.md#oracle-runs)): prelim PASS, 898 steps / 8,703 cycles;
-ZEXDOC **58/58 judged groups PASS**, 4,432,084,992 steps / 35,946,550,360 cycles.
+[commands](commands.md#oracle-runs)), **MEASURED**: prelim PASS, 899 steps /
+8,714 cycles; ZEXDOC **58/58 judged groups PASS**, 4,432,085,110 steps /
+35,946,551,658 cycles. Relative to the historical refusal rendezvous, the
+increases are 1 step / 11 cycles for prelim and 118 steps / 1,298 cycles for
+ZEXDOC: exactly one step / 11 cycles per BDOS call.
 Nine undocumented-encoding groups were **not run (decision-14)**. Expected CRCs
 are attributed to a real Z80 by the source, without a part/revision or per-group
 capture; passing does not establish silicon equivalence or license semantics.

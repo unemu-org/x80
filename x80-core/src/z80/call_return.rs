@@ -40,10 +40,10 @@ pub(super) const MAIN: &[Encoding] = &[
 ];
 
 pub(super) const ED: &[Encoding] = &[
-    // UM RETI, p. 288.
-    Encoding::new(b"01001101", 2, States::single(14)),
-    // UM RETN, p. 290.
-    Encoding::new(b"01000101", 2, States::single(14)),
+    // H return operation: decision-20 §1; Young v0.91 §3.4 pp. 12–13;
+    // Rak v1.2a .reti_retn lines 1202–1207. L alias cost extends
+    // UM RETN p. 290 / RETI p. 288 and Young §8.10 p. 34.
+    Encoding::new(b"01AAA101", 2, States::single(14)),
 ];
 
 /// PC is already after the opcode/prefix bytes (decision-13 rule 4).
@@ -56,13 +56,14 @@ pub(super) fn execute<S: Bus>(
 ) -> Path {
     let opcode = decoded.opcode;
     if decoded.table == Table::Ed {
-        // UM RETI p. 288 / RETN p. 290; TM p. 53. Decision-15 rule 7
-        // keeps RETI's IFFs unchanged: MK78515 V2.0 (October 1978),
-        // Table 2-1 p. 2-15 (PDF 29), explicitly distinguishes it from RETN.
+        // L: decision-20 §1 replaces decision-15 rule 7: IFF1 <- IFF2
+        // for every ED return, following Young v0.91 §3.4 p. 13 / §5.3
+        // pp. 20–21 / §8.10 p. 34. Hardware conflict with MK78515
+        // Table 2-1 p. 2-15 / RETI p. 2-200 remains unverified.
+        // ED 4D alone is the canonical peripheral RETI signature, visible
+        // through OpcodeFetch; no daisy-chain callback is added.
         pop_pc(cpu, system);
-        if opcode == 0x45 {
-            cpu.latches_mut().iff1 = cpu.latches().iff2;
-        }
+        cpu.latches_mut().iff1 = cpu.latches().iff2;
         return Path::Taken;
     }
 

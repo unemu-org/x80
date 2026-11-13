@@ -22,9 +22,11 @@ pub(super) const MAIN: &[Encoding] = &[
 ];
 
 pub(super) const ED: &[Encoding] = &[
-    // UM IN r,(C), pp. 296–297; r=110 excluded (decision-14).
+    // A: decision-20 §1; TM Table 7.0-11 p. 54 includes r=110,
+    // flag-only input, 2 bytes/12 states; UM pp. 296–297 flag rules.
     Encoding::new(b"01RRR000", 2, States::single(12)),
-    // UM OUT (C),r, pp. 307–308; r=110 absent.
+    // L: decision-20 §1; Young v0.91 §3.4 p. 13 / §8.11 p. 35
+    // extends UM pp. 307–308 with r=110: zero output, 2/12.
     Encoding::new(b"01RRR001", 2, States::single(12)),
     // UM INI, p. 298.
     Encoding::new(b"10100010", 2, States::single(16)),
@@ -101,8 +103,10 @@ pub(super) fn execute<S: Bus>(
         // even for IN B/IN C. S/Z/parity reflect input; H/N reset,
         // C unchanged. H reset is also explicit in 03-0002-01 p. 255
         // (TM marks H affected: PROVENANCE §1, IN H notation).
-        // The map excludes r=110 under decision-14 rules 1–2.
-        0x40 | 0x48 | 0x50 | 0x58 | 0x60 | 0x68 | 0x78 => {
+        // A/H: decision-20 §1; TM p. 54 flag-only r=110; Young
+        // v0.91 §3.4 pp. 12–13; Rak v1.2a .in_c lines 1000–1006.
+        // Bits 5/3 await §4 (x80-mn3.15); retain current flag storage.
+        0x40 | 0x48 | 0x50 | 0x58 | 0x60 | 0x68 | 0x70 | 0x78 => {
             let registers = cpu.registers_mut();
             let value = system.input16(registers.bc());
             match opcode {
@@ -112,6 +116,7 @@ pub(super) fn execute<S: Bus>(
                 0x58 => registers.e = value,
                 0x60 => registers.h = value,
                 0x68 => registers.l = value,
+                0x70 => {}
                 _ => registers.a = value,
             }
             registers.flags.sign = value & 0x80 != 0;
@@ -121,8 +126,10 @@ pub(super) fn execute<S: Bus>(
             registers.flags.subtract = false;
         }
         // UM OUT (C),r pp. 307–308; TM p. 54: BC address, selected
-        // register data, no flags. r=110 is absent from the map.
-        0x41 | 0x49 | 0x51 | 0x59 | 0x61 | 0x69 | 0x79 => {
+        // register data, no flags. Decision-20 §1: H preservation
+        // (Rak .out_c_0 lines 1070–1075), L emitted zero/length/cost
+        // (Young v0.91 §3.4 p. 13 / §8.11 p. 35), not bus-confirmed.
+        0x41 | 0x49 | 0x51 | 0x59 | 0x61 | 0x69 | 0x71 | 0x79 => {
             let registers = cpu.registers();
             let value = match opcode {
                 0x41 => registers.b,
@@ -131,6 +138,7 @@ pub(super) fn execute<S: Bus>(
                 0x59 => registers.e,
                 0x61 => registers.h,
                 0x69 => registers.l,
+                0x71 => 0,
                 _ => registers.a,
             };
             system.output16(registers.bc(), value);

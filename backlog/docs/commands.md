@@ -91,8 +91,9 @@ Budgets stop at instruction boundaries, so totals can overshoot by the final
 instruction. The exerciser can take a long time. The digest selects the verdict
 protocol regardless of filename. Optional `--oracle pre` or `--oracle exm` checks
 the expected identity of a known program for the selected model; it cannot give
-an unknown digest a verdict. No interrupts are requested. Only the 8085 BDOS
-stub requests host stop; on the 8085, SID is low and SOD notifications are ignored.
+an unknown digest a verdict. No interrupts are requested. Only the 8085 and Z80
+BDOS stubs request host stop; on the 8085, SID is low and SOD notifications are
+ignored.
 
 For Z80, run the pinned preliminary test first, then the full 58-group release
 campaign (the larger cap accommodates the long ALU groups):
@@ -109,15 +110,20 @@ No fetched program is needed for the harness unit or CLI tests.
 
 The Z80 CP/M host leaves INT/NMI unasserted and supports the same BDOS functions
 2 and 9, writable RAM, entry 0100h, a usable initial SP, the stack word at 0006h,
-and JP 0000h exit. Its private BDOS fetch response is **ED 70**, a refused hole
-under decision-14 (UM008011-0816 p. 296); 08h remains documented EX AF,AF'.
-The PROVENANCE §2 audit confirms neither program executes ED holes, including
-ED 70. Only an Unsupported exit at PC 0005h with preceding byte ED and refused
-opcode 70, while the host awaits registers, services this rendezvous. The second
-byte is synthesized only for OpcodeFetch at 0006h; Data reads of the stack word
-remain intact. The retry returns the installed RET. Core semantics are unchanged.
-Z80 refusals outside this rendezvous print PC, opcode and all preceding bytes;
-unexpected port accesses report the full 16-bit port address (decision-15).
+and JP 0000h exit. Its private BDOS stub supplies `OUT FFh; RET` at 0005h through
+instruction reads (decision-20 §1/§7); Data reads of the stack word at 0006h
+remain intact. Only the stub's complete OUT instruction starting at 0005h at an
+instruction boundary arms BDOS; a prefixed terminal fetch there cannot arm it,
+and unused arming is cleared at the next boundary. Its write to port A:FF requests
+a host stop at the next boundary. The host reads C/DE, performs BDOS and clears
+the request before resuming RET. A slice boundary alone defers that stop to the
+next run without repeating OUT; an OUT reaching the overall cycle cap times out
+before BDOS is serviced. Compared with the former refusal/RET rendezvous, this
+adds exactly one retired instruction and 11 cycles per Z80 BDOS call. ED 70 now
+executes under decision-20 §1; 08h remains documented EX AF,AF'.
+Z80 refusals print PC, opcode and all preceding bytes; unexpected port accesses,
+including guest writes to A:FF outside the stub, report the full 16-bit port
+address (decision-15).
 
 ZEXDOC filtering happens in loaded RAM, after digest selection, without modifying
 the disk file, descriptors, expected CRCs or instruction bytes. The host first

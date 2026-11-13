@@ -32,14 +32,27 @@ pub(super) const MAIN: &[Encoding] = &[
 ];
 
 pub(super) const ED: &[Encoding] = &[
-    // UM NEG, p. 176.
-    Encoding::new(b"01000100", 2, States::single(8)),
+    // H operation/aliases: decision-20 §1; Young v0.91 §3.4 pp. 12–13;
+    // Rak v1.2a .neg_ lines 389–394. L alias cost: UM pp. 176–177,
+    // Young §8.5 p. 30.
+    Encoding::new(b"01AAA100", 2, States::single(8)),
+    // L IM aliases/costs: decision-20 §1; Young v0.91 §3.4 pp. 12–13;
+    // canonical costs UM pp. 184–186. Rak .im_n lines 1459–1465
+    // does not observe mode selection or timing.
     // UM IM 0, p. 184.
-    Encoding::new(b"01000110", 2, States::single(8)),
+    Encoding::new(b"01A0A110", 2, States::single(8)),
     // UM IM 1, p. 185.
-    Encoding::new(b"01010110", 2, States::single(8)),
+    Encoding::new(b"01A10110", 2, States::single(8)),
     // UM IM 2, p. 186.
-    Encoding::new(b"01011110", 2, States::single(8)),
+    Encoding::new(b"01A11110", 2, States::single(8)),
+    // L NOP holes: decision-20 §1 derived map; Young v0.91 §3.4
+    // pp. 12–13. Two bytes/8 states, one retirement; no data/port/stack
+    // access. Even CB/DD/ED/FD here are consumed terminal bytes.
+    Encoding::new(b"00AAAAAA", 2, States::single(8)),
+    Encoding::new(b"0111A111", 2, States::single(8)),
+    Encoding::new(b"100AAAAA", 2, States::single(8)),
+    Encoding::new(b"101AA1AA", 2, States::single(8)),
+    Encoding::new(b"11AAAAAA", 2, States::single(8)),
 ];
 
 /// PC/R and complete costs belong to the dispatcher (decision-13 rule 4;
@@ -64,9 +77,9 @@ pub(super) fn execute<S: Bus>(
             registers.flags.subtract = true;
         }
         // UM NEG pp. 176–177: 0-A, H is borrow from bit 4, P/V iff
-        // old A=80h and C iff old A!=00h. Only documented ED 44 is mapped
-        // (decision-14 rules 1–2). subtract supplies these flag equations.
-        (Table::Ed, 0x44) => {
+        // old A=80h and C iff old A!=00h. H aliases: decision-20 §1;
+        // Young v0.91 §3.4 pp. 12–13; Rak .neg_ lines 389–394.
+        (Table::Ed, 0x44 | 0x4C | 0x54 | 0x5C | 0x64 | 0x6C | 0x74 | 0x7C) => {
             let registers = cpu.registers_mut();
             (registers.a, registers.flags) = alu::subtract(0, registers.a, false);
         }
@@ -108,10 +121,13 @@ pub(super) fn execute<S: Bus>(
             latches.ei_delay = true;
         }
         // UM IM 0/1/2 pp. 184/185/186: mode only, flags unaffected.
-        (Table::Ed, 0x46) => cpu.latches_mut().interrupt_mode = InterruptMode::Mode0,
-        (Table::Ed, 0x56) => cpu.latches_mut().interrupt_mode = InterruptMode::Mode1,
-        (Table::Ed, 0x5E) => cpu.latches_mut().interrupt_mode = InterruptMode::Mode2,
-        // The fixed opcode map assigns only the twelve entries above.
+        (Table::Ed, 0x46 | 0x4E | 0x66 | 0x6E) => {
+            cpu.latches_mut().interrupt_mode = InterruptMode::Mode0
+        }
+        (Table::Ed, 0x56 | 0x76) => cpu.latches_mut().interrupt_mode = InterruptMode::Mode1,
+        (Table::Ed, 0x5E | 0x7E) => cpu.latches_mut().interrupt_mode = InterruptMode::Mode2,
+        // L: decision-20 §1 / Young v0.91 §3.4 pp. 12–13: all
+        // remaining entries assigned to this group are ED NOP holes.
         _ => {}
     }
     Path::Untaken

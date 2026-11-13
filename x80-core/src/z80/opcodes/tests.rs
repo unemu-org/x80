@@ -7,9 +7,9 @@
 //! The sources share Zilog lineage; agreement is no hardware measurement.
 //!
 //! Audit checklist (each key, group, complete byte length and both totals):
-//! MAIN 252/252; CB 248/248; ED 58/58; INDEX 39/39; INDEX_CB 31/31.
-//! The last two maps each serve DD and FD: 628 stored entries represent
-//! 698 logical terminal encodings (decision-14 rule 1).
+//! MAIN 252/252; CB 248/248; ED 256/256; INDEX 39/39; INDEX_CB 31/31.
+//! The last two maps each serve DD and FD: 826 stored entries represent
+//! 896 logical terminal encodings (decision-20 §1; historical subset 698).
 //! These literal lists neither use the encoding slices nor expand patterns.
 //! The tests below pin the PROVENANCE.md §1 resolutions separately.
 
@@ -546,8 +546,74 @@ const CB_ROWS: &[Row] = &[
 
 // UM Tables 6/7/9/10/12/13/15/18–20 pp. 42–64, Fig. 39 p. 54;
 // TM pp. 44–54. UM entries pp. 103,108 and TM p. 45 explicitly admit
-// ED 63/6B; UM p. 296 explicitly calls ED 70 undefined, overriding TM p. 54.
+// ED 63/6B. Decision-20 §1 adds A ED70 (TM Table 7.0-11 p. 54),
+// H NEG/returns (Young v0.91 §3.4 pp. 12–13; Rak .neg_/.reti_retn),
+// L IM/ED71/cost extensions and 178 NOPs (Young §§3.4/8.11 pp. 12–13/35).
 const ED_ROWS: &[Row] = &[
+    (0x00, GC, 2, 8, 8),
+    (0x01, GC, 2, 8, 8),
+    (0x02, GC, 2, 8, 8),
+    (0x03, GC, 2, 8, 8),
+    (0x04, GC, 2, 8, 8),
+    (0x05, GC, 2, 8, 8),
+    (0x06, GC, 2, 8, 8),
+    (0x07, GC, 2, 8, 8),
+    (0x08, GC, 2, 8, 8),
+    (0x09, GC, 2, 8, 8),
+    (0x0A, GC, 2, 8, 8),
+    (0x0B, GC, 2, 8, 8),
+    (0x0C, GC, 2, 8, 8),
+    (0x0D, GC, 2, 8, 8),
+    (0x0E, GC, 2, 8, 8),
+    (0x0F, GC, 2, 8, 8),
+    (0x10, GC, 2, 8, 8),
+    (0x11, GC, 2, 8, 8),
+    (0x12, GC, 2, 8, 8),
+    (0x13, GC, 2, 8, 8),
+    (0x14, GC, 2, 8, 8),
+    (0x15, GC, 2, 8, 8),
+    (0x16, GC, 2, 8, 8),
+    (0x17, GC, 2, 8, 8),
+    (0x18, GC, 2, 8, 8),
+    (0x19, GC, 2, 8, 8),
+    (0x1A, GC, 2, 8, 8),
+    (0x1B, GC, 2, 8, 8),
+    (0x1C, GC, 2, 8, 8),
+    (0x1D, GC, 2, 8, 8),
+    (0x1E, GC, 2, 8, 8),
+    (0x1F, GC, 2, 8, 8),
+    (0x20, GC, 2, 8, 8),
+    (0x21, GC, 2, 8, 8),
+    (0x22, GC, 2, 8, 8),
+    (0x23, GC, 2, 8, 8),
+    (0x24, GC, 2, 8, 8),
+    (0x25, GC, 2, 8, 8),
+    (0x26, GC, 2, 8, 8),
+    (0x27, GC, 2, 8, 8),
+    (0x28, GC, 2, 8, 8),
+    (0x29, GC, 2, 8, 8),
+    (0x2A, GC, 2, 8, 8),
+    (0x2B, GC, 2, 8, 8),
+    (0x2C, GC, 2, 8, 8),
+    (0x2D, GC, 2, 8, 8),
+    (0x2E, GC, 2, 8, 8),
+    (0x2F, GC, 2, 8, 8),
+    (0x30, GC, 2, 8, 8),
+    (0x31, GC, 2, 8, 8),
+    (0x32, GC, 2, 8, 8),
+    (0x33, GC, 2, 8, 8),
+    (0x34, GC, 2, 8, 8),
+    (0x35, GC, 2, 8, 8),
+    (0x36, GC, 2, 8, 8),
+    (0x37, GC, 2, 8, 8),
+    (0x38, GC, 2, 8, 8),
+    (0x39, GC, 2, 8, 8),
+    (0x3A, GC, 2, 8, 8),
+    (0x3B, GC, 2, 8, 8),
+    (0x3C, GC, 2, 8, 8),
+    (0x3D, GC, 2, 8, 8),
+    (0x3E, GC, 2, 8, 8),
+    (0x3F, GC, 2, 8, 8),
     (0x40, IO, 2, 12, 12),
     (0x41, IO, 2, 12, 12),
     (0x42, A16, 2, 15, 15),
@@ -560,52 +626,186 @@ const ED_ROWS: &[Row] = &[
     (0x49, IO, 2, 12, 12),
     (0x4A, A16, 2, 15, 15),
     (0x4B, L16, 4, 20, 20),
+    (0x4C, GC, 2, 8, 8),
     (0x4D, CR, 2, 14, 14),
+    (0x4E, GC, 2, 8, 8),
     (0x4F, L8, 2, 9, 9),
     (0x50, IO, 2, 12, 12),
     (0x51, IO, 2, 12, 12),
     (0x52, A16, 2, 15, 15),
     (0x53, L16, 4, 20, 20),
+    (0x54, GC, 2, 8, 8),
+    (0x55, CR, 2, 14, 14),
     (0x56, GC, 2, 8, 8),
     (0x57, L8, 2, 9, 9),
     (0x58, IO, 2, 12, 12),
     (0x59, IO, 2, 12, 12),
     (0x5A, A16, 2, 15, 15),
     (0x5B, L16, 4, 20, 20),
+    (0x5C, GC, 2, 8, 8),
+    (0x5D, CR, 2, 14, 14),
     (0x5E, GC, 2, 8, 8),
     (0x5F, L8, 2, 9, 9),
     (0x60, IO, 2, 12, 12),
     (0x61, IO, 2, 12, 12),
     (0x62, A16, 2, 15, 15),
     (0x63, L16, 4, 20, 20),
+    (0x64, GC, 2, 8, 8),
+    (0x65, CR, 2, 14, 14),
+    (0x66, GC, 2, 8, 8),
     (0x67, RS, 2, 18, 18),
     (0x68, IO, 2, 12, 12),
     (0x69, IO, 2, 12, 12),
     (0x6A, A16, 2, 15, 15),
     (0x6B, L16, 4, 20, 20),
+    (0x6C, GC, 2, 8, 8),
+    (0x6D, CR, 2, 14, 14),
+    (0x6E, GC, 2, 8, 8),
     (0x6F, RS, 2, 18, 18),
+    (0x70, IO, 2, 12, 12),
+    (0x71, IO, 2, 12, 12),
     (0x72, A16, 2, 15, 15),
     (0x73, L16, 4, 20, 20),
+    (0x74, GC, 2, 8, 8),
+    (0x75, CR, 2, 14, 14),
+    (0x76, GC, 2, 8, 8),
+    (0x77, GC, 2, 8, 8),
     (0x78, IO, 2, 12, 12),
     (0x79, IO, 2, 12, 12),
     (0x7A, A16, 2, 15, 15),
     (0x7B, L16, 4, 20, 20),
+    (0x7C, GC, 2, 8, 8),
+    (0x7D, CR, 2, 14, 14),
+    (0x7E, GC, 2, 8, 8),
+    (0x7F, GC, 2, 8, 8),
+    (0x80, GC, 2, 8, 8),
+    (0x81, GC, 2, 8, 8),
+    (0x82, GC, 2, 8, 8),
+    (0x83, GC, 2, 8, 8),
+    (0x84, GC, 2, 8, 8),
+    (0x85, GC, 2, 8, 8),
+    (0x86, GC, 2, 8, 8),
+    (0x87, GC, 2, 8, 8),
+    (0x88, GC, 2, 8, 8),
+    (0x89, GC, 2, 8, 8),
+    (0x8A, GC, 2, 8, 8),
+    (0x8B, GC, 2, 8, 8),
+    (0x8C, GC, 2, 8, 8),
+    (0x8D, GC, 2, 8, 8),
+    (0x8E, GC, 2, 8, 8),
+    (0x8F, GC, 2, 8, 8),
+    (0x90, GC, 2, 8, 8),
+    (0x91, GC, 2, 8, 8),
+    (0x92, GC, 2, 8, 8),
+    (0x93, GC, 2, 8, 8),
+    (0x94, GC, 2, 8, 8),
+    (0x95, GC, 2, 8, 8),
+    (0x96, GC, 2, 8, 8),
+    (0x97, GC, 2, 8, 8),
+    (0x98, GC, 2, 8, 8),
+    (0x99, GC, 2, 8, 8),
+    (0x9A, GC, 2, 8, 8),
+    (0x9B, GC, 2, 8, 8),
+    (0x9C, GC, 2, 8, 8),
+    (0x9D, GC, 2, 8, 8),
+    (0x9E, GC, 2, 8, 8),
+    (0x9F, GC, 2, 8, 8),
     (0xA0, EX, 2, 16, 16),
     (0xA1, EX, 2, 16, 16),
     (0xA2, IO, 2, 16, 16),
     (0xA3, IO, 2, 16, 16),
+    (0xA4, GC, 2, 8, 8),
+    (0xA5, GC, 2, 8, 8),
+    (0xA6, GC, 2, 8, 8),
+    (0xA7, GC, 2, 8, 8),
     (0xA8, EX, 2, 16, 16),
     (0xA9, EX, 2, 16, 16),
     (0xAA, IO, 2, 16, 16),
     (0xAB, IO, 2, 16, 16),
+    (0xAC, GC, 2, 8, 8),
+    (0xAD, GC, 2, 8, 8),
+    (0xAE, GC, 2, 8, 8),
+    (0xAF, GC, 2, 8, 8),
     (0xB0, EX, 2, 16, 21),
     (0xB1, EX, 2, 16, 21),
     (0xB2, IO, 2, 16, 21),
     (0xB3, IO, 2, 16, 21),
+    (0xB4, GC, 2, 8, 8),
+    (0xB5, GC, 2, 8, 8),
+    (0xB6, GC, 2, 8, 8),
+    (0xB7, GC, 2, 8, 8),
     (0xB8, EX, 2, 16, 21),
     (0xB9, EX, 2, 16, 21),
     (0xBA, IO, 2, 16, 21),
     (0xBB, IO, 2, 16, 21),
+    (0xBC, GC, 2, 8, 8),
+    (0xBD, GC, 2, 8, 8),
+    (0xBE, GC, 2, 8, 8),
+    (0xBF, GC, 2, 8, 8),
+    (0xC0, GC, 2, 8, 8),
+    (0xC1, GC, 2, 8, 8),
+    (0xC2, GC, 2, 8, 8),
+    (0xC3, GC, 2, 8, 8),
+    (0xC4, GC, 2, 8, 8),
+    (0xC5, GC, 2, 8, 8),
+    (0xC6, GC, 2, 8, 8),
+    (0xC7, GC, 2, 8, 8),
+    (0xC8, GC, 2, 8, 8),
+    (0xC9, GC, 2, 8, 8),
+    (0xCA, GC, 2, 8, 8),
+    (0xCB, GC, 2, 8, 8),
+    (0xCC, GC, 2, 8, 8),
+    (0xCD, GC, 2, 8, 8),
+    (0xCE, GC, 2, 8, 8),
+    (0xCF, GC, 2, 8, 8),
+    (0xD0, GC, 2, 8, 8),
+    (0xD1, GC, 2, 8, 8),
+    (0xD2, GC, 2, 8, 8),
+    (0xD3, GC, 2, 8, 8),
+    (0xD4, GC, 2, 8, 8),
+    (0xD5, GC, 2, 8, 8),
+    (0xD6, GC, 2, 8, 8),
+    (0xD7, GC, 2, 8, 8),
+    (0xD8, GC, 2, 8, 8),
+    (0xD9, GC, 2, 8, 8),
+    (0xDA, GC, 2, 8, 8),
+    (0xDB, GC, 2, 8, 8),
+    (0xDC, GC, 2, 8, 8),
+    (0xDD, GC, 2, 8, 8),
+    (0xDE, GC, 2, 8, 8),
+    (0xDF, GC, 2, 8, 8),
+    (0xE0, GC, 2, 8, 8),
+    (0xE1, GC, 2, 8, 8),
+    (0xE2, GC, 2, 8, 8),
+    (0xE3, GC, 2, 8, 8),
+    (0xE4, GC, 2, 8, 8),
+    (0xE5, GC, 2, 8, 8),
+    (0xE6, GC, 2, 8, 8),
+    (0xE7, GC, 2, 8, 8),
+    (0xE8, GC, 2, 8, 8),
+    (0xE9, GC, 2, 8, 8),
+    (0xEA, GC, 2, 8, 8),
+    (0xEB, GC, 2, 8, 8),
+    (0xEC, GC, 2, 8, 8),
+    (0xED, GC, 2, 8, 8),
+    (0xEE, GC, 2, 8, 8),
+    (0xEF, GC, 2, 8, 8),
+    (0xF0, GC, 2, 8, 8),
+    (0xF1, GC, 2, 8, 8),
+    (0xF2, GC, 2, 8, 8),
+    (0xF3, GC, 2, 8, 8),
+    (0xF4, GC, 2, 8, 8),
+    (0xF5, GC, 2, 8, 8),
+    (0xF6, GC, 2, 8, 8),
+    (0xF7, GC, 2, 8, 8),
+    (0xF8, GC, 2, 8, 8),
+    (0xF9, GC, 2, 8, 8),
+    (0xFA, GC, 2, 8, 8),
+    (0xFB, GC, 2, 8, 8),
+    (0xFC, GC, 2, 8, 8),
+    (0xFD, GC, 2, 8, 8),
+    (0xFE, GC, 2, 8, 8),
+    (0xFF, GC, 2, 8, 8),
 ];
 
 // UM Tables 6–8/11/13/15 pp. 42,45,47,50,52,59; TM pp. 44–47,49,52.
@@ -739,8 +939,9 @@ fn cb_map_matches_all_248_literal_rows_and_its_complement() {
 }
 
 #[test]
-fn ed_map_matches_all_58_literal_rows_and_its_complement() {
-    assert_map(&ED, ED_ROWS, 58);
+fn ed_map_matches_all_256_literal_rows() {
+    // Decision-20 §1: no refused ED terminal, including prefix-valued keys.
+    assert_map(&ED, ED_ROWS, 256);
 }
 
 #[test]
@@ -754,7 +955,7 @@ fn index_cb_map_matches_all_31_literal_rows_and_its_complement() {
 }
 
 #[test]
-fn shared_index_maps_represent_698_logical_encodings() {
+fn shared_index_maps_represent_896_logical_encodings() {
     // decision-14 rule 1 counts DD and FD separately, while decision-13
     // rule 3 stores each shared table once.
     let count = MAIN.iter().flatten().count()
@@ -762,7 +963,8 @@ fn shared_index_maps_represent_698_logical_encodings() {
         + ED.iter().flatten().count()
         + 2 * INDEX.iter().flatten().count()
         + 2 * INDEX_CB.iter().flatten().count();
-    assert_eq!(count, 698);
+    // Decision-20 §1 adds 198 ED encodings to the documented 698.
+    assert_eq!(count, 896);
 }
 
 #[test]
@@ -777,11 +979,10 @@ fn prefix_dispatch_slots_have_no_terminal_entry() {
 fn documented_only_exclusions_are_explicit() {
     // decision-14 rule 1; UM Fig. 39 p. 54, IN p. 296, OUT p. 307,
     // indexed entries pp. 75–87,217–237,247–260; TM pp. 44,50–51,54.
-    // PROVENANCE row "Z80 ED 70 admission" records TM's contrary admission.
+    // Decision-20 §1 now admits TM's ED70; retain CB/index exclusions.
     assert!(CB[0x30..=0x37].iter().all(Option::is_none));
-    for key in [0x70, 0x71, 0x4C, 0x55, 0x66, 0x76] {
-        assert!(ED[key].is_none());
-    }
+    // Decision-20 §1 removes ED exclusions; §§2–3 are later work.
+    assert!(ED.iter().all(Option::is_some));
     for key in [0x00, 0x44, 0x65, 0x76, 0xCB, 0xDD, 0xED, 0xFD] {
         assert!(INDEX[key].is_none());
     }

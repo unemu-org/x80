@@ -1,4 +1,4 @@
-//! Five documented Z80 maps, assembled with the unchanged fact-free builder.
+//! Five Z80 maps, assembled with the unchanged fact-free builder.
 //!
 //! Table contexts and complete lengths: decision-13 rules 3–5. Admission and
 //! reconciled source errors: decision-14 rule 1 and PROVENANCE.md §1.
@@ -73,7 +73,8 @@ pub(super) static CB: [Option<Instruction>; 256] = build(
     }],
 );
 
-// R excludes 110 for IN/OUT: UM pp. 296, 307 (decision-14 rule 1).
+// Decision-20 §1 admits all ED terminals, including r=110 IN/OUT;
+// A: TM Table 7.0-11 p. 54; L: Young v0.91 §3.4 pp. 12–13.
 // P is a pair field with all four values, including HL=10 (pp. 103–104,
 // 108–109, 190, 192); no alias exclusion is inferred from compact Table 7.
 pub(super) static ED: [Option<Instruction>; 256] = build(
@@ -90,10 +91,7 @@ pub(super) static ED: [Option<Instruction>; 256] = build(
         (Group::CallReturn, super::call_return::ED),
         (Group::InputOutput, super::input_output::ED),
     ],
-    &[FieldRestriction {
-        field: b'R',
-        excluded: 0b110,
-    }],
+    &[],
 );
 
 // R/S exclude only 110, preserving real H/L operands beside indexed memory

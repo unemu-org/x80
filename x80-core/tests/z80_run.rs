@@ -323,22 +323,8 @@ hole!(
     0xED,
     &[read(0xFFFE, OP, 0xDD), read(0xFFFF, OP, 0xED)]
 );
-hole!(
-    ed_explicitly_undefined_70,
-    &[0xED, 0x70],
-    [0xED, 0, 0],
-    1,
-    0x70,
-    &[read(0xFFFE, OP, 0xED), read(0xFFFF, OP, 0x70)]
-);
-hole!(
-    ed_00,
-    &[0xED, 0x00],
-    [0xED, 0, 0],
-    1,
-    0x00,
-    &[read(0xFFFE, OP, 0xED), read(0xFFFF, OP, 0x00)]
-);
+// Decision-20 §1: ED70 and ED00 now retire; literal witnesses live in
+// z80_undocumented_ed.rs. CB/DD/FD refusals remain until §§2–3.
 hole!(
     cb_missing_shift,
     &[0xCB, 0x30],
@@ -544,9 +530,10 @@ fn staging_index_cb_bit_reads_displacement_and_key_only() {
 
 #[test]
 fn unsupported_keeps_earlier_retirement_and_restores_that_boundary() {
+    // Decision-20 §1: use DD00 for rollback; ED00 now executes as L NOP.
     let mut cpu = cpu_at(0x2000);
     let mut bus = RecordingBus::new();
-    bus.load(0x2000, &[0, 0xED, 0]);
+    bus.load(0x2000, &[0, 0xDD, 0]);
     bus.nmi_levels.extend([false, false]);
     let report = cpu.run(&mut bus, UNLIMITED);
     assert_eq!((report.steps, report.cycles), (1, 4));
@@ -555,7 +542,7 @@ fn unsupported_keeps_earlier_retirement_and_restores_that_boundary() {
     };
     assert_eq!(unsupported.pc, 0x2001);
     assert_eq!(unsupported.opcode, 0);
-    assert_eq!(unsupported.preceding, [0xED, 0, 0]);
+    assert_eq!(unsupported.preceding, [0xDD, 0, 0]);
     assert_eq!(unsupported.preceding_len, 1);
     assert!(!unsupported.acknowledge);
     let mut expected = cpu_at(0x2001);
@@ -574,7 +561,7 @@ fn unsupported_keeps_earlier_retirement_and_restores_that_boundary() {
             Event::StopPoll(false),
             Event::NmiPoll(false),
             Event::IntPoll(false),
-            read(0x2001, OP, 0xED),
+            read(0x2001, OP, 0xDD),
             read(0x2002, OP, 0),
         ]
     );

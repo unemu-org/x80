@@ -9,8 +9,8 @@
 //! unknown-flag preservation and zero unused bits are library choices
 //! (decision-14 rules 5–6), checked separately below.
 //! Fail-before: all positive witnesses return Unsupported on base 5f5f6e8,
-//! before any operand, Data or port access. The excluded-opcode test is a
-//! regression witness and already passes on that base.
+//! before any operand, Data or port access. Decision-20 §1 ED70/71
+//! admission is witnessed separately in z80_undocumented_ed.rs.
 
 mod support;
 
@@ -574,32 +574,7 @@ fn all_repeating_forms_resume_after_a_cycle_budget_splits_the_block() {
     }
 }
 
-#[test]
-fn ed_70_and_71_remain_unsupported_without_any_port_or_data_access() {
-    // decision-14 rules 1–2: UM p. 296 explicitly labels r=110 undefined;
-    // p. 307 omits it for OUT. TM p. 54's flags-only input is excluded.
-    for opcode in [0x70, 0x71] {
-        let before = Registers {
-            pc: 0xFFFF,
-            ..registers()
-        };
-        let mut cpu = Z80::new(before, latches());
-        let mut bus = RecordingBus::new();
-        bus.load(0xFFFF, &[0xED, opcode]);
-        let memory = bus.memory.clone();
-        let report = cpu.step(&mut bus);
-        assert_eq!((report.steps, report.cycles), (0, 0));
-        let Exit::Unsupported(unsupported) = report.exit else {
-            panic!("expected refusal, got {report:?}");
-        };
-        assert_eq!(unsupported.pc, 0xFFFF);
-        assert_eq!(unsupported.opcode, opcode);
-        assert!(!unsupported.acknowledge);
-        assert_eq!(unsupported.preceding, [0xED, 0, 0]);
-        assert_eq!(unsupported.preceding_len, 1);
-        assert_eq!(*cpu.registers(), before);
-        assert_eq!(*cpu.latches(), latches());
-        assert_eq!(bus.memory, memory);
-        assert_eq!(bus.take_log(), ed_fetch(0xFFFF, 0, opcode));
-    }
-}
+// Decision-20 §1 replaces ED70/71 refusals with A/H flags-only input
+// (TM Table 7.0-11 p. 54; UM pp. 296–297) and H preservation/L zero
+// output (Young v0.91 §3.4 p. 13 / §8.11 p. 35; Rak .out_c_0).
+// Literal port/state/flag witnesses: z80_undocumented_ed.rs.

@@ -3,7 +3,8 @@
 //! SCF p. 179 (PDF = printed + 14); 03-0029-01 (1977), Table 7.0-5
 //! p. 48 (PDF 54). Read on rendered images; CCF rechecked at 200 dpi.
 //! All instruction witnesses fail before landing with Unsupported, zero
-//! steps/cycles. Alias refusals already pass. No implementation ALU is used.
+//! steps/cycles on the historical base. Decision-20 §1 now admits NEG aliases.
+//! No implementation ALU is used.
 
 mod support;
 
@@ -165,47 +166,14 @@ fn neg_literal_zero_borrow_overflow_and_manual_example() {
     }
 }
 
+// Decision-20 §1 replaces the former NEG-alias refusals with H operations
+// and L 8-state alias costs (Young v0.91 §3.4 pp. 12–13 / §8.5 p. 30;
+// Rak .neg_ lines 389–394); literal witnesses: z80_undocumented_ed.rs.
 #[test]
-fn undocumented_neg_aliases_remain_refused() {
-    // decision-14 rules 1–2; only ED 44 is printed by UM p. 176/TM p. 48.
+fn undocumented_neg_aliases_execute_the_literal_neg_case() {
+    // H operation/L alias cost: decision-20 §1; Young v0.91 §3.4
+    // pp. 12–13 / §8.5 p. 30; Rak .neg_ lines 389–394.
     for opcode in [0x4C, 0x54, 0x5C, 0x64, 0x6C, 0x74, 0x7C] {
-        let mut cpu = cpu_at(0x80, 0xD7);
-        let before = cpu.clone();
-        let mut bus = RecordingBus::new();
-        bus.load(0xFFFF, &[0xED, opcode]);
-        let memory = bus.memory.clone();
-        let report = cpu.step(&mut bus);
-        assert_eq!((report.steps, report.cycles), (0, 0));
-        let Exit::Unsupported(refusal) = report.exit else {
-            panic!("{report:?}")
-        };
-        assert_eq!(
-            (refusal.pc, refusal.opcode, refusal.acknowledge),
-            (0xFFFF, opcode, false)
-        );
-        assert_eq!(
-            (refusal.preceding, refusal.preceding_len),
-            ([0xED, 0, 0], 1)
-        );
-        assert_eq!(cpu, before);
-        assert_eq!(bus.memory, memory);
-        assert_eq!(
-            bus.take_log(),
-            [
-                Event::StopPoll(false),
-                Event::NmiPoll(false),
-                Event::IntPoll(false),
-                Event::Read {
-                    address: 0xFFFF,
-                    kind: MemoryAccess::OpcodeFetch,
-                    value: 0xED
-                },
-                Event::Read {
-                    address: 0,
-                    kind: MemoryAccess::OpcodeFetch,
-                    value: opcode
-                },
-            ]
-        );
+        check(&[0xED, opcode], 0x80, 0xD7, 0x80, 0x87);
     }
 }

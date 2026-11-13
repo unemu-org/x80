@@ -285,10 +285,11 @@ fn interrupt_return(opcode: u8, restores_iff1: bool) {
 }
 
 #[test]
-fn reti_pops_pc_and_preserves_every_iff_combination() {
-    // UM p. 288; TM p. 53; MK Table 2-1 p. 2-15. Decision-15 rule 7:
-    // ED 4D fetches expose RETI to devices; there is no extra callback.
-    interrupt_return(0x4D, false);
+fn reti_pops_pc_and_copies_iff2_for_every_iff_combination() {
+    // L: decision-20 §1 replaces decision-15 rule 7; Young v0.91
+    // §3.4 p. 13 / §5.3 pp. 20–21 / §8.10 p. 34. Hardware conflict
+    // remains unverified. ED4D fetches expose RETI without a callback.
+    interrupt_return(0x4D, true);
 }
 
 #[test]

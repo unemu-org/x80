@@ -402,6 +402,41 @@ fn transcription() -> Vec<Case> {
         12,
         "MK 2-181; UM 307",
     );
+    // Decision-20 §1: A ED70 total (TM Table 7.0-11 p. 54);
+    // L ED71/alias/NOP totals (Young v0.91 §3.4 pp. 12–13,
+    // §§8.5/8.10/8.11 pp. 30/34/35; UM pp. 176/184–186/288/290).
+    fixed(
+        &mut c,
+        Ed,
+        &[0x70, 0x71],
+        12,
+        "decision-20 §1; TM 54 / Young 35",
+    );
+    fixed(
+        &mut c,
+        Ed,
+        &[
+            0x4C, 0x54, 0x5C, 0x64, 0x6C, 0x74, 0x7C, 0x4E, 0x66, 0x6E, 0x76, 0x7E,
+        ],
+        8,
+        "L decision-20 §1; Young 12–13",
+    );
+    fixed(
+        &mut c,
+        Ed,
+        &[0x55, 0x5D, 0x65, 0x6D, 0x75, 0x7D],
+        14,
+        "L decision-20 §1; Young 34",
+    );
+    let holes: Vec<_> = (0x00..=0x3F)
+        .chain([0x77, 0x7F])
+        .chain(0x80..=0x9F)
+        .chain(0xA4..=0xA7)
+        .chain(0xAC..=0xAF)
+        .chain(0xB4..=0xB7)
+        .chain(0xBC..=0xFF)
+        .collect();
+    fixed(&mut c, Ed, &holes, 8, "L decision-20 §1; Young 12–13");
     for (op, source) in [
         (0xA2, "MK 2-104; UM 298"),
         (0xAA, "MK 2-100; UM 302"),
@@ -734,15 +769,16 @@ fn check_table(table: Table) {
 }
 
 #[test]
-fn independent_census_has_all_698_unique_documented_encodings() {
+fn independent_census_has_all_896_unique_admitted_encodings() {
     let cases = transcription();
     let keys: BTreeSet<_> = cases.iter().map(|c| (c.table, c.opcode)).collect();
-    assert_eq!(cases.len(), 698);
-    assert_eq!(keys.len(), 698, "duplicate transcription entry");
+    // Decision-20 §1 admits 198 additional ED terminals.
+    assert_eq!(cases.len(), 896);
+    assert_eq!(keys.len(), 896, "duplicate transcription entry");
     for (table, count) in [
         (Table::Main, 252),
         (Table::Cb, 248),
-        (Table::Ed, 58),
+        (Table::Ed, 256),
         (Table::Dd, 39),
         (Table::Fd, 39),
         (Table::DdCb, 31),
@@ -781,19 +817,12 @@ fn independent_census_has_all_698_unique_documented_encodings() {
             expected
         );
     }
-    let expected_ed: BTreeSet<_> = [
-        0x40, 0x41, 0x42, 0x43, 0x44, 0x45, 0x46, 0x47, 0x48, 0x49, 0x4A, 0x4B, 0x4D, 0x4F, 0x50,
-        0x51, 0x52, 0x53, 0x56, 0x57, 0x58, 0x59, 0x5A, 0x5B, 0x5E, 0x5F, 0x60, 0x61, 0x62, 0x63,
-        0x67, 0x68, 0x69, 0x6A, 0x6B, 0x6F, 0x72, 0x73, 0x78, 0x79, 0x7A, 0x7B, 0xA0, 0xA1, 0xA2,
-        0xA3, 0xA8, 0xA9, 0xAA, 0xAB, 0xB0, 0xB1, 0xB2, 0xB3, 0xB8, 0xB9, 0xBA, 0xBB,
-    ]
-    .into_iter()
-    .collect();
+    // Decision-20 §1: the full ED terminal set, including CB/DD/ED/FD.
     assert_eq!(
         keys.iter()
             .filter_map(|&(t, op)| (t == Table::Ed).then_some(op))
             .collect::<BTreeSet<_>>(),
-        expected_ed
+        (0..=255).collect()
     );
     for table in [Table::DdCb, Table::FdCb] {
         let expected: BTreeSet<_> = [
@@ -821,7 +850,7 @@ fn cb_all_248_encodings() {
     check_table(Table::Cb);
 }
 #[test]
-fn ed_all_58_encodings_and_all_repeat_termination_paths() {
+fn ed_all_256_encodings_and_all_repeat_termination_paths() {
     check_table(Table::Ed);
 }
 #[test]

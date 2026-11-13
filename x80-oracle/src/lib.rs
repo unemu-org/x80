@@ -373,6 +373,7 @@ struct Host<'a, W> {
     arguments: Option<(u8, u16)>,
     awaiting_registers: bool,
     bdos_out: bool,
+    z80_instruction_start: bool,
     error: Option<String>,
 }
 
@@ -430,14 +431,24 @@ impl<W: Write> Bus for Host<'_, W> {
                 _ => return self.ram[usize::from(address)],
             }
         }
-        // ED 70 is a decision-14 hole. Only synthesize its second byte for
-        // this private fetch, never for Data reads of the stack word at 0006h.
-        if self.model == Model::Z80
-            && self.awaiting_registers
-            && address == 6
-            && kind == MemoryAccess::OpcodeFetch
-        {
-            return 0x70;
+        if self.model == Model::Z80 {
+            // L host ABI, decision-20 §1/§7: ED70 now executes. As with
+            // the 8085 host, supply OUT FFh; RET only on instruction reads;
+            // the Data stack word at 0006h remains intact. Z80 OUT (n),A
+            // uses full A:FF as the port and costs one extra step/11 states.
+            let instruction_start = kind == MemoryAccess::OpcodeFetch
+                && std::mem::take(&mut self.z80_instruction_start);
+            match (address, kind) {
+                (5, MemoryAccess::OpcodeFetch) => {
+                    // A prefixed terminal fetch at 0005h is not the stub's
+                    // complete OUT instruction and must never arm BDOS.
+                    self.bdos_out = instruction_start;
+                    return 0xd3;
+                }
+                (6, MemoryAccess::OperandFetch) if self.bdos_out => return 0xff,
+                (7, MemoryAccess::OpcodeFetch) => return 0xc9,
+                _ => return self.ram[usize::from(address)],
+            }
         }
         if address == 5 && kind == MemoryAccess::OpcodeFetch {
             if let Some((function, pointer)) = self.arguments.take() {
@@ -448,14 +459,8 @@ impl<W: Write> Bus for Host<'_, W> {
                 // cycles or register changes. The runner supplies C/DE and
                 // retries this fetch, servicing BDOS before the installed RET.
                 // 8080 uses unsupported 08h (decision-3).
-                // Z80 uses ED 70 (decision-14); PROVENANCE §2's audit
-                // confirms neither Z80 guest executes any ED hole.
                 self.awaiting_registers = true;
-                return if self.model == Model::Z80 {
-                    0xed
-                } else {
-                    RENDEZVOUS
-                };
+                return RENDEZVOUS;
             }
         }
         self.ram[usize::from(address)]
@@ -485,13 +490,27 @@ impl<W: Write> Bus for Host<'_, W> {
     }
 
     fn output16(&mut self, port: u16, _value: u8) {
+        // Only the harness-owned stub arms this stop; a guest OUT FFh
+        // elsewhere remains a host error (decision-20 §7).
+        if self.model == Model::Z80 && port & 0xff == 0xff && self.bdos_out {
+            self.bdos_out = false;
+            self.awaiting_registers = true;
+            return;
+        }
         self.error = Some(format!("unexpected output port {port:04X}"));
     }
 }
 
 impl<W> Control for Host<'_, W> {
     fn stop_requested(&mut self) -> bool {
-        self.model == Model::I8085 && self.awaiting_registers
+        if self.model == Model::Z80 {
+            // The boundary poll precedes the next instruction's first fetch.
+            // Discard unused arming before any later guest I/O can consume it,
+            // including when a slice budget deferred this poll to a new run.
+            self.bdos_out = false;
+            self.z80_instruction_start = true;
+        }
+        matches!(self.model, Model::I8085 | Model::Z80) && self.awaiting_registers
     }
 }
 impl<W> i8080::Inputs for Host<'_, W> {}
@@ -578,6 +597,7 @@ fn run_cpu<C: Cpu, W: Write>(
         arguments: None,
         awaiting_registers: false,
         bdos_out: false,
+        z80_instruction_start: false,
         error: None,
     };
     host.ram[LOAD..LOAD + program.len()].copy_from_slice(program);
@@ -623,7 +643,9 @@ fn run_cpu<C: Cpu, W: Write>(
         }
         match report.exit {
             Exit::Budget | Exit::Halt => {}
-            Exit::Stop if config.model == Model::I8085 && host.awaiting_registers => {
+            Exit::Stop
+                if matches!(config.model, Model::I8085 | Model::Z80) && host.awaiting_registers =>
+            {
                 host.awaiting_registers = false;
                 let (function, pointer) = cpu.bdos_arguments();
                 host.bdos(function, pointer);
@@ -632,15 +654,12 @@ fn run_cpu<C: Cpu, W: Write>(
                 }
             }
             Exit::Unsupported(unsupported)
-                if config.model != Model::I8085
+                if config.model == Model::I8080
                     && host.awaiting_registers
                     && unsupported.pc == 5
                     && !unsupported.acknowledge
-                    && if config.model == Model::Z80 {
-                        unsupported.opcode == 0x70 && unsupported.preceding() == [0xed]
-                    } else {
-                        unsupported.opcode == RENDEZVOUS && unsupported.preceding().is_empty()
-                    } =>
+                    && unsupported.opcode == RENDEZVOUS
+                    && unsupported.preceding().is_empty() =>
             {
                 host.awaiting_registers = false;
                 host.arguments = Some(cpu.bdos_arguments());
@@ -1233,7 +1252,7 @@ mod tests {
     }
 
     #[test]
-    fn z80_bdos_uses_a_hole_and_preserves_documented_exchange_and_stack_word() {
+    fn z80_bdos_uses_out_ret_and_preserves_documented_exchange_and_stack_word() {
         // Read the host stack word as Data, then exercise documented 08h on
         // both sides of output. A synthetic 08h trap would corrupt this run.
         let program = [
@@ -1250,9 +1269,103 @@ mod tests {
     }
 
     #[test]
-    fn z80_holes_outside_bdos_are_never_swallowed_and_keep_preceding_bytes() {
+    fn z80_out_rendezvous_adds_one_step_eleven_states_per_call() {
+        // Decision-20 §1/§7 host ABI. The old refusal/RET path took
+        // 10 steps/99 states for this two-call fixture; OUT adds 2/22.
+        let program = [
+            0x11, 0x12, 0x01, // LD DE,0112h
+            0x0e, 9, 0xcd, 5, 0, 0x1e, b'!', 0x0e, 2, 0xcd, 5, 0, 0xc3, 0, 0, b'H', b'i', b'$',
+        ];
+        for slice_cycles in [1, 11, 17, 1_000_000] {
+            let result = run_cpu::<z80::Z80, _>(
+                &program,
+                Config {
+                    model: Model::Z80,
+                    slice_cycles,
+                    ..Config::default()
+                },
+                &mut Vec::new(),
+                None,
+            )
+            .unwrap();
+            assert_eq!(result.reason, Reason::NormalExit);
+            assert_eq!(result.output, b"Hi!");
+            assert_eq!((result.steps, result.cycles), (12, 121));
+        }
+    }
+
+    #[test]
+    fn z80_stub_out_at_overall_cap_times_out_before_bdos() {
+        // Decision-20 §7: reuse the 8085 boundary-stop convention; a slice
+        // boundary may defer service, but the overall cap must win.
+        let program = [0x0e, 2, 0x1e, b'!', 0x3e, 0xab, 0xcd, 5, 0, 0xc3, 0, 0];
+        for slice_cycles in [1, 1_000_000] {
+            let result = run_cpu::<z80::Z80, _>(
+                &program,
+                Config {
+                    model: Model::Z80,
+                    slice_cycles,
+                    cycle_cap: 49,
+                },
+                &mut Vec::new(),
+                None,
+            )
+            .unwrap();
+            assert_eq!(result.reason, Reason::Timeout);
+            assert!(result.output.is_empty());
+            assert_eq!((result.steps, result.cycles), (5, 49));
+        }
+    }
+
+    #[test]
+    fn z80_ed70_ed71_and_reserved_port_outside_stub_execute_and_report_io_errors() {
+        // Decision-20 §1: ED70/71 are executable; only a stub-owned OUT
+        // may stop for BDOS. ED71's emitted zero is an L expectation.
+        for (tail, message) in [
+            (&[0xed, 0x70][..], "unexpected input port ABCD"),
+            (&[0xed, 0x71][..], "unexpected output port ABCD"),
+            (&[0x3e, 0xab, 0xd3, 0xff][..], "unexpected output port ABFF"),
+        ] {
+            let mut program = vec![0x01, 0xcd, 0xab];
+            program.extend_from_slice(tail);
+            assert_eq!(
+                z80_synthetic(&program).reason,
+                Reason::HostError(message.into())
+            );
+        }
+    }
+
+    #[test]
+    fn z80_ed_prefix_before_stub_does_not_arm_bdos_for_later_guest_out() {
+        let program = [
+            0x3e, 0xed, 0x32, 4, 0, // LD A,EDh; LD (0004h),A
+            0x3e, 0xab, 0x0e, 2, 0x1e, b'!', // LD A,ABh; LD C,2; LD E,'!'
+            0xcd, 4, 0, // CALL 0004h: ED D3; NOP at 0006h; synthetic RET
+            0xd3, 0xff, 0xc3, 0, 0, // guest OUT (FFh),A; JP 0
+        ];
+        for slice_cycles in [1, 11, 17, 1_000_000] {
+            let result = run_cpu::<z80::Z80, _>(
+                &program,
+                Config {
+                    model: Model::Z80,
+                    slice_cycles,
+                    ..Config::default()
+                },
+                &mut Vec::new(),
+                None,
+            )
+            .unwrap();
+            assert_eq!(
+                result.reason,
+                Reason::HostError("unexpected output port ABFF".into())
+            );
+            assert!(result.output.is_empty());
+        }
+    }
+
+    #[test]
+    fn z80_remaining_refusals_outside_bdos_keep_preceding_bytes() {
         for (program, opcode, preceding) in [
-            (vec![0xed, 0x70], 0x70, vec![0xed]),
             (vec![0xdd, 0x44], 0x44, vec![0xdd]),
             (vec![0xfd, 0xcb, 0x80, 0x47], 0x47, vec![0xfd, 0xcb, 0x80]),
         ] {

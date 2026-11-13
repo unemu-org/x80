@@ -4,14 +4,16 @@ Do not implement these unprompted. Open work is tracked in beads.
 
 Undocumented-family work is tracked under epic `x80-mn3`, always on with no
 embedder profile. All ten 8085 extensions now execute; no fetched 8085 byte
-is refused. Zilog NMOS Z80 undocumented behavior is next (`x80-mn3.5`);
+is refused. Zilog NMOS Z80 decision-20 §1 ED behavior now executes;
 undocumented 8080 research is `x80-mn3.4`.
 The maintainer's 2026-11-13 evidence rule is recorded in [decision-17](<../decisions/decision-17 - Two-key-evidence-rule-for-undocumented-behaviour.md>).
 Source pins, two-key evidence and later per-model records precede implementation;
 decision-18 supersedes decision-11 in part;
 [decision-20](<../decisions/decision-20 - Z80-undocumented-behaviour-Zilog-NMOS.md>)
-records the Z80 changes; the maintainer accepted it on 2026-11-13. No Z80
-implementation has landed yet; beads `x80-mn3.9` to `x80-mn3.17` carry it.
+records the Z80 changes; the maintainer accepted it on 2026-11-13. The §1 ED
+implementation admits all 256 terminals (78 operations / 178 L NOPs), with
+A/H/L limits preserved. Bits 5/3 await §4; CB/DD/FD extensions await §§2–3.
+Beads `x80-mn3.9` to `x80-mn3.17` carry the implementation track.
 
 The accepted 8085 contract is [decision-18](<../decisions/decision-18 - 8085-undocumented-instructions-and-V-K-flags.md>)
 and applies the maintainer's 2026-11-13 second-source
@@ -68,13 +70,15 @@ The selected Q rule follows stable pattern A, qualified by the 8039 report;
 CMOS and other parts need separate evidence and a decision-6 scope decision;
 oracle CRCs alone cannot admit hardware facts.
 
-On implementation, all nine formerly excluded ZEXDOC groups become runnable;
+After §§2–3, all nine excluded ZEXDOC groups become runnable;
 ZEXALL can falsify full-byte flag rules after its own artifact audit. The six
 z80test variants require a Spectrum-style oracle host, not CP/M CALL 5, with
 fixed linked/data addresses and explicit input precheck accounting. A MEMPTR
 CRC observes a two-bit projection, not an entire latch; post-CCF observes only
 tested predecessor distinctions. These campaigns have not been run for the
-decision-20 draft. Replace the ED70 refusal rendezvous before ED70 executes;
+decision-20 implementation track. The Z80 host now uses a private
+`OUT FFh; RET` boundary stop instead of an ED70 refusal, adding one step /
+11 states per call while preserving the stack word's Data view;
 retain the IM0 non-RST and odd-IM2 API refusals until separately extended.
 
 | Item | Why deferred | Revisit |
