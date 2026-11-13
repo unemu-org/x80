@@ -63,10 +63,54 @@ fn crate_root_sources_cite_no_manual() {
         "progress.rs",
     ] {
         let source = std::fs::read_to_string(root.join(file)).expect("read crate-root source");
-        for citation in ["98-153B", "9800301"] {
+        for citation in [
+            "98-153B", "9800301", "205775", "231718", "UM008011", "03-0029", "03-0002",
+        ] {
             assert!(
                 !source.contains(citation),
                 "{file} contains manual citation {citation}"
+            );
+        }
+    }
+}
+
+#[test]
+fn intel_family_sources_cite_both_models_and_use_no_model_paths() {
+    // Decision-16: inspect literal identifiers/paths, including comments and
+    // strings, in src/intel/*.rs. This does not parse Rust or follow modules;
+    // reviewers still check that both primary citations accompany each fact.
+    let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("src/intel");
+    let files = match std::fs::read_dir(&root) {
+        Ok(files) => files,
+        // The planned family tier has no files yet: pass vacuously until it
+        // is introduced. An empty directory likewise has no files to check.
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return,
+        Err(error) => panic!("read {}: {error}", root.display()),
+    };
+    for file in files {
+        let path = file.expect("read Intel-family directory entry").path();
+        if path.extension().is_none_or(|extension| extension != "rs") {
+            continue;
+        }
+        let source = std::fs::read_to_string(&path).expect("read Intel-family source");
+        for citation in ["98-153B", "205775-002"] {
+            assert!(
+                source.contains(citation),
+                "{} is missing primary citation {citation}",
+                path.display()
+            );
+        }
+        for forbidden in [
+            "UM008011",
+            "03-0029",
+            "crate::i8080",
+            "crate::i8085",
+            "crate::z80",
+        ] {
+            assert!(
+                !source.contains(forbidden),
+                "{} contains forbidden identifier or model path {forbidden}",
+                path.display()
             );
         }
     }

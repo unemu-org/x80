@@ -9,6 +9,9 @@ Decider: maintainer (2026-11-13). Applies decision-6 to M4 and answers decision-
 M4 revisit; bead `x80-bi2.2`. The maintainer's scope and sharing choices below
 were given on 2026-11-13; the maintainer accepted this record the same day.
 
+Rule 7 amended by [decision-16](<decision-16 - Intel-family-shared-executors-for-the-8080-and-8085.md>)
+closes the Intel no-dedup clause after M4; the no-macro rule and Z80 sharing boundary stand.
+
 ## Context
 
 decision-6 assigns state, inputs, encodings, timing and execution to concrete

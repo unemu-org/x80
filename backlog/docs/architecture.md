@@ -67,7 +67,7 @@ x80-core/
   src/z80/jump.rs               Jump encodings and executor (pp. 261–279)
   src/z80/call_return.rs        Call and Return encodings and executor (pp. 280–293)
   src/z80/input_output.rs       Input and Output encodings and executor (pp. 294–316)
-  tests/boundary.rs             zero-dependency and model-neutral root tripwires
+  tests/boundary.rs             zero-dependency, fact-free root and planned Intel-family tripwires
   tests/root_contract.rs        full-width port defaults/overrides and preceding-byte diagnostics
   tests/support/                recording test bus, sample state, unsupported check
   tests/z80_run.rs              boundary, refusal, landed execution, refresh and budget-split witnesses
@@ -117,6 +117,40 @@ manuals. Each CPU model is its own module and type: `x80_core::i8080`,
 `Latches` and `Inputs`.
 Hardware facts live in the model and cite the pinned manuals by page. There is
 no family-wide CPU or register type and no model trait.
+
+Planned Intel-family tier ([decision-16](<../decisions/decision-16 - Intel-family-shared-executors-for-the-8080-and-8085.md>),
+accepted 2026-11-13; no `src/intel` files yet):
+
+```text
+x80-core/src/intel/             planned, private to the crate
+  mod.rs                       View, closed FlagRules flag/ALU contract, BranchFacts
+  access.rs                    operand/location/pair/condition/address and push-and-jump helpers
+  data_transfer.rs             shared Data Transfer body
+  branch.rs                    shared Branch body, per-model untaken-read constant
+  stack_io.rs                  shared PUSH/POP, XTHL, SPHL, IN and OUT subset
+  logical.rs                   shared Logical body, per-model AND rule
+  arithmetic.rs                shared Arithmetic body including qualified DAA rules
+```
+
+Each Intel model builds a concrete borrowed `View` from its own registers;
+its thin executor wrapper handles model-owned arms before the shared fallback.
+Public types, ALU/flag rules and `FlagRules` implementations, encoding lists,
+state totals, map witnesses, run loops, reset, interrupts, EI/DI/HLT/NOP and
+RIM/SIM stay per model. `FlagRules` has only the flag/ALU methods listed in
+decision-16; adding a method needs an amendment, and latch, interrupt, timing
+and bus members are forbidden. `BranchFacts` supplies untaken operand reads
+from per-model constants. Facts that differ or lack statements in both
+primaries remain model-owned rules/constants, including qualified DAA carry
+and XTHL order; matching code does not upgrade evidence.
+
+This planned tier permits a hardware literal only when both pinned primaries
+state the fact, with 98-153B and 205775-002 citations at that fact and independent
+witnesses per model. The root, `decode` and `progress` stay fact-free. Z80's
+sharing boundary stays at decode/progress/test support. The boundary test
+already checks both family identifiers, excludes Z80 identifiers and concrete
+model paths, and passes vacuously until the tier exists. Extraction stops for
+a maintainer checkpoint after Stack/IO, before Logical/Arithmetic, to assess
+interim duplication, oracle runtime and undocumented-8085 flag research.
 
 M4 closure duplication (2026-11-13, `x80-bi2.27`, base `37571c9`),
 **MEASURED** using decision-13 rule 7's comment-stripped, nonblank, trimmed-line

@@ -8,6 +8,9 @@ status: accepted
 Decider: maintainer (2026-11-12). Applies decision-6 to the second model (M3, bead `x80-4gk.3`);
 answers [plan](../docs/plan.md) §6 Q9 for M3.
 
+Amended by [decision-16](<decision-16 - Intel-family-shared-executors-for-the-8080-and-8085.md>)
+makes the listed Intel group executors shared; the rejection of a register-access model trait stands.
+
 ## Context
 
 decision-6 makes each CPU model a concrete type in its own module and moves code into a

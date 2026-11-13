@@ -8,6 +8,19 @@ SHA-256 before implementing a fact; check scans against page images. Comments
 also link the relevant design section. Each implemented fact needs an independent
 witness test with expected values derived from that citation.
 
+The planned private Intel-family tier (`x80-core/src/intel/`, decision-16) is
+separate from the fact-free root, `decode` and `progress` tier, which cites decisions
+only. A hardware fact may be a literal in the family tier only when both models'
+pinned primaries state it: cite 98-153B and 205775-002 by revision, section/table
+and page at each fact, retaining each model's second witnesses and evidential
+status. A fact that differs or that only one manual states must instead come
+through a model-owned `FlagRules` implementation or per-model constant; matching
+code or oracle results do not establish shared authority. Independent witnesses
+remain per model. `tests/boundary.rs` checks the root's manual-identifier exclusion
+and each family source file's two primary identifiers, absence of Z80 identifiers
+and absence of paths to concrete model modules; review enforces citations at the
+individual fact.
+
 ### Pinned sources
 
 All are fetch-only and cite-only (© Intel, Zilog or Mostek, no redistribution grant).
