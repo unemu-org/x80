@@ -5,6 +5,7 @@
 //! implementations retain their own authority and public type identity.
 
 pub(crate) mod access;
+pub(crate) mod arithmetic;
 pub(crate) mod branch;
 pub(crate) mod data_transfer;
 pub(crate) mod logical;
@@ -36,6 +37,7 @@ pub(crate) trait FlagRules: Copy {
     fn zero(self) -> bool;
     fn parity(self) -> bool;
     fn carry(self) -> bool;
+    fn auxiliary_carry(self) -> bool;
     fn set_carry(&mut self, carry: bool);
     fn to_byte(self) -> u8;
     fn from_byte(byte: u8) -> Self;
@@ -43,6 +45,9 @@ pub(crate) trait FlagRules: Copy {
     // 205775-002 §5.5 p. 5-3. Subtraction: 98-153B Ch. 4 p. 4-6;
     // 205775-002 §5.6.2 p. 5-6. The implementations keep their derivations.
     fn result(value: u8, auxiliary_carry: bool, carry: bool) -> Self;
+    // Addition and increment: 98-153B Ch. 4 pp. 4-6/4-7;
+    // 205775-002 §5.6.2 pp. 5-6 to 5-8. Flags remain model-owned.
+    fn add(left: u8, right: u8, carry: bool) -> (u8, Self);
     fn subtract(left: u8, right: u8, borrow: bool) -> (u8, Self);
     // AND: 98-153B Ch. 4 pp. 4-8/4-9; 205775-002 §5.6.3 pp. 5-9/5-10.
     // Model-owned AC, including decision-8's resolution of the 8080 sources.

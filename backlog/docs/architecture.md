@@ -28,7 +28,7 @@ x80-core/
   src/i8080/opcodes/tests.rs    map witness against 98-153B p. 4-15 and 9800301-04 p. A-5
   src/i8080/data_transfer.rs    Data Transfer Group: encodings and executor (pp. 4-4, 4-5)
   src/i8080/alu.rs              arithmetic primitives and shared flag calculation
-  src/i8080/arithmetic.rs       Arithmetic Group (pp. 4-6 to 4-8)
+  src/i8080/arithmetic.rs       Arithmetic encodings, derived DAA carry policy and shared-executor wrapper (pp. 4-6 to 4-8)
   src/i8080/logical.rs          Logical encodings and shared-executor wrapper (pp. 4-8 to 4-11)
   src/i8080/branch.rs           Branch Group (pp. 4-11, 4-12)
   src/i8080/stack_io_control.rs Stack, I/O and Machine Control Group (pp. 4-13, 4-14)
@@ -41,7 +41,7 @@ x80-core/
   src/i8085/opcodes/tests.rs    independent map witness (205775-002 Tables 5-1/5-2 pp. 5-19/5-20)
   src/i8085/data_transfer.rs    Data Transfer encodings and executor (205775-002 pp. 5-4 to 5-6)
   src/i8085/alu.rs              model-owned arithmetic primitives and result flags
-  src/i8085/arithmetic.rs       Arithmetic encodings and executor (pp. 5-6 to 5-9)
+  src/i8085/arithmetic.rs       Arithmetic encodings, derived DAA carry policy and shared-executor wrapper (pp. 5-6 to 5-9)
   src/i8085/logical.rs          Logical encodings and shared-executor wrapper (pp. 5-9 to 5-12)
   src/i8085/branch.rs           Branch encodings and executor (pp. 5-13 to 5-15)
   src/i8085/stack_io_control.rs Stack, I/O and Machine Control, excluding RIM/SIM (pp. 5-15 to 5-17)
@@ -123,35 +123,41 @@ type and no model trait.
 
 Intel-family tier ([decision-16](<../decisions/decision-16 - Intel-family-shared-executors-for-the-8080-and-8085.md>),
 accepted 2026-11-13; access helpers and Data Transfer, Branch and Stack/IO bodies
-implemented in `x80-8sg.2` to `x80-8sg.5`, Logical in `x80-8sg.7`):
+implemented in `x80-8sg.2` to `x80-8sg.5`, Logical in `x80-8sg.7`,
+Arithmetic in `x80-8sg.8`):
 
 ```text
 x80-core/src/intel/             private to the crate
-  mod.rs                       View and the FlagRules contract (flag access, PSW image, result/subtract/AND)
+  mod.rs                       View and the FlagRules contract (flag access, PSW image, result/add/subtract/AND)
   access.rs                    operand/location/pair/condition/address and push-and-jump helpers
   data_transfer.rs             shared Data Transfer body
   branch.rs                    shared Branch body, per-model untaken-read constant (BranchFacts)
   stack_io.rs                  shared PUSH/POP, XTHL, SPHL, IN and OUT subset (per-model XTHL order)
   logical.rs                   shared Logical body, per-model AND and subtraction rules
-  arithmetic.rs                planned shared Arithmetic body including qualified DAA rules
+  arithmetic.rs                shared Arithmetic body including DAA, per-model derived carry policy (DaaCarry)
 ```
 
 Each Intel model builds a concrete borrowed `View` from its own registers in a
-private `view` function. Data Transfer, Branch, the Stack/IO subset and Logical
-run in shared bodies behind thin per-model wrappers that handle model-owned arms
-first; Arithmetic is still per model.
+private `view` function. Data Transfer, Branch, the Stack/IO subset, Logical and
+Arithmetic run in shared bodies behind thin per-model wrappers that handle
+model-owned arms first where applicable.
 Public types, ALU/flag rules and `FlagRules` implementations, encoding lists,
 state totals, map witnesses, run loops, reset, interrupts, EI/DI/HLT/NOP and
-RIM/SIM stay per model. `FlagRules` currently has the `sign`, `zero`, `parity`
-and `carry` accessors, `set_carry`, PSW image conversions and `result`, `subtract`
-and `and` methods. Each model implements them in `flags.rs`, delegating the ALU
-facts to its own `alu.rs`. AND AC remains bit 3 of A OR operand on 8080
-(decision-8), always set on 8085. Later steps may introduce the remaining
-flag/ALU methods listed in decision-16; methods beyond that list need an
-amendment, and latch, interrupt, timing and bus members are forbidden. Each model supplies its `BranchFacts` (untaken operand reads). Facts that
-differ or lack statements in both primaries remain model-owned rules/constants,
-including qualified DAA carry and XTHL order; matching code does not upgrade
-evidence.
+RIM/SIM stay per model. `FlagRules` currently has the `sign`, `zero`, `parity`,
+`carry` and `auxiliary_carry` accessors, `set_carry`, PSW image conversions and
+`result`, `add`, `subtract` and `and` methods. Each model implements them in
+`flags.rs`, delegating the ALU facts to its own `alu.rs`. AND AC remains bit 3
+of A OR operand on 8080
+(decision-8), always set on 8085. The implemented flag/ALU methods now cover
+decision-16's closed set; methods beyond that list need an amendment, and latch,
+interrupt, timing and bus members are forbidden. Each model supplies its
+`BranchFacts` (untaken operand reads). Facts that differ or lack statements
+in both primaries remain model-owned rules/constants, including qualified DAA
+carry and XTHL order; matching code does not upgrade
+evidence. Each Arithmetic wrapper supplies `DaaCarry` constants for incoming CY
+retention and low-step carry propagation, preserving its own derivations and
+citations. The shared body uses flag accessors and model ALU operations, without
+naming concrete flag fields; it adds no 8085 V/K behavior.
 
 This tier permits a hardware literal only when both pinned primaries
 state the fact, with 98-153B and 205775-002 citations at that fact and independent
@@ -160,8 +166,8 @@ sharing boundary stays at decode/progress/test support. The boundary test
 already checks both family identifiers, excludes Z80 identifiers and concrete
 model paths, and now checks the family source files non-vacuously. Decision-16
 requires a maintainer checkpoint after Stack/IO to assess interim duplication, oracle
-runtime and undocumented-8085 flag research; `x80-8sg.7` authorizes the Logical
-extraction following that checkpoint.
+runtime and undocumented-8085 flag research; `x80-8sg.7` and `x80-8sg.8` authorize
+the Logical and Arithmetic extractions following that checkpoint.
 
 M4 closure duplication (2026-11-13, `x80-bi2.27`, base `37571c9`),
 **MEASURED** using decision-13 rule 7's comment-stripped, nonblank, trimmed-line

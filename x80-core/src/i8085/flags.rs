@@ -65,9 +65,17 @@ impl crate::intel::FlagRules for Flags {
         self.carry
     }
 
+    // AC access for DAA: 205775-002 (January 1983), §5.5 p. 5-3;
+    // second witness: 9800301-04 (May 1981), Ch. 1 pp. 1-11/1-12.
+    fn auxiliary_carry(self) -> bool {
+        self.auxiliary_carry
+    }
+
     // Carry-only updates: 205775-002 (January 1983) §5.6.3 pp. 5-11/5-12;
     // 9800301-04 (May 1981) Ch. 3 pp. 3-45/3-46, 3-49, 3-53/3-54,
     // 3-12/3-63. Witnesses: i8085_logical. Other stored flags survive.
+    // Also DAD/INR/DCR: 205775-002 §5.6.2 pp. 5-8/5-9;
+    // 9800301-04 Ch. 3 pp. 3-20/3-21/3-25. Witness: i8085_arithmetic.
     fn set_carry(&mut self, carry: bool) {
         self.carry = carry;
     }
@@ -89,6 +97,15 @@ impl crate::intel::FlagRules for Flags {
     // alu retain their independent arithmetic and logical witnesses.
     fn result(value: u8, auxiliary_carry: bool, carry: bool) -> Self {
         super::alu::result_flags(value, auxiliary_carry, carry)
+    }
+
+    // Addition/INR flags: 205775-002 (January 1983), §5.5 p. 5-3;
+    // §5.6.2 ADD/ADC/INR pp. 5-6 to 5-8.
+    // Second witness: 9800301-04 (May 1981), Ch. 1 pp. 1-10 to 1-12,
+    // Ch. 3 pp. 3-2 to 3-5, 3-25. Independent witnesses: i8085_arithmetic,
+    // i8085_daa. DCR retains the model's subtract derivation below.
+    fn add(left: u8, right: u8, carry: bool) -> (u8, Self) {
+        super::alu::add(left, right, carry)
     }
 
     fn subtract(left: u8, right: u8, borrow: bool) -> (u8, Self) {
