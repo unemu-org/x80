@@ -15,8 +15,7 @@
 
 use super::opcodes::{Encoding, Instruction, Path, States};
 use super::I8085;
-use crate::intel::access::{operand, operand_word, read_location, write_location};
-use crate::{Bus, MemoryAccess};
+use crate::Bus;
 
 /// Complete group list, in per-instruction page order.
 /// LDAX/STAX permit only B and D pairs (205775-002 pp. 5-5/5-6).
@@ -65,88 +64,10 @@ pub(super) fn execute<S: Bus>(
     opcode: u8,
     instruction: Instruction,
 ) -> Path {
-    let registers = cpu.registers_mut();
-    match opcode {
-        // MOV: §5.6.1 p. 5-4; 9800301-04 pp. 3-36/3-37.
-        // Table 5-1 p. 5-19: F, FR or FW. Read original HL before
-        // changing H/L, and read the source before writing the destination.
-        0x40..=0x7F if opcode != 0x76 => {
-            let value = read_location(&super::view(registers), system, opcode & 7);
-            write_location(
-                &mut super::view(registers),
-                system,
-                (opcode >> 3) & 7,
-                value,
-            );
-        }
-        // MVI: p. 5-4; 9800301-04 pp. 3-37/3-38. Table 5-1:
-        // FR for a register, FRW for memory; byte 2 precedes the HL write.
-        0x06 | 0x0E | 0x16 | 0x1E | 0x26 | 0x2E | 0x36 | 0x3E => {
-            let value = operand(&super::view(registers), system, 1);
-            write_location(
-                &mut super::view(registers),
-                system,
-                (opcode >> 3) & 7,
-                value,
-            );
-        }
-        // LXI: pp. 5-1/5-5; 9800301-04 p. 3-35. Table 5-1: FRR.
-        // Byte 2 is low, byte 3 high; RP selects BC/DE/HL/SP.
-        0x01 | 0x11 | 0x21 | 0x31 => {
-            let value = operand_word(&super::view(registers), system);
-            match opcode {
-                0x01 => registers.set_bc(value),
-                0x11 => registers.set_de(value),
-                0x21 => registers.set_hl(value),
-                _ => registers.sp = value,
-            }
-        }
-        // Direct transfers: p. 5-5; 9800301-04 pp. 3-32 to 3-34,
-        // 3-58/3-59, 3-61/3-62. Table 5-1: FRRR/FRRW/FRRRR/FRRWW.
-        // Fetch the entire address before accessing data, even on overlap.
-        0x3A | 0x32 | 0x2A | 0x22 => {
-            let address = operand_word(&super::view(registers), system);
-            match opcode {
-                0x3A => registers.a = system.read(address, MemoryAccess::Data),
-                0x32 => system.write(address, registers.a, MemoryAccess::Data),
-                0x2A => {
-                    registers.l = system.read(address, MemoryAccess::Data);
-                    registers.h = system.read(address.wrapping_add(1), MemoryAccess::Data);
-                }
-                _ => {
-                    system.write(address, registers.l, MemoryAccess::Data);
-                    system.write(address.wrapping_add(1), registers.h, MemoryAccess::Data);
-                }
-            }
-            // Address+1 is p. 5-5; FFFFh -> 0000h is DERIVED from the
-            // 16-bit address width (§5.3 p. 5-2), not explicitly verified.
-        }
-        // LDAX/STAX: pp. 5-5/5-6; 9800301-04 pp. 3-33/3-62.
-        // Table 5-1: FR/FW; only B or D pairs select the data address.
-        0x0A | 0x1A | 0x02 | 0x12 => {
-            let address = if opcode & 0x10 == 0 {
-                registers.bc()
-            } else {
-                registers.de()
-            };
-            if opcode & 0x08 != 0 {
-                registers.a = system.read(address, MemoryAccess::Data);
-            } else {
-                system.write(address, registers.a, MemoryAccess::Data);
-            }
-        }
-        // XCHG: p. 5-6; 9800301-04 p. 3-65. Table 5-1: F only.
-        0xEB => {
-            core::mem::swap(&mut registers.h, &mut registers.d);
-            core::mem::swap(&mut registers.l, &mut registers.e);
-        }
-        _ => unreachable!("opcode map dispatches only this group's encodings"),
-    }
-    // §2.2.1 p. 2-2: PC points at the next instruction; §5.3 p. 5-2:
-    // successive instruction bytes. PC wrap is DERIVED from its 16-bit
-    // width; neither page explicitly verifies FFFFh -> 0000h.
-    // Flags remain untouched (§5.6.1 p. 5-4). These instructions have one
-    // total in both state slots (§5.2 p. 5-2; decision-5 item 7).
-    registers.pc = registers.pc.wrapping_add(u16::from(instruction.length));
-    Path::Taken
+    crate::intel::data_transfer::execute(
+        &mut super::view(cpu.registers_mut()),
+        system,
+        opcode,
+        instruction.length,
+    )
 }

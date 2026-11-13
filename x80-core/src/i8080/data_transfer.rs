@@ -13,8 +13,7 @@
 
 use super::opcodes::{Encoding, Instruction, Path, States};
 use super::I8080;
-use crate::intel::access::{operand, operand_word, read_location, write_location};
-use crate::{Bus, MemoryAccess};
+use crate::Bus;
 
 /// The group's encodings, in page order.
 pub(super) const ENCODINGS: &[Encoding] = &[
@@ -64,86 +63,10 @@ pub(super) fn execute<S: Bus>(
     opcode: u8,
     instruction: Instruction,
 ) -> Path {
-    let registers = cpu.registers_mut();
-    match opcode {
-        // MOV: 98-153B Ch. 4 p. 4-4. Ch. 2 p. 2-16: memory variants
-        // access original HL in M2, register moves have only M1.
-        0x40..=0x7F if opcode != 0x76 => {
-            let value = read_location(&super::view(registers), system, opcode & 7);
-            write_location(
-                &mut super::view(registers),
-                system,
-                (opcode >> 3) & 7,
-                value,
-            );
-        }
-        // MVI: Ch. 4 p. 4-4; Ch. 2 pp. 2-16/2-17: byte 2 read in M2,
-        // then (memory form only) HL write in M3.
-        0x06 | 0x0E | 0x16 | 0x1E | 0x26 | 0x2E | 0x36 | 0x3E => {
-            let value = operand(&super::view(registers), system, 1);
-            write_location(
-                &mut super::view(registers),
-                system,
-                (opcode >> 3) & 7,
-                value,
-            );
-        }
-        // LXI: Ch. 4 pp. 4-3/4-4 RP table, byte 2 low / byte 3 high;
-        // Ch. 2 pp. 2-16/2-17: operand reads in M2 then M3.
-        0x01 | 0x11 | 0x21 | 0x31 => {
-            let value = operand_word(&super::view(registers), system);
-            match opcode {
-                0x01 => registers.set_bc(value),
-                0x11 => registers.set_de(value),
-                0x21 => registers.set_hl(value),
-                _ => registers.sp = value,
-            }
-        }
-        // Direct transfers: Ch. 4 p. 4-5; Ch. 2 pp. 2-16/2-17:
-        // M2 low address, M3 high address, M4 A or L, M5 H if present.
-        0x3A | 0x32 | 0x2A | 0x22 => {
-            let address = operand_word(&super::view(registers), system);
-            match opcode {
-                0x3A => registers.a = system.read(address, MemoryAccess::Data),
-                0x32 => system.write(address, registers.a, MemoryAccess::Data),
-                0x2A => {
-                    registers.l = system.read(address, MemoryAccess::Data);
-                    registers.h = system.read(address.wrapping_add(1), MemoryAccess::Data);
-                }
-                _ => {
-                    system.write(address, registers.l, MemoryAccess::Data);
-                    system.write(address.wrapping_add(1), registers.h, MemoryAccess::Data);
-                }
-            }
-            // Ch. 2 p. 2-17 increments WZ between L and H accesses; p. 2-2
-            // gives 16-bit address logic. FFFF -> 0000 is derived from that
-            // width; neither page explicitly verifies the wrap edge.
-        }
-        // LDAX/STAX: Ch. 4 p. 4-5; Ch. 2 p. 2-16: one M2 data
-        // read/write at BC or DE. Access kinds: decision-5 item 3.
-        0x0A | 0x1A | 0x02 | 0x12 => {
-            let address = if opcode & 0x10 == 0 {
-                registers.bc()
-            } else {
-                registers.de()
-            };
-            if opcode & 0x08 != 0 {
-                registers.a = system.read(address, MemoryAccess::Data);
-            } else {
-                system.write(address, registers.a, MemoryAccess::Data);
-            }
-        }
-        // XCHG: Ch. 4 p. 4-5 and Ch. 2 p. 2-16, M1 only.
-        0xEB => {
-            core::mem::swap(&mut registers.h, &mut registers.d);
-            core::mem::swap(&mut registers.l, &mut registers.e);
-        }
-        _ => unreachable!("opcode map dispatches only this group's encodings"),
-    }
-    // Ch. 4 p. 4-2: sequential execution over the instruction's bytes;
-    // Ch. 2 pp. 2-16/2-17: PC increments at each instruction-byte read.
-    // PC is 16-bit (p. 2-2); wrap is derived, not explicitly stated there.
-    // Flags are untouched: Ch. 4 p. 4-4, Data Transfer Group introduction.
-    registers.pc = registers.pc.wrapping_add(u16::from(instruction.length));
-    Path::Taken
+    crate::intel::data_transfer::execute(
+        &mut super::view(cpu.registers_mut()),
+        system,
+        opcode,
+        instruction.length,
+    )
 }
