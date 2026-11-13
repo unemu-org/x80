@@ -282,51 +282,9 @@ fn refusal(
     }
 }
 
-macro_rules! hole {
-    ($name:ident, $bytes:expr, $preceding:expr, $len:expr, $op:expr, $reads:expr) => {
-        #[test]
-        fn $name() {
-            refusal($bytes, $preceding, $len, $op, $reads, None);
-        }
-    };
-}
-
-// Decision-20 §1: ED70 and ED00 now retire; literal witnesses live in
-// z80_undocumented_ed.rs. Decision-20 §2 admits DD/FD main forms; CB/indexed-CB refusals await §3.
-hole!(
-    cb_missing_shift,
-    &[0xCB, 0x30],
-    [0xCB, 0, 0],
-    1,
-    0x30,
-    &[read(0xFFFE, OP, 0xCB), read(0xFFFF, OP, 0x30)]
-);
-hole!(
-    dd_cb_register_result,
-    &[0xDD, 0xCB, 0x80, 0x47],
-    [0xDD, 0xCB, 0x80],
-    3,
-    0x47,
-    &[
-        read(0xFFFE, OP, 0xDD),
-        read(0xFFFF, OP, 0xCB),
-        read(0, ARG, 0x80),
-        read(1, ARG, 0x47)
-    ]
-);
-hole!(
-    fd_cb_register_result,
-    &[0xFD, 0xCB, 0x7F, 0x47],
-    [0xFD, 0xCB, 0x7F],
-    3,
-    0x47,
-    &[
-        read(0xFFFE, OP, 0xFD),
-        read(0xFFFF, OP, 0xCB),
-        read(0, ARG, 0x7F),
-        read(1, ARG, 0x47)
-    ]
-);
+// Decision-20 §3 replaces cb_missing_shift, dd_cb_register_result and
+// fd_cb_register_result refusals with z80_undocumented_cb.rs execution traces.
+// No fetched refusal remains; interrupt API rollback is tested below.
 
 // Decision-20 §2: H half load (Young v0.91 §3.2 p. 11;
 // Rak .ld_x_x), L ignored/repeated/ED extension (Young §3.7 p. 14).
@@ -552,11 +510,14 @@ fn staging_index_cb_bit_reads_displacement_and_key_only() {
 
 #[test]
 fn unsupported_keeps_earlier_retirement_and_restores_that_boundary() {
-    // Decision-20 §2: DD00 executes; CB30 still refuses until §3.
+    // Decision-20 §3 removes CB30 refusal; decision-15 rule 9 retains
+    // IM0 non-RST refusal. Earlier NOP retirement is preserved on retry.
     let mut cpu = cpu_at(0x2000);
+    cpu.latches_mut().interrupt_mode = InterruptMode::Mode0;
     let mut bus = RecordingBus::new();
     bus.load(0x2000, &[0, 0xCB, 0x30]);
-    bus.nmi_levels.extend([false, false]);
+    bus.int_levels.extend([false, true]);
+    bus.acknowledges.push_back(0x30);
     let report = cpu.run(&mut bus, UNLIMITED);
     assert_eq!((report.steps, report.cycles), (1, 4));
     let Exit::Unsupported(unsupported) = report.exit else {
@@ -564,11 +525,12 @@ fn unsupported_keeps_earlier_retirement_and_restores_that_boundary() {
     };
     assert_eq!(unsupported.pc, 0x2001);
     assert_eq!(unsupported.opcode, 0x30);
-    assert_eq!(unsupported.preceding, [0xCB, 0, 0]);
-    assert_eq!(unsupported.preceding_len, 1);
-    assert!(!unsupported.acknowledge);
+    assert_eq!(unsupported.preceding, [0; 3]);
+    assert_eq!(unsupported.preceding_len, 0);
+    assert!(unsupported.acknowledge);
     let mut expected = cpu_at(0x2001);
     expected.registers_mut().r = 0x80;
+    expected.latches_mut().interrupt_mode = InterruptMode::Mode0;
     expected.latches_mut().nmi_asserted = false;
     expected.latches_mut().ei_delay = false;
     expected.latches_mut().parity_note_pending = false;
@@ -582,9 +544,26 @@ fn unsupported_keeps_earlier_retirement_and_restores_that_boundary() {
             read(0x2000, OP, 0),
             Event::StopPoll(false),
             Event::NmiPoll(false),
-            Event::IntPoll(false),
-            read(0x2001, OP, 0xCB),
-            read(0x2002, OP, 0x30),
+            Event::IntPoll(true),
+            read(0x2001, MemoryAccess::InterruptAcknowledge, 0x30),
+        ]
+    );
+    let before = cpu.clone();
+    bus.int = true;
+    bus.acknowledges.push_back(0x30);
+    let retried = cpu.step(&mut bus);
+    assert_eq!(
+        (retried.steps, retried.cycles, retried.exit),
+        (0, 0, report.exit)
+    );
+    assert_eq!(cpu, before);
+    assert_eq!(
+        bus.take_log(),
+        [
+            Event::StopPoll(false),
+            Event::NmiPoll(false),
+            Event::IntPoll(true),
+            read(0x2001, MemoryAccess::InterruptAcknowledge, 0x30)
         ]
     );
 }

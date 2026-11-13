@@ -6,8 +6,8 @@
 //! (PDF = printed + 6). Whole-instruction lengths and T-state totals include
 //! every prefix, operand and displacement (decision-13 rules 3–5).
 //! Execution witnesses: tests/z80_rotate_shift.rs. Access kinds and refresh
-//! follow decision-15 rules 5–6, including its unverified indexed-CB fourth-
-//! byte classification. Only six flags are stored (decision-14 rules 5–6).
+//! follow decision-20 §§2–3 (L mapping). Only six flags are stored; bits 5/3
+//! await decision-20 §4 / x80-mn3.15, retaining current flag storage.
 
 use super::cpu::{Decoded, IndexRegister, Table};
 use super::opcodes::{Encoding, Instruction, States};
@@ -54,28 +54,23 @@ pub(super) const CB: &[Encoding] = &[
     Encoding::new(b"00101RRR", 2, States::single(8)),
     // UM SRA (HL), pp. 233–234.
     Encoding::new(b"00101110", 2, States::single(15)),
+    // H SLL: decision-20 §3; Young v0.91 (2005-09-18) §3.1 p. 11,
+    // §8.7 p. 32; Rak z80test v1.2a .slia_a/.slia_r, testtable 81–100.
+    // L 2/8 and 2/15: neighbouring shift-cost extension, no timing key.
+    Encoding::new(b"00110RRR", 2, States::single(8)),
+    Encoding::new(b"00110110", 2, States::single(15)),
     // UM SRL r, pp. 236–237.
     Encoding::new(b"00111RRR", 2, States::single(8)),
     // UM SRL (HL), pp. 236–237.
     Encoding::new(b"00111110", 2, States::single(15)),
 ];
 
-pub(super) const INDEX_CB: &[Encoding] = &[
-    // UM RLC (IX/IY+d), pp. 217, 219.
-    Encoding::new(b"00000110", 4, States::single(23)),
-    // UM RRC (IX/IY+d), pp. 224–226.
-    Encoding::new(b"00001110", 4, States::single(23)),
-    // UM RL (IX/IY+d), pp. 221–222.
-    Encoding::new(b"00010110", 4, States::single(23)),
-    // UM RR (IX/IY+d), pp. 227–229.
-    Encoding::new(b"00011110", 4, States::single(23)),
-    // UM SLA (IX/IY+d), pp. 230–231.
-    Encoding::new(b"00100110", 4, States::single(23)),
-    // UM SRA (IX/IY+d), pp. 233–234.
-    Encoding::new(b"00101110", 4, States::single(23)),
-    // UM SRL (IX/IY+d), pp. 236–237.
-    Encoding::new(b"00111110", 4, States::single(23)),
-];
+// A canonical memory forms: UM008011-0816 rev. 11 pp. 217–241;
+// TM 03-0029-01 (1977) Table 7.0-7 p. 50.
+// H copies/SLL: decision-20 §3; Young v0.91 §§3.5–3.6 pp. 13–14,
+// §8.7 p. 32; Rak v1.2a .sro_xyd_r 671–676. L new costs: Young
+// §8.7 p. 32, without independent timing capture. D includes memory 110.
+pub(super) const INDEX_CB: &[Encoding] = &[Encoding::new(b"00SSSDDD", 4, States::single(23))];
 
 pub(super) const ED: &[Encoding] = &[
     // UM RLD, p. 238.
@@ -152,8 +147,10 @@ pub(super) fn execute<S: Bus>(
 }
 
 /// CB register fields and read/modify/write memory: UM pp. 213–237;
-/// TM Table 7.0-7 p. 50. The map excludes SLL and indexed register copies
-/// (decision-14 rules 1–2), so indexed writeback changes memory only.
+/// TM Table 7.0-7 p. 50. H indexed copies: decision-20 §3, Young v0.91
+/// §§3.5–3.6 pp. 13–14; Rak v1.2a .sro_xyd_r 671–676. L temporal/API
+/// rule: write once and copy the computed byte, even if the device ignores
+/// the write; do not reread memory. Ordinary H/L are always the destinations.
 fn execute_cb<S: Bus>(registers: &mut Registers, system: &mut S, opcode: u8, address: Option<u16>) {
     let operand = if let Some(address) = address {
         system.read(address, MemoryAccess::Data)
@@ -171,7 +168,8 @@ fn execute_cb<S: Bus>(registers: &mut Registers, system: &mut S, opcode: u8, add
     let (value, carry) = rotate_shift(opcode, operand, registers.flags.carry);
     if let Some(address) = address {
         system.write(address, value, MemoryAccess::Data);
-    } else {
+    }
+    if opcode & 7 != 6 {
         match opcode & 7 {
             0 => registers.b = value,
             1 => registers.c = value,
@@ -197,7 +195,9 @@ fn rotate_shift(opcode: u8, value: u8, carry: bool) -> (u8, bool) {
         0x18 => ((value >> 1) | (u8::from(carry) << 7), value & 1 != 0),
         0x20 => (value << 1, value & 0x80 != 0),
         0x28 => ((value >> 1) | (value & 0x80), value & 1 != 0),
-        // The map admits 38h (SRL) here; 30h (SLL) is absent.
+        // H SLL: decision-20 §3; Young v0.91 §3.1 p. 11 / §8.7 p. 32;
+        // Rak v1.2a .slia_a/.slia_r, testtable 81–100.
+        0x30 => ((value << 1) | 1, value & 0x80 != 0),
         _ => (value >> 1, value & 1 != 0),
     }
 }

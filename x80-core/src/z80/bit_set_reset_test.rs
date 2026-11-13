@@ -31,13 +31,18 @@ pub(super) const CB: &[Encoding] = &[
     Encoding::new(b"10BBB110", 2, States::single(15)),
 ];
 
+// H aliases/copies: decision-20 §3; Young v0.91 (2005-09-18) §§3.5–3.6
+// pp. 13–14 / §8.8 p. 33; Rak z80test v1.2a .bit_n_xyd_ 833–838,
+// .set_n_xyd_/.res_n_xyd_ 903–908. A canonical costs: UM rev. 11
+// pp. 247–260, TM (1977) Table 7.0-8 p. 51. L new alias costs and API
+// read/write ordering: decision-20 §§2–3; no independent bus/timing key.
 pub(super) const INDEX_CB: &[Encoding] = &[
     // UM BIT b,(IX/IY+d), pp. 247–250.
-    Encoding::new(b"01BBB110", 4, States::single(20)),
+    Encoding::new(b"01BBBDDD", 4, States::single(20)),
     // UM SET b,(IX/IY+d), pp. 255–258.
-    Encoding::new(b"11BBB110", 4, States::single(23)),
+    Encoding::new(b"11BBBDDD", 4, States::single(23)),
     // UM RES b,(IX/IY+d), pp. 259–260.
-    Encoding::new(b"10BBB110", 4, States::single(23)),
+    Encoding::new(b"10BBBDDD", 4, States::single(23)),
 ];
 
 /// Executes only the CB/INDEX_CB entries above (decision-13 rule 4).
@@ -69,17 +74,22 @@ pub(super) fn execute<S: Bus>(
         registers.hl()
     };
     // Register codes: UM pp. 243/251/260; HL memory: pp. 245/253/259.
-    // The documented indexed keys also have low bits 110 (pp. 247–260).
+    // H decision-20 §3 aliases always read memory, irrespective of low bits;
+    // Young §3.5 p. 14; Rak .bit_n_xyd_, .set_n_xyd_/.res_n_xyd_.
     let code = decoded.opcode & 7;
-    let operand = match code {
-        0 => registers.b,
-        1 => registers.c,
-        2 => registers.d,
-        3 => registers.e,
-        4 => registers.h,
-        5 => registers.l,
-        6 => system.read(address, MemoryAccess::Data),
-        _ => registers.a,
+    let operand = if decoded.table == Table::IndexCb {
+        system.read(address, MemoryAccess::Data)
+    } else {
+        match code {
+            0 => registers.b,
+            1 => registers.c,
+            2 => registers.d,
+            3 => registers.e,
+            4 => registers.h,
+            5 => registers.l,
+            6 => system.read(address, MemoryAccess::Data),
+            _ => registers.a,
+        }
     };
     let bit = 1u8 << ((decoded.opcode >> 3) & 7);
     let value = match decoded.opcode >> 6 {
@@ -91,6 +101,8 @@ pub(super) fn execute<S: Bus>(
             registers.flags.zero = operand & bit == 0;
             registers.flags.half_carry = true;
             registers.flags.subtract = false;
+            // L no Bus write or register copy: decision-20 §3 API mapping.
+            // Bits 5/3 and later BIT flags await §4; retain current storage.
             return Path::Untaken;
         }
         // UM RES pp. 259–260 and SET pp. 251–258; TM p. 51:
@@ -98,6 +110,11 @@ pub(super) fn execute<S: Bus>(
         2 => operand & !bit,
         _ => operand | bit,
     };
+    // L computed-result copy even on write-ignoring devices: decision-20 §3;
+    // Young §§3.5–3.6 pp. 13–14, no independent ROM/bus capture in Rak.
+    if decoded.table == Table::IndexCb || code == 6 {
+        system.write(address, value, MemoryAccess::Data);
+    }
     match code {
         0 => registers.b = value,
         1 => registers.c = value,
@@ -105,9 +122,7 @@ pub(super) fn execute<S: Bus>(
         3 => registers.e = value,
         4 => registers.h = value,
         5 => registers.l = value,
-        // Read/modify/write memory, including an already-set/reset bit
-        // (UM SET pp. 253/255/257, RES pp. 259–260; decision-15 rule 5).
-        6 => system.write(address, value, MemoryAccess::Data),
+        6 => {}
         _ => registers.a = value,
     }
     Path::Untaken

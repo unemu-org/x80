@@ -430,19 +430,9 @@ mod tests {
         assert_eq!(run(&code, config(15)).unwrap().reason, Reason::Returned);
     }
     #[test]
-    fn refusal_halt_bad_ports_and_bad_channel_never_return_success() {
-        // DD DD now executes as an ignored prefix (decision-20 §2); SLL
-        // CB 30 still refuses until decision-20 §3 lands.
-        let r = run(&[0xcb, 0x30], config(100)).unwrap();
-        assert_eq!(
-            r.reason,
-            Reason::Unsupported {
-                step: 1,
-                pc: 0x8000,
-                encoding: vec![0xcb, 0x30],
-            }
-        );
-        assert_eq!((r.steps, r.cycles), (0, 0));
+    fn halt_bad_ports_and_bad_channel_never_return_success() {
+        // Decision-20 §3: delete CB30 refusal assertion. This host keeps
+        // INT/NMI unasserted, leaving no CPU refusal path to fixture.
         assert!(matches!(
             run(&[0x76], config(1)).unwrap().reason,
             Reason::Halt { .. }

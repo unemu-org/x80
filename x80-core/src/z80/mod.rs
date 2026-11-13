@@ -1,9 +1,10 @@
 //! The Z80 model's register file, flags, execution latches, input contract and
 //! reset, prefix dispatch and run/step (decisions 13–15). Every documented
-//! encoding executes. Decision-20 §§1–2 also admit all ED terminals, index
-//! halves and ignored/repeated DD/FD prefixes; SLL and undocumented indexed-CB
-//! terminals still return Unsupported pending §3. NMI
-//! and INT in modes 0, 1 and 2 are accepted (decision-15 rules 8 and 9).
+//! encoding executes. Decision-20 §§1–3 also admit all ED terminals, index
+//! halves, ignored/repeated DD/FD, SLL and indexed-CB copies/BIT aliases.
+//! No normally fetched encoding refuses; Unsupported remains for IM0 non-RST
+//! and odd-IM2 acknowledgements (decision-15 rule 9). NMI and INT in modes
+//! 0, 1 and 2 are accepted within those restrictions (rules 8 and 9).
 //!
 //! Primary source: Zilog Z80 CPU User Manual UM008011-0816, revision 11,
 //! August 2016 (printed page + 14 = PDF page). Second witness here: Zilog

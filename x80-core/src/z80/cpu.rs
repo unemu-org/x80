@@ -119,8 +119,8 @@ impl Z80 {
     /// their device side effects cannot be undone. Budget does no polling.
     /// Started instructions complete with their whole cost, even on overshoot.
     ///
-    /// Every documented encoding dispatches to its group executor. Unsupported
-    /// terminal bytes follow decision-14 rule 4's refusal reads.
+    /// Decision-20 §§1–3 admit every normally fetched encoding. Unsupported
+    /// remains for interrupt API restrictions (decision-15 rule 9).
     pub fn run<S: Bus + Inputs>(&mut self, system: &mut S, budget: Budget) -> Report {
         let mut progress = Progress::default();
         loop {
@@ -260,10 +260,8 @@ impl Z80 {
     /// §6.1 p. 23): arbitrary DD/FD chains have one boundary/retirement.
     /// No prefix buffer or count limit; wrapping PC tracks consumed length.
     /// Extra costs saturate outside the u8 terminal table. An infinite chain
-    /// need not return. The L diagnostic convention keeps start PC and the
-    /// final decoding context: [last DD/FD, CB, d] for indexed-CB refusals,
-    /// or [CB] for SLL. Earlier selectors are omitted; single-prefix payloads
-    /// stay unchanged. Never scan beyond the refused terminal.
+    /// need not return. Decision-20 §3 completes fetched admission; the fixed
+    /// diagnostic/rollback machinery remains for interrupt API refusals.
     fn fetch_decode<S: Bus>(&mut self, system: &mut S) -> (Decoded, Unsupported, u64) {
         let start_pc = self.registers.pc;
         let mut decoded = Decoded {

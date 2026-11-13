@@ -14,7 +14,7 @@ mod support;
 
 use support::{Event, RecordingBus};
 use x80_core::z80::{Flags, Inputs, InterruptMode, Latches, Registers, Z80};
-use x80_core::{Budget, Bus, Control, Exit, MemoryAccess, Unsupported};
+use x80_core::{Budget, Bus, Control, Exit, MemoryAccess};
 use MemoryAccess::{OpcodeFetch as Op, OperandFetch as Arg};
 
 fn fixture(prefix: u8, opcode: u8) -> (Z80, RecordingBus) {
@@ -453,43 +453,9 @@ fn repeating_block_refetch_starts_at_ed_after_extra_selectors() {
     );
 }
 
-#[test]
-fn refusal_chain_payload_keeps_start_pc_and_final_decode_context_and_rolls_back() {
-    // L payload convention: decision-20 §2 / decision-14 rules 3–4.
-    // Earlier selectors are omitted; bus side effects remain observable.
-    for terminal in [0x00, 0x36, 0x47] {
-        let (mut cpu, mut bus) = fixture(0xDD, 0);
-        cpu.registers_mut().pc = 0xFFFE;
-        cpu.registers_mut().r = 0xFF;
-        cpu.latches_mut().ei_delay = true;
-        cpu.latches_mut().parity_note_pending = true;
-        cpu.latches_mut().nmi_asserted = true;
-        let before = cpu.clone();
-        bus.load(0xFFFE, &[0xDD, 0xFD, 0xDD, 0xCB, 0x80, terminal, 0xA5]);
-        for _ in 0..2 {
-            let report = cpu.step(&mut bus);
-            assert_eq!((report.steps, report.cycles), (0, 0));
-            assert!(
-                matches!(report.exit,Exit::Unsupported(Unsupported { pc:0xFFFE,opcode,acknowledge:false,preceding:[0xDD,0xCB,0x80],preceding_len:3, .. }) if opcode == terminal)
-            );
-            assert_eq!(cpu, before);
-            assert_eq!(
-                bus.take_log(),
-                vec![
-                    Event::StopPoll(false),
-                    Event::NmiPoll(false),
-                    Event::IntPoll(false),
-                    read(0xFFFE, Op, 0xDD),
-                    read(0xFFFF, Op, 0xFD),
-                    read(0, Op, 0xDD),
-                    read(1, Op, 0xCB),
-                    read(2, Arg, 0x80),
-                    read(3, Arg, terminal)
-                ]
-            );
-        }
-    }
-}
+// Decision-20 §3 removes the indexed-CB refusal-chain fixture; no fetched
+// refusal remains. z80_undocumented_cb.rs now pins a retiring copy chain;
+// z80_interrupts_int.rs retains interrupt-only payload/rollback witnesses.
 
 // Requests become asserted during the first prefix fetch, rather than on a
 // later scripted poll. The full trace proves there is no mid-chain polling.

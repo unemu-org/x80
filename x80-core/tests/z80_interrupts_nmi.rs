@@ -477,51 +477,40 @@ fn stop_does_not_commit_a_not_asserted_sample() {
 
 #[test]
 fn unsupported_restores_sampler_and_reports_the_earlier_nmi_progress() {
-    // Rule 2 / decision-12 rule 2 restoration is an API guarantee.
-    // NMI itself cannot refuse; its discarded ED is not decoded. A later
-    // unsupported CB 30 boundary must undo its tentative low sample.
-    // Decision-20 §2: DD00 executes; CB30 still refuses until §3.
-    let initial = Latches {
-        ei_delay: true,
-        ..latches()
-    };
-    let mut cpu = Z80::new(registers(), initial);
+    // Decision-20 §3 admits CB30; migrate to decision-15 rule 9 odd-IM2
+    // refusal. NMI + RETN restore IFF1 before INT; the refused low NMI
+    // sample must restore the held-high history, R and all boundary state.
+    let mut cpu = Z80::new(registers(), latches());
     let mut bus = RecordingBus::new();
-    bus.load(0x2345, &[0xED, 0]);
-    bus.load(0x0066, &[0xCB, 0x30]);
-    bus.nmi_levels.extend([true, false]);
-    let assert_refusal = |actual: Report, steps, cycles| {
-        assert_eq!((actual.steps, actual.cycles), (steps, cycles));
-        assert!(matches!(
-            actual.exit,
-            Exit::Unsupported(Unsupported {
-                pc: 0x0066,
-                opcode: 0x30,
-                acknowledge: false,
-                preceding: [0xCB, 0, 0],
-                preceding_len: 1,
-                ..
-            })
-        ));
-    };
-    assert_refusal(cpu.run(&mut bus, UNLIMITED), 1, 11);
-    assert_eq!(
-        *cpu.registers(),
+    bus.load(0x2345, &[0xED]);
+    bus.load(0x0066, &[0xED, 0x45]);
+    bus.nmi_levels.extend([true, true, false]);
+    bus.int_levels.extend([false, false, true]);
+    bus.acknowledges.push_back(0x31);
+    let actual = cpu.run(&mut bus, UNLIMITED);
+    assert_eq!((actual.steps, actual.cycles), (2, 25));
+    assert!(matches!(
+        actual.exit,
+        Exit::Unsupported(Unsupported {
+            pc: 0x2345,
+            opcode: 0x31,
+            acknowledge: true,
+            preceding: [0, 0, 0],
+            preceding_len: 0,
+            ..
+        })
+    ));
+    let expected = Z80::new(
         Registers {
-            pc: 0x0066,
-            sp: 0x80FE,
-            r: 0x80,
+            r: 0x82,
             ..registers()
-        }
-    );
-    assert_eq!(
-        *cpu.latches(),
+        },
         Latches {
-            iff1: false,
             nmi_asserted: true,
-            ..initial
-        }
+            ..latches()
+        },
     );
+    assert_eq!(cpu, expected);
     assert_eq!(
         bus.take_log(),
         [
@@ -532,63 +521,46 @@ fn unsupported_restores_sampler_and_reports_the_earlier_nmi_progress() {
             write(0x80FF, 0x23),
             write(0x80FE, 0x45),
             Event::StopPoll(false),
-            Event::NmiPoll(false),
-            Event::IntPoll(false),
-            read(0x0066, OP, 0xCB),
-            read(0x0067, OP, 0x30),
-        ]
-    );
-    let before = cpu.clone();
-    let memory = bus.memory.clone();
-    bus.nmi = true; // Restored asserted history prevents a spurious edge.
-    assert_refusal(cpu.step(&mut bus), 0, 0);
-    assert_eq!(cpu, before);
-    assert_eq!(bus.memory, memory);
-    assert_eq!(
-        bus.take_log(),
-        [
-            Event::StopPoll(false),
             Event::NmiPoll(true),
             Event::IntPoll(false),
-            read(0x0066, OP, 0xCB),
-            read(0x0067, OP, 0x30),
-        ]
-    );
-    bus.nmi = false;
-    bus.load(0x0066, &[0]);
-    assert_eq!(cpu.step(&mut bus), report(1, 4, Exit::Budget));
-    assert!(!cpu.latches().nmi_asserted);
-    assert!(!cpu.latches().ei_delay);
-    assert_eq!(
-        bus.take_log(),
-        [
+            read(0x0066, OP, 0xED),
+            read(0x0067, OP, 0x45),
+            read(0x80FE, STACK, 0x45),
+            read(0x80FF, STACK, 0x23),
             Event::StopPoll(false),
             Event::NmiPoll(false),
-            Event::IntPoll(false),
-            read(0x0066, OP, 0),
+            Event::IntPoll(true),
+            read(0x2345, MemoryAccess::InterruptAcknowledge, 0x31),
         ]
     );
+    let memory = bus.memory.clone();
+    for asserted in [false, true] {
+        bus.nmi = asserted;
+        bus.int = true;
+        bus.acknowledges.push_back(0x31);
+        assert_eq!(cpu.step(&mut bus), report(0, 0, actual.exit));
+        assert_eq!(cpu, expected);
+        assert_eq!(bus.memory, memory);
+        assert_eq!(
+            bus.take_log(),
+            [
+                Event::StopPoll(false),
+                Event::NmiPoll(asserted),
+                Event::IntPoll(true),
+                read(0x2345, MemoryAccess::InterruptAcknowledge, 0x31)
+            ]
+        );
+    }
+    bus.int = false;
+    bus.nmi = false;
+    bus.load(0x2345, &[0]);
+    assert_eq!(cpu.step(&mut bus), report(1, 4, Exit::Budget));
+    assert!(!cpu.latches().nmi_asserted);
     bus.nmi = true;
     assert_eq!(cpu.step(&mut bus), report(1, 11, Exit::Budget));
     assert_eq!(
-        *cpu.registers(),
-        Registers {
-            pc: 0x0066,
-            sp: 0x80FC,
-            r: 0x82,
-            ..registers()
-        }
-    );
-    assert_eq!(
-        bus.take_log(),
-        [
-            Event::StopPoll(false),
-            Event::NmiPoll(true),
-            Event::IntPoll(false),
-            read(0x0067, OP, 0x30),
-            write(0x80FD, 0),
-            write(0x80FC, 0x67),
-        ]
+        (cpu.registers().pc, cpu.registers().sp, cpu.registers().r),
+        (0x66, 0x80FE, 0x84)
     );
 }
 

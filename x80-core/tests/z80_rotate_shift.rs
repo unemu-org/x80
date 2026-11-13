@@ -474,50 +474,6 @@ fn rrd_rotates_three_nibbles_flags_from_a_carry_preserved() {
     );
 }
 
-#[test]
-fn sll_and_indexed_register_copies_remain_unsupported() {
-    // decision-14 rules 1–4; UM entries pp. 213–237 and TM p. 50 omit
-    // SLL and indexed register-copy forms. This boundary witness passes
-    // on the base too; it must still pass after enabling the group.
-    for opcode in 0x30..=0x37 {
-        refusal(&[0xCB, opcode], &[OP, OP], [0xCB, 0, 0], 1);
-    }
-    for prefix in [0xDD, 0xFD] {
-        for opcode in [
-            0x00, 0x07, 0x08, 0x0F, 0x10, 0x17, 0x18, 0x1F, 0x20, 0x27, 0x28, 0x2F, 0x36, 0x38,
-            0x3F,
-        ] {
-            refusal(
-                &[prefix, 0xCB, 0x80, opcode],
-                &[OP, OP, ARG, ARG],
-                [prefix, 0xCB, 0x80],
-                3,
-            );
-        }
-    }
-}
-
-fn refusal(bytes: &[u8], kinds: &[MemoryAccess], preceding: [u8; 3], preceding_len: u8) {
-    let mut cpu = Z80::new(registers(), latches());
-    let before = cpu.clone();
-    let mut bus = RecordingBus::new();
-    bus.load(0xFFFF, bytes);
-    let memory = bus.memory.clone();
-    let report = cpu.step(&mut bus);
-    assert_eq!((report.steps, report.cycles), (0, 0));
-    let Exit::Unsupported(unsupported) = report.exit else {
-        panic!("{report:?}");
-    };
-    assert_eq!(unsupported.pc, 0xFFFF);
-    assert_eq!(unsupported.opcode, *bytes.last().expect("nonempty witness"));
-    assert_eq!(unsupported.preceding, preceding);
-    assert_eq!(unsupported.preceding_len, preceding_len);
-    assert!(!unsupported.acknowledge);
-    assert_eq!(cpu, before);
-    assert_eq!(bus.memory, memory);
-    let mut trace = polls();
-    for (offset, (&value, &kind)) in bytes.iter().zip(kinds).enumerate() {
-        trace.push(read(0xFFFFu16.wrapping_add(offset as u16), kind, value));
-    }
-    assert_eq!(bus.take_log(), trace);
-}
+// Decision-20 §3 replaces the former SLL/indexed-copy refusal assertions
+// with literal execution/trace witnesses in z80_undocumented_cb.rs. No fetched
+// refusal remains in this group; interrupt refusals live in z80_interrupts_int.rs.

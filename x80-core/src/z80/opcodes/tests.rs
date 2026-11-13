@@ -7,10 +7,10 @@
 //! The sources share Zilog lineage; agreement is no hardware measurement.
 //!
 //! Audit checklist (each key, group, complete byte length and both totals):
-//! MAIN 252/252; CB 248/248; ED 256/256; INDEX 85/85; INDEX_CB 31/31.
-//! The last two maps each serve DD and FD: 872 stored entries represent
-//! 988 effective logical entries; 334 ignored MAIN fallbacks bring terminal
-//! coverage to 1322 (decision-20 §§1–2; dispatch slots excluded).
+//! MAIN 252/252; CB 256/256; ED 256/256; INDEX 85/85; INDEX_CB 256/256.
+//! The last two maps each serve DD and FD: 1105 stored entries represent
+//! 1446 effective logical entries; 334 ignored MAIN fallbacks bring terminal
+//! coverage to 1780 (decision-20 §§1–3; dispatch slots excluded).
 //! These literal lists neither use the encoding slices nor expand patterns.
 //! The tests below pin the PROVENANCE.md §1 resolutions separately.
 
@@ -543,6 +543,16 @@ const CB_ROWS: &[Row] = &[
     (0xFD, BT, 2, 8, 8),
     (0xFE, BT, 2, 15, 15),
     (0xFF, BT, 2, 8, 8),
+    // H SLL / L costs: decision-20 §3; Young v0.91 §3.1 p. 11,
+    // §8.7 p. 32; Rak v1.2a .slia_a/.slia_r (testtable 81–100).
+    (0x30, RS, 2, 8, 8),
+    (0x31, RS, 2, 8, 8),
+    (0x32, RS, 2, 8, 8),
+    (0x33, RS, 2, 8, 8),
+    (0x34, RS, 2, 8, 8),
+    (0x35, RS, 2, 8, 8),
+    (0x36, RS, 2, 15, 15),
+    (0x37, RS, 2, 8, 8),
 ];
 
 // UM Tables 6/7/9/10/12/13/15/18–20 pp. 42–64, Fig. 39 p. 54;
@@ -937,6 +947,234 @@ const INDEX_CB_ROWS: &[Row] = &[
     (0xEE, BT, 4, 23, 23),
     (0xF6, BT, 4, 23, 23),
     (0xFE, BT, 4, 23, 23),
+    // H copies/BIT aliases, L costs: decision-20 §3; Young v0.91
+    // §§3.5–3.6 pp. 13–14 / §§8.7–8.8 pp. 32–33; Rak v1.2a
+    // .sro_xyd_r/.bit_n_xyd_/.set_n_xyd_/.res_n_xyd_.
+    (0x00, RS, 4, 23, 23),
+    (0x01, RS, 4, 23, 23),
+    (0x02, RS, 4, 23, 23),
+    (0x03, RS, 4, 23, 23),
+    (0x04, RS, 4, 23, 23),
+    (0x05, RS, 4, 23, 23),
+    (0x07, RS, 4, 23, 23),
+    (0x08, RS, 4, 23, 23),
+    (0x09, RS, 4, 23, 23),
+    (0x0A, RS, 4, 23, 23),
+    (0x0B, RS, 4, 23, 23),
+    (0x0C, RS, 4, 23, 23),
+    (0x0D, RS, 4, 23, 23),
+    (0x0F, RS, 4, 23, 23),
+    (0x10, RS, 4, 23, 23),
+    (0x11, RS, 4, 23, 23),
+    (0x12, RS, 4, 23, 23),
+    (0x13, RS, 4, 23, 23),
+    (0x14, RS, 4, 23, 23),
+    (0x15, RS, 4, 23, 23),
+    (0x17, RS, 4, 23, 23),
+    (0x18, RS, 4, 23, 23),
+    (0x19, RS, 4, 23, 23),
+    (0x1A, RS, 4, 23, 23),
+    (0x1B, RS, 4, 23, 23),
+    (0x1C, RS, 4, 23, 23),
+    (0x1D, RS, 4, 23, 23),
+    (0x1F, RS, 4, 23, 23),
+    (0x20, RS, 4, 23, 23),
+    (0x21, RS, 4, 23, 23),
+    (0x22, RS, 4, 23, 23),
+    (0x23, RS, 4, 23, 23),
+    (0x24, RS, 4, 23, 23),
+    (0x25, RS, 4, 23, 23),
+    (0x27, RS, 4, 23, 23),
+    (0x28, RS, 4, 23, 23),
+    (0x29, RS, 4, 23, 23),
+    (0x2A, RS, 4, 23, 23),
+    (0x2B, RS, 4, 23, 23),
+    (0x2C, RS, 4, 23, 23),
+    (0x2D, RS, 4, 23, 23),
+    (0x2F, RS, 4, 23, 23),
+    (0x30, RS, 4, 23, 23),
+    (0x31, RS, 4, 23, 23),
+    (0x32, RS, 4, 23, 23),
+    (0x33, RS, 4, 23, 23),
+    (0x34, RS, 4, 23, 23),
+    (0x35, RS, 4, 23, 23),
+    (0x36, RS, 4, 23, 23),
+    (0x37, RS, 4, 23, 23),
+    (0x38, RS, 4, 23, 23),
+    (0x39, RS, 4, 23, 23),
+    (0x3A, RS, 4, 23, 23),
+    (0x3B, RS, 4, 23, 23),
+    (0x3C, RS, 4, 23, 23),
+    (0x3D, RS, 4, 23, 23),
+    (0x3F, RS, 4, 23, 23),
+    (0x40, BT, 4, 20, 20),
+    (0x41, BT, 4, 20, 20),
+    (0x42, BT, 4, 20, 20),
+    (0x43, BT, 4, 20, 20),
+    (0x44, BT, 4, 20, 20),
+    (0x45, BT, 4, 20, 20),
+    (0x47, BT, 4, 20, 20),
+    (0x48, BT, 4, 20, 20),
+    (0x49, BT, 4, 20, 20),
+    (0x4A, BT, 4, 20, 20),
+    (0x4B, BT, 4, 20, 20),
+    (0x4C, BT, 4, 20, 20),
+    (0x4D, BT, 4, 20, 20),
+    (0x4F, BT, 4, 20, 20),
+    (0x50, BT, 4, 20, 20),
+    (0x51, BT, 4, 20, 20),
+    (0x52, BT, 4, 20, 20),
+    (0x53, BT, 4, 20, 20),
+    (0x54, BT, 4, 20, 20),
+    (0x55, BT, 4, 20, 20),
+    (0x57, BT, 4, 20, 20),
+    (0x58, BT, 4, 20, 20),
+    (0x59, BT, 4, 20, 20),
+    (0x5A, BT, 4, 20, 20),
+    (0x5B, BT, 4, 20, 20),
+    (0x5C, BT, 4, 20, 20),
+    (0x5D, BT, 4, 20, 20),
+    (0x5F, BT, 4, 20, 20),
+    (0x60, BT, 4, 20, 20),
+    (0x61, BT, 4, 20, 20),
+    (0x62, BT, 4, 20, 20),
+    (0x63, BT, 4, 20, 20),
+    (0x64, BT, 4, 20, 20),
+    (0x65, BT, 4, 20, 20),
+    (0x67, BT, 4, 20, 20),
+    (0x68, BT, 4, 20, 20),
+    (0x69, BT, 4, 20, 20),
+    (0x6A, BT, 4, 20, 20),
+    (0x6B, BT, 4, 20, 20),
+    (0x6C, BT, 4, 20, 20),
+    (0x6D, BT, 4, 20, 20),
+    (0x6F, BT, 4, 20, 20),
+    (0x70, BT, 4, 20, 20),
+    (0x71, BT, 4, 20, 20),
+    (0x72, BT, 4, 20, 20),
+    (0x73, BT, 4, 20, 20),
+    (0x74, BT, 4, 20, 20),
+    (0x75, BT, 4, 20, 20),
+    (0x77, BT, 4, 20, 20),
+    (0x78, BT, 4, 20, 20),
+    (0x79, BT, 4, 20, 20),
+    (0x7A, BT, 4, 20, 20),
+    (0x7B, BT, 4, 20, 20),
+    (0x7C, BT, 4, 20, 20),
+    (0x7D, BT, 4, 20, 20),
+    (0x7F, BT, 4, 20, 20),
+    (0x80, BT, 4, 23, 23),
+    (0x81, BT, 4, 23, 23),
+    (0x82, BT, 4, 23, 23),
+    (0x83, BT, 4, 23, 23),
+    (0x84, BT, 4, 23, 23),
+    (0x85, BT, 4, 23, 23),
+    (0x87, BT, 4, 23, 23),
+    (0x88, BT, 4, 23, 23),
+    (0x89, BT, 4, 23, 23),
+    (0x8A, BT, 4, 23, 23),
+    (0x8B, BT, 4, 23, 23),
+    (0x8C, BT, 4, 23, 23),
+    (0x8D, BT, 4, 23, 23),
+    (0x8F, BT, 4, 23, 23),
+    (0x90, BT, 4, 23, 23),
+    (0x91, BT, 4, 23, 23),
+    (0x92, BT, 4, 23, 23),
+    (0x93, BT, 4, 23, 23),
+    (0x94, BT, 4, 23, 23),
+    (0x95, BT, 4, 23, 23),
+    (0x97, BT, 4, 23, 23),
+    (0x98, BT, 4, 23, 23),
+    (0x99, BT, 4, 23, 23),
+    (0x9A, BT, 4, 23, 23),
+    (0x9B, BT, 4, 23, 23),
+    (0x9C, BT, 4, 23, 23),
+    (0x9D, BT, 4, 23, 23),
+    (0x9F, BT, 4, 23, 23),
+    (0xA0, BT, 4, 23, 23),
+    (0xA1, BT, 4, 23, 23),
+    (0xA2, BT, 4, 23, 23),
+    (0xA3, BT, 4, 23, 23),
+    (0xA4, BT, 4, 23, 23),
+    (0xA5, BT, 4, 23, 23),
+    (0xA7, BT, 4, 23, 23),
+    (0xA8, BT, 4, 23, 23),
+    (0xA9, BT, 4, 23, 23),
+    (0xAA, BT, 4, 23, 23),
+    (0xAB, BT, 4, 23, 23),
+    (0xAC, BT, 4, 23, 23),
+    (0xAD, BT, 4, 23, 23),
+    (0xAF, BT, 4, 23, 23),
+    (0xB0, BT, 4, 23, 23),
+    (0xB1, BT, 4, 23, 23),
+    (0xB2, BT, 4, 23, 23),
+    (0xB3, BT, 4, 23, 23),
+    (0xB4, BT, 4, 23, 23),
+    (0xB5, BT, 4, 23, 23),
+    (0xB7, BT, 4, 23, 23),
+    (0xB8, BT, 4, 23, 23),
+    (0xB9, BT, 4, 23, 23),
+    (0xBA, BT, 4, 23, 23),
+    (0xBB, BT, 4, 23, 23),
+    (0xBC, BT, 4, 23, 23),
+    (0xBD, BT, 4, 23, 23),
+    (0xBF, BT, 4, 23, 23),
+    (0xC0, BT, 4, 23, 23),
+    (0xC1, BT, 4, 23, 23),
+    (0xC2, BT, 4, 23, 23),
+    (0xC3, BT, 4, 23, 23),
+    (0xC4, BT, 4, 23, 23),
+    (0xC5, BT, 4, 23, 23),
+    (0xC7, BT, 4, 23, 23),
+    (0xC8, BT, 4, 23, 23),
+    (0xC9, BT, 4, 23, 23),
+    (0xCA, BT, 4, 23, 23),
+    (0xCB, BT, 4, 23, 23),
+    (0xCC, BT, 4, 23, 23),
+    (0xCD, BT, 4, 23, 23),
+    (0xCF, BT, 4, 23, 23),
+    (0xD0, BT, 4, 23, 23),
+    (0xD1, BT, 4, 23, 23),
+    (0xD2, BT, 4, 23, 23),
+    (0xD3, BT, 4, 23, 23),
+    (0xD4, BT, 4, 23, 23),
+    (0xD5, BT, 4, 23, 23),
+    (0xD7, BT, 4, 23, 23),
+    (0xD8, BT, 4, 23, 23),
+    (0xD9, BT, 4, 23, 23),
+    (0xDA, BT, 4, 23, 23),
+    (0xDB, BT, 4, 23, 23),
+    (0xDC, BT, 4, 23, 23),
+    (0xDD, BT, 4, 23, 23),
+    (0xDF, BT, 4, 23, 23),
+    (0xE0, BT, 4, 23, 23),
+    (0xE1, BT, 4, 23, 23),
+    (0xE2, BT, 4, 23, 23),
+    (0xE3, BT, 4, 23, 23),
+    (0xE4, BT, 4, 23, 23),
+    (0xE5, BT, 4, 23, 23),
+    (0xE7, BT, 4, 23, 23),
+    (0xE8, BT, 4, 23, 23),
+    (0xE9, BT, 4, 23, 23),
+    (0xEA, BT, 4, 23, 23),
+    (0xEB, BT, 4, 23, 23),
+    (0xEC, BT, 4, 23, 23),
+    (0xED, BT, 4, 23, 23),
+    (0xEF, BT, 4, 23, 23),
+    (0xF0, BT, 4, 23, 23),
+    (0xF1, BT, 4, 23, 23),
+    (0xF2, BT, 4, 23, 23),
+    (0xF3, BT, 4, 23, 23),
+    (0xF4, BT, 4, 23, 23),
+    (0xF5, BT, 4, 23, 23),
+    (0xF7, BT, 4, 23, 23),
+    (0xF8, BT, 4, 23, 23),
+    (0xF9, BT, 4, 23, 23),
+    (0xFA, BT, 4, 23, 23),
+    (0xFB, BT, 4, 23, 23),
+    (0xFC, BT, 4, 23, 23),
+    (0xFD, BT, 4, 23, 23),
+    (0xFF, BT, 4, 23, 23),
 ];
 
 fn assert_row(table: &[Option<Instruction>; 256], row: Row) {
@@ -983,8 +1221,9 @@ fn main_map_matches_all_252_literal_rows_and_its_complement() {
 }
 
 #[test]
-fn cb_map_matches_all_248_literal_rows_and_its_complement() {
-    assert_map(&CB, CB_ROWS, 248);
+fn cb_map_matches_all_256_literal_rows() {
+    // Decision-20 §3 admits SLL.
+    assert_map(&CB, CB_ROWS, 256);
 }
 
 #[test]
@@ -999,12 +1238,13 @@ fn index_map_matches_all_85_literal_rows_and_its_complement() {
 }
 
 #[test]
-fn index_cb_map_matches_all_31_literal_rows_and_its_complement() {
-    assert_map(&INDEX_CB, INDEX_CB_ROWS, 31);
+fn index_cb_map_matches_all_256_literal_rows() {
+    // Decision-20 §3 admits copies and BIT aliases.
+    assert_map(&INDEX_CB, INDEX_CB_ROWS, 256);
 }
 
 #[test]
-fn shared_index_maps_represent_988_effective_logical_entries() {
+fn shared_index_maps_represent_1446_effective_logical_entries() {
     // decision-14 rule 1 counts DD and FD separately, while decision-13
     // rule 3 stores each shared table once.
     let count = MAIN.iter().flatten().count()
@@ -1014,7 +1254,8 @@ fn shared_index_maps_represent_988_effective_logical_entries() {
         + 2 * INDEX_CB.iter().flatten().count();
     // Decision-20 §2 adds 46 effective half entries per selector; ignored
     // MAIN fallbacks are dispatcher-owned and not duplicated in INDEX.
-    assert_eq!(count, 988);
+    // Decision-20 §3 adds 8 CB and 225 terminals per indexed-CB selector.
+    assert_eq!(count, 1446);
 }
 
 #[test]
@@ -1029,8 +1270,9 @@ fn prefix_dispatch_slots_have_no_terminal_entry() {
 fn remaining_exclusions_and_main_fallbacks_are_explicit() {
     // decision-14 rule 1; UM Fig. 39 p. 54, IN p. 296, OUT p. 307,
     // indexed entries pp. 75–87,217–237,247–260; TM pp. 44,50–51,54.
-    // Decision-20 §1 now admits TM's ED70; retain CB/index exclusions.
-    assert!(CB[0x30..=0x37].iter().all(Option::is_none));
+    // Decision-20 §3 removes all CB and indexed-CB exclusions.
+    assert!(CB.iter().all(Option::is_some));
+    assert!(INDEX_CB.iter().all(Option::is_some));
     // Decision-20 §§1–2 remove ED and DD/FD main refusals.
     assert!(ED.iter().all(Option::is_some));
     for key in [0x00, 0x76, 0xCB, 0xDD, 0xED, 0xFD] {
@@ -1040,7 +1282,7 @@ fn remaining_exclusions_and_main_fallbacks_are_explicit() {
     assert_row(&INDEX, (0x44, L8, 2, 8, 8));
     assert_row(&INDEX, (0x65, L8, 2, 8, 8));
     for key in [0x00, 0x36, 0x47, 0x7F, 0xC0] {
-        assert!(INDEX_CB[key].is_none());
+        assert!(INDEX_CB[key].is_some());
     }
 }
 

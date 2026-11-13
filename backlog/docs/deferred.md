@@ -4,7 +4,7 @@ Do not implement these unprompted. Open work is tracked in beads.
 
 Undocumented-family work is tracked under epic `x80-mn3`, always on with no
 embedder profile. All ten 8085 extensions now execute; no fetched 8085 byte
-is refused. Zilog NMOS Z80 decision-20 §§1–2 ED and index-prefix behavior now executes;
+is refused. Zilog NMOS Z80 decision-20 §§1–3 ED, index-prefix and CB behavior now executes;
 undocumented 8080 research is `x80-mn3.4`.
 The maintainer's 2026-11-13 evidence rule is recorded in [decision-17](<../decisions/decision-17 - Two-key-evidence-rule-for-undocumented-behaviour.md>).
 Source pins, two-key evidence and later per-model records precede implementation;
@@ -14,8 +14,9 @@ records the Z80 changes; the maintainer accepted it on 2026-11-13. The §1 ED
 implementation admits all 256 terminals (78 operations / 178 L NOPs), with
 A/H/L limits preserved. Section 2 adds H register-only index halves, A/H
 ordinary-H/L indexed-memory exceptions and L ignored/repeated prefixes,
-including unbounded chains with no intermediate boundary. Only SLL and
-undocumented indexed-CB terminals await §3; bits 5/3 await §4.
+including unbounded chains with no intermediate boundary. Section 3 adds H SLL, indexed-CB copies and BIT aliases, with L costs/access
+and computed-result copies even when a device ignores the write. No normally
+fetched Z80 encoding refuses; bits 5/3 await §4.
 Beads `x80-mn3.9` to `x80-mn3.17` carry the implementation track.
 
 The accepted 8085 contract is [decision-18](<../decisions/decision-18 - 8085-undocumented-instructions-and-V-K-flags.md>)

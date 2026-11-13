@@ -122,8 +122,10 @@ pub(super) static INDEX: [Option<Instruction>; 256] = build(
     ],
 );
 
-// Only the documented memory terminals: UM pp. 217, 219, 221–237,
-// 247–250, 255–260. B is any bit number; low bits are fixed 110.
+// Decision-20 §3 admits all terminals. A canonical forms: UM rev. 11
+// pp. 217–260; H copies/BIT aliases: Young v0.91 §§3.5–3.6 pp. 13–14,
+// Rak v1.2a .sro_xyd_r/.bit_n_xyd_/.set_n_xyd_/.res_n_xyd_.
+// D is unrestricted, including memory-only 110; B is any bit number.
 pub(super) static INDEX_CB: [Option<Instruction>; 256] = build(
     &[
         (Group::RotateShift, super::rotate_shift::INDEX_CB),

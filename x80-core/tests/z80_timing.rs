@@ -540,7 +540,8 @@ fn transcription() -> Vec<Case> {
         fixed(&mut c, table, &[0xF9], 10, sp);
     }
 
-    // All seven documented rotate/shift families; no CB 30–37 (decision-14).
+    // Decision-20 §3: H SLL / L costs, Young v0.91 §3.1 p. 11 /
+    // §8.7 p. 32, Rak .slia_a/.slia_r. Existing seven families remain A.
     for (base, reg, mem, ix, iy) in [
         (
             0x00,
@@ -583,6 +584,13 @@ fn transcription() -> Vec<Case> {
             "MK 2-250; UM 234",
             "MK 2-250; UM 234",
             "MK 2-250; UM 234",
+        ),
+        (
+            0x30,
+            "decision-20 §3 L; Young §8.7 p. 32",
+            "decision-20 §3 L; Young §8.7 p. 32",
+            "decision-20 §3 L; Young §8.7 p. 32",
+            "decision-20 §3 L; Young §8.7 p. 32",
         ),
         (
             0x38,
@@ -640,6 +648,24 @@ fn transcription() -> Vec<Case> {
         }
     }
 
+    // Decision-20 §3 L copy/alias totals, Y §§8.7–8.8 pp. 32–33;
+    // H operation evidence R .sro_xyd_r/.bit_n_xyd_/.set_n_xyd_/.res_n_xyd_.
+    for table in [DdCb, FdCb] {
+        for op in 0u8..=255 {
+            if !c
+                .iter()
+                .any(|case| case.table == table && case.opcode == op)
+            {
+                fixed(
+                    &mut c,
+                    table,
+                    &[op],
+                    if op >> 6 == 1 { 20 } else { 23 },
+                    "decision-20 §3 L; Young v0.91 §§8.7–8.8 pp. 32–33",
+                );
+            }
+        }
+    }
     c
 }
 
@@ -804,20 +830,20 @@ fn check_table(table: Table) {
 }
 
 #[test]
-fn independent_census_has_all_1322_unique_admitted_encodings() {
+fn independent_census_has_all_1780_unique_admitted_encodings() {
     let cases = transcription();
     let keys: BTreeSet<_> = cases.iter().map(|c| (c.table, c.opcode)).collect();
-    // Decision-20 §2 admits all 252 main terminals per selector.
-    assert_eq!(cases.len(), 1322);
-    assert_eq!(keys.len(), 1322, "duplicate transcription entry");
+    // Decision-20 §3 completes CB and indexed-CB admission (1780 terminals).
+    assert_eq!(cases.len(), 1780);
+    assert_eq!(keys.len(), 1780, "duplicate transcription entry");
     for (table, count) in [
         (Table::Main, 252),
-        (Table::Cb, 248),
+        (Table::Cb, 256),
         (Table::Ed, 256),
         (Table::Dd, 252),
         (Table::Fd, 252),
-        (Table::DdCb, 31),
-        (Table::FdCb, 31),
+        (Table::DdCb, 256),
+        (Table::FdCb, 256),
     ] {
         assert_eq!(
             keys.iter().filter(|(t, _)| *t == table).count(),
@@ -832,10 +858,8 @@ fn independent_census_has_all_1322_unique_admitted_encodings() {
             keys.contains(&(Table::Main, op)),
             ![0xCB, 0xDD, 0xED, 0xFD].contains(&op)
         );
-        assert_eq!(
-            keys.contains(&(Table::Cb, op)),
-            !(0x30..=0x37).contains(&op)
-        );
+        // Decision-20 §3: SLL completes the CB map.
+        assert!(keys.contains(&(Table::Cb, op)));
     }
     for table in [Table::Dd, Table::Fd] {
         // Decision-20 §2: only prefix dispatch bytes lack terminal entries.
@@ -857,13 +881,8 @@ fn independent_census_has_all_1322_unique_admitted_encodings() {
         (0..=255).collect()
     );
     for table in [Table::DdCb, Table::FdCb] {
-        let expected: BTreeSet<_> = [
-            0x06, 0x0E, 0x16, 0x1E, 0x26, 0x2E, 0x3E, 0x46, 0x4E, 0x56, 0x5E, 0x66, 0x6E, 0x76,
-            0x7E, 0x86, 0x8E, 0x96, 0x9E, 0xA6, 0xAE, 0xB6, 0xBE, 0xC6, 0xCE, 0xD6, 0xDE, 0xE6,
-            0xEE, 0xF6, 0xFE,
-        ]
-        .into_iter()
-        .collect();
+        // Decision-20 §3: every indexed-CB terminal executes.
+        let expected: BTreeSet<_> = (0..=255).collect();
         assert_eq!(
             keys.iter()
                 .filter_map(|&(t, op)| (t == table).then_some(op))
@@ -878,7 +897,7 @@ fn main_all_252_encodings_and_both_conditional_paths() {
     check_table(Table::Main);
 }
 #[test]
-fn cb_all_248_encodings() {
+fn cb_all_256_encodings() {
     check_table(Table::Cb);
 }
 #[test]
@@ -894,11 +913,11 @@ fn fd_all_252_encodings_and_both_conditional_paths() {
     check_table(Table::Fd);
 }
 #[test]
-fn dd_cb_all_31_encodings() {
+fn dd_cb_all_256_encodings() {
     check_table(Table::DdCb);
 }
 #[test]
-fn fd_cb_all_31_encodings() {
+fn fd_cb_all_256_encodings() {
     check_table(Table::FdCb);
 }
 

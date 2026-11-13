@@ -1364,25 +1364,9 @@ mod tests {
         }
     }
 
-    #[test]
-    fn z80_remaining_refusals_outside_bdos_keep_preceding_bytes() {
-        for (program, opcode, preceding) in [
-            // Decision-20 §2 admits DD44; SLL remains refused until §3.
-            (vec![0xcb, 0x30], 0x30, vec![0xcb]),
-            (vec![0xfd, 0xcb, 0x80, 0x47], 0x47, vec![0xfd, 0xcb, 0x80]),
-        ] {
-            let outcome = z80_synthetic(&program);
-            assert_eq!(
-                outcome.reason,
-                Reason::Unsupported {
-                    pc: 0x100,
-                    opcode,
-                    preceding
-                }
-            );
-            assert_eq!((outcome.steps, outcome.cycles), (0, 0));
-        }
-    }
+    // Decision-20 §3: remove CB30 and indexed-BIT refusal fixtures.
+    // This CP/M host never asserts INT/NMI, so no CPU refusal path remains
+    // to fixture. Core interrupt tests retain payload/rollback witnesses.
 
     #[test]
     fn z80_port_errors_keep_the_full_address() {
