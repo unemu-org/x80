@@ -10,6 +10,7 @@
 mod fingerprints;
 mod sha256;
 mod z80_oracles;
+pub mod z80test;
 
 use fingerprints::fingerprint;
 

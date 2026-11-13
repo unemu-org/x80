@@ -156,6 +156,70 @@ cargo run -p x80-oracle --offline --locked -j 4 -- --model z80 oracles/z80-exerc
 The capped command intentionally exits 1 if it reaches the cap before completion;
 it is evidence for only the complete groups printed before that point.
 
+### z80test v1.2a Spectrum-style host
+
+The separate `z80test` subcommand reads the pinned MIT archive directly, without
+extracting, embedding or downloading its members. No external crates, decompressor
+or assembler are needed. The private stored/DEFLATE reader verifies the archive
+SHA-256 before parsing and each requested member's directory CRC-32 after decoding.
+The ZIP input read is capped at the pinned 61595-byte size plus one byte;
+excess input is rejected before hashing.
+TAP checksums, header/payload lengths, load address, source-selected descriptor
+names/masks/CRCs/prechecks and the final descriptor's end address are audited
+before execution. This is layout/descriptor correspondence, not an assembler rebuild.
+The six measured TAP SHA-256 pins and audit locators are in PROVENANCE §2.
+
+```sh
+cargo run -p x80-oracle --release --offline --locked -j 4 -- z80test all
+cargo run -p x80-oracle --release --offline --locked -j 4 -- z80test z80doc --step-cap 10000000000 --time-cap 600
+```
+
+Select `z80full`, `z80doc`, `z80flags`, `z80docflags`, `z80ccf`, `z80memptr` or
+`all` (default). Each variant gets fresh writable 64 KiB RAM and its own budgets:
+`--step-cap` defaults to 10000000000 retired instructions; `--time-cap` defaults
+to 600 wall-clock seconds. Time is checked at ROM-service boundaries and at most
+100000 retired instructions apart. `--zip PATH` overrides the default path
+`oracles/z80-exercisers/z80test-1.2a.zip`, but cannot override the SHA-256 pin.
+Missing ZIP exits 2; invalid input, refusal, budget exhaustion, unexpected HALT,
+host/output error or any failing/incomplete variant exits 1. Exit 0 requires all
+requested variants to return and print complete, consistent zero-failure results.
+`z80ccfscr` is out of scope. Campaigns remain outside `cargo test`; unit tests use
+hand-built compressed streams/TAPs and synthetic programs, without fetched files.
+
+Load/entry stays 8000h; data/workspace stays 8800h, with no group-table patches.
+Caller SP=7FF0h carries a return sentinel; IY starts at 5C3Ah. The host catches
+the real EI/RET caller return at the next boundary without executing a sentinel
+instruction. CHAN-OPEN at 1601h requires A=2; RST 10h captures A unchanged. Both
+require instruction-start service fetches reached through audited suite call
+sites and the expected return word at SP. CHAN-OPEN requires the main CALL to
+printinit followed by its LD A,2 / JP 1601h tail call; character output requires
+printchr's RST 10h. Stray jumps, prefixed terminal fetches and unaudited calls
+fail as host errors without a RET response or captured output. Valid calls
+use fetch-only RET responses and boundary stops: **one extra step and 10 cycles
+per call**, included in measured totals and reported separately. These are harness
+costs, not ROM timings. Main/print do not read system-variable memory; the stubs
+need none, while ERR-NR at 5C3Ah starts at FFh as a harness convention. No ROM is
+loaded. INT/NMI remain unasserted: printing temporarily enables interrupts but
+does not wait for them, generated HALTs are skipped by `idea.asm:87–104`, and
+the table omits RST/HALT (`tests.asm:229–230`). No 50 Hz interrupt is needed.
+
+Ports retain full-address diagnostics. Every suite input with low byte FEh
+returns BFh after its OUT FEh=07h setup; unexpected ports/setup fail. Other FEh
+writes update the harness latch and are counted, including the output groups.
+No input group is silently excluded. The output parser consumes the Spectrum TAB
+controls and matches numbered group names in audited order; FAILED requires both
+eight-digit CRCs or a complete `.incheck` byte/expected-BF report. It preserves
+partial output on refusal/timeouts and verifies final counts against the lines.
+The four failcheck NEC/ST alternatives are labelled diagnostic, not judged;
+their execution/skipping, all failures and `.incheck` failures remain visible.
+
+Reports are **non-final baseline observations, never conformance**. `z80doc*`
+masks flags, not encodings; flags-only, post-CCF and MEMPTR/BIT projections have
+different limits (decision-20 §§5–7). An Unsupported report includes the next
+one-based instruction step, PC and encoding, stops that variant, and cannot pass.
+Identified-hardware CRCs confirm only independently stated facts their vectors
+discriminate; failures falsify, never license new CPU semantics (decision-17).
+
 ## V20 contract fixtures
 
 `cargo test -p x80-v20-contract --offline --locked` runs the portable vectors

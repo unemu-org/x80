@@ -18,6 +18,9 @@ fn main() -> ExitCode {
 }
 
 fn execute(args: Vec<OsString>) -> Result<u8, String> {
+    if args.first().is_some_and(|arg| arg == "z80test") {
+        return x80_oracle::z80test::execute(args.into_iter().skip(1).collect());
+    }
     let mut config = Config::default();
     let mut path = None;
     let mut oracle = None;
@@ -52,6 +55,7 @@ fn execute(args: Vec<OsString>) -> Result<u8, String> {
             }
             Some("--help" | "-h") => {
                 println!("Usage: x80-oracle [--model 8080|8085|z80] [--cycle-cap N] [--slice-cycles N] [--oracle pre|exm] <program.COM>");
+                println!("       x80-oracle z80test --help");
                 println!("Model defaults to 8080. 8080EXM requires 8080; 8085EXM requires 8085; 8080PRE supports either. Z80 requires pinned prelim.com or zexdoc.com; unknown Z80 digests are refused. A known program/model mismatch is an error before execution.");
                 return Ok(0);
             }

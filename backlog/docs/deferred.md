@@ -72,11 +72,13 @@ oracle CRCs alone cannot admit hardware facts.
 
 After §§2–3, all nine excluded ZEXDOC groups become runnable;
 ZEXALL can falsify full-byte flag rules after its own artifact audit. The six
-z80test variants require a Spectrum-style oracle host, not CP/M CALL 5, with
-fixed linked/data addresses and explicit input precheck accounting. A MEMPTR
+z80test variants now have a Spectrum-style oracle host in `x80-oracle`, with
+fixed linked/data addresses and explicit input precheck accounting; see
+[commands](commands.md#z80test-v12a-spectrum-style-host). Its runs are non-final
+baselines. A MEMPTR
 CRC observes a two-bit projection, not an entire latch; post-CCF observes only
-tested predecessor distinctions. These campaigns have not been run for the
-decision-20 implementation track. The Z80 host now uses a private
+tested predecessor distinctions. The decision-20 source audit itself did not run
+these campaigns. The Z80 CP/M host now uses a private
 `OUT FFh; RET` boundary stop instead of an ED70 refusal, adding one step /
 11 states per call while preserving the stack word's Data view;
 retain the IM0 non-RST and odd-IM2 API refusals until separately extended.

@@ -954,6 +954,50 @@ accounting as in §1. Cringle's exact silicon/capture remains unverified;
 z80test names its machine and maker but not a specimen/revision. No hardware
 behaviour ruling or harness change is made by this audit.
 
+#### z80test host: TAP pins and correspondence (x80-mn3.12)
+
+MEASURED locally, 2026-11-13, from members decoded in memory after verifying the
+ZIP pin above. Every used member also passes its central-directory CRC-32;
+all four blocks of every TAP pass their XOR checksum. Members remain fetch-only.
+These are artifact/layout measurements and harness conventions, **no new hardware
+claim**. The runtime reader repeats the audit before executing requested images.
+
+| TAP member under `z80test-1.2a/` | SHA-256 (MEASURED) | CODE payload bytes / table address (MEASURED) |
+| --- | --- | --- |
+| `z80full.tap` | `cdfebeff306e5c0756ecb3295a1aebb8e71c336b2de35ecc3c0397146d73813c` | 14298 / 887Ah |
+| `z80doc.tap` | `4b06ce9fd517fd5f5a86d4ff2ef05a3f0ab7ed20eb075b87b0623d42fbd3e4bd` | 14298 / 887Ah |
+| `z80flags.tap` | `4dbe34a28ed564ac782b538736e1a1c57c562876165a3294bd93af25ea3df653` | 14298 / 887Ah |
+| `z80docflags.tap` | `cf64a8d66f248bc054c5255f3a51ba50a511b166b29054b7192ca91e306a528d` | 14298 / 887Ah |
+| `z80ccf.tap` | `a35b3b269b58371015cf033f28a08ad1ac92cce6dd27b428caf67b7f9ce8f5b7` | 14783 / 887Fh |
+| `z80memptr.tap` | `444582ddfa4d05711b6235e743ddf68295231e97ba92cc838c5d09a106c9a10f` | 14298 / 887Ah |
+
+| Audit / harness boundary | READ locators in pinned v1.2a / MEASURED correspondence |
+| --- | --- |
+| Build/loader/entry | `src/Makefile:14–19`, `loader.bas:1–2`, `main.asm:7–14`: BASIC autostart 10, CLEAR 32767/USR 32768, CODE header/payload length agreement and load/entry 8000h; entry DI/PUSH IY/EXX/PUSH HL bytes agree. Five images end at B7DAh exclusive; CCF ends at B9BFh. No assembler rebuild was performed |
+| Workspace and tables | `idea.asm:7–9,264–289`, `main.asm:22–24`; data=8800h, data.jump=8810h (INC BC or post-CCF, then JP), workspace page retained; table follows at 887Ah or 887Fh. `tests.asm:32–232,297–1465`, `testmacros.asm:35–101`: all 160 pointers in order, zero terminator, contiguous descriptors, flag masks, names, variant-selected big-endian CRCs and precheck bytes agree; final descriptor ends exactly at CODE payload end. No correspondence mismatch found; instruction/vector bytes were not independently reassembled |
+| Host services/system variables | `main.asm:14,68–72`, `print.asm:8–9,67–80`: A=2 CHAN-OPEN 1601h and A-output RST 10h receive harness-owned fetch-only RETs with boundary stops, +1 step/+10 cycles each. Service fetches must start an instruction after an audited call with the expected return word at SP: main CALL printinit at 8005h / return 8008h, then LD A,2 / JP 1601h; printchr RST 10h / return to its following DI. The six TAPs' printinit addresses are 815Bh/815Ah/815Ch/8160h/815Ah/815Dh in variant-table order; their RST sites are printinit+51h. Call-site bytes are checked before execution. Synthetic witnesses cover valid tail-call/output costs, stray JP 0010h, prefixed terminal fetch at 0010h, unaudited CALL 1601h/RST 10h, forged return context and incorrect stack words/pointers; invalid entries supply no RET and capture no output. Writable 64 KiB RAM, caller SP=7FF0h/sentinel 7FFEh, initial IY=5C3Ah; EI/RET stops before sentinel fetch (+0 overhead). Main/print read no system-variable memory; ERR-NR at 5C3Ah is initialised FFh as a harness convention; stubs require no other variables |
+| Archive input bound | MEASURED pinned ZIP size 61595 bytes; the host reads at most 61596 bytes and rejects excess before SHA-256 or parsing. An endless-reader witness verifies the exact read bound; a sparse oversized-file CLI witness verifies rejection before pinning |
+| Interrupts and I/O | `main.asm:9,102–117`, `print.asm:72–75`, `idea.asm:46–47,87–104`, `tests.asm:229–230,984–1103`: no interrupt wait, generated HALT skipped, RST/HALT omitted from table; no 50 Hz injection required, INT/NMI remain low. FEh outputs accepted/counted; inputs return BFh after suite OUT FEh=07h, independent of upper address bits; unexpected ports/setup are host failures. Input groups are never patched out |
+| Results and limits | `main.asm:26–72,74–168`: numbered lines, CRC pairs, skipped failcheck alternatives, `.incheck` failures and final counts parsed with complete-group/order/count checks. Four NEC/ST failcheck groups are separately diagnostic, not judged. `z80doc*` uses documented flag masks, not documented encodings; CCF and MEMPTR observe their limited projections (decision-20 §§5–7). Refusal/budget/partial output cannot pass; no oracle result licenses CPU behaviour (decision-17) |
+
+MEASURED 2026-11-13, release `z80test all`, 10000000000-step / 600-second budgets
+per variant, against the unchanged Z80 model at `f7964bb628e2e65cd5f154841ac6f6f0fa139971`.
+**Non-final baseline, not conformance.** The former `ED 7C` refusal is gone.
+All six now stopped on `DD BD` in group 026 `ALO A,[HX,LX]`, after 26/160
+complete result lines (22 judged, four diagnostic).
+The refused next instruction is one-based step `retired steps + 1`. No final
+count/caller exit or input group was reached: `.incheck` failures=0 means no
+coverage here, not a precheck/input PASS. No program member or CPU rule changed.
+
+| Variant | Judged OK / FAILED | Diagnostic executed / skipped | Retired steps | Cycles including host RETs | Refusal PC / next step | Host RET overhead steps / cycles (MEASURED) |
+| --- | --- | --- | --- | --- | --- | --- |
+| z80full | 0 / 22 | 4 / 0 (all FAILED) | 82980170 | 498660881 | 832Bh / 82980171 | 1443 / 14430 |
+| z80doc | 22 / 0 | 0 / 4 | 67170652 | 403887624 | 832Fh / 67170653 | 500 / 5000 |
+| z80flags | 0 / 22 | 4 / 0 (all FAILED) | 35820790 | 244178264 | 832Bh / 35820791 | 1444 / 14440 |
+| z80docflags | 22 / 0 | 0 / 4 | 28889812 | 196932282 | 832Fh / 28889813 | 506 / 5060 |
+| z80ccf | 0 / 22 | 4 / 0 (all FAILED) | 38116887 | 259157671 | 8335h / 38116888 | 1442 / 14420 |
+| z80memptr | 0 / 22 | 4 / 0 (all FAILED) | 36117410 | 247441047 | 832Bh / 36117411 | 1445 / 14450 |
+
 ## 3. Witnesses and current scope
 
 The core types, the run loop and the 8080 opcode map exist; every documented
