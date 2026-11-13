@@ -324,7 +324,7 @@ decision-11 belong to **x80-mn3.3**; these pins license no behaviour by themselv
 
 | Record / key | Scope and locator |
 | --- | --- |
-| Status | [decision-18](<backlog/decisions/decision-18 - 8085-undocumented-instructions-and-V-K-flags.md>) is **accepted** by the maintainer (2026-11-13); no implementation or new hardware measurement yet. It applies the maintainer's 2026-11-13 amendment and supersedes decision-11 in part |
+| Status | [decision-18](<backlog/decisions/decision-18 - 8085-undocumented-instructions-and-V-K-flags.md>) is **accepted** by the maintainer (2026-11-13); implemented by **x80-mn3.6** (V/K) and **x80-mn3.7** (the ten instructions); no new hardware measurement yet. It applies the maintainer's 2026-11-13 amendment and supersedes decision-11 in part |
 | Second-source manufacturer licence | decision-18 “Amendment to decision-17”: a manufacturer data sheet for a pin- and function-compatible second-source part may license operations, lengths, flag statements and timings on the original-part model, with the part-qualified Intel-unverified label, independent die confirmation of every encoding, explicit defect rulings, silicon precedence and labelled unverified/library gaps. This general licence applies to future qualifying manufacturer sheets too |
 | W / T | W: pinned article pp. 144–145/PDF 1–2 (C); T: pinned Tundra 9000000.MD302.01, CA80C85B p. 2-1/PDF 25 compatibility statement, p. 2-4/PDF 28 extended set, Fig. 2-9 p. 2-15/PDF 39, Table 2-10 p. 2-16/PDF 40 (A). **One written origin**; Tundra is the manufacturer of CA80C85B; its p. 2-1 states pin and functional compatibility with 8085/8085A |
 | KV / FC / ALU / ROM | Four pinned HTML sources above, B and **one die-data origin**: KV circuit and notes [3]–[5]; FC opening/storage/carry subsections; ALU architecture, operation and control-line tables; ROM introduction and 48 rows counted from DI/EI as row 1. Independent of W/T, not independent of one another |
@@ -460,13 +460,31 @@ P8085AH-2 (2023 forum report) gives different CRCs for the ALU, DAA and INR/DCR 
 whether that reflects a different build, mask or part is unresolved. 8080PRE also serves as
 the 8085's preliminary test (the results page).
 
+The 8085 host supplies `OUT FFh; RET` at BDOS entry 0005h through
+OpcodeFetch/OperandFetch responses, preserving Data reads of the stack word
+at 0006h. Decision-18 admits all 256 opcodes, so 08h (DSUB) can no longer be
+an Unsupported rendezvous. Only the stub's reserved-port write requests a
+boundary stop; the runner reads C/DE, services BDOS 2/9 and resumes at RET.
+This is a private harness ABI, not a hardware claim, and costs one additional
+step / 10 cycles per BDOS call. The 8080 08h and Z80 ED 70 rendezvous,
+digest identities and output grammar are unchanged. Synthetic CLI fixtures
+witness repeated calls, split budgets, preserved registers/flags/stack word,
+port/BDOS errors and the overall cap at the OUT boundary.
+
 Results, 2026-11-13, MEASURED: the release `--model 8085` commands in
 [commands.md, Oracle runs](backlog/docs/commands.md#oracle-runs) pass: 8080PRE
-exits 0 at 1,060 steps / 7,740 cycles; 8085EXM exits 0 at 2,919,050,442 steps /
-23,955,337,676 cycles, with all 24 judged groups PASS. The long ALU register group
+exits 0 at 1,061 steps / 7,750 cycles; 8085EXM exits 0 at 2,919,050,719 steps /
+23,955,340,446 cycles, with all 24 judged groups PASS. Compared with the prior
+08h rendezvous (1,060 / 7,740 and 2,919,050,442 / 23,955,337,676), the
+respective increases are exactly 1 step / 10 cycles (one BDOS call) and
+277 steps / 2,770 cycles (277 BDOS calls). The long ALU register group
 (`alu8r`, 8085EXM.MAC:136,201–207) prints PASS, CRC 0cfd75b5; its result is
 reported, not judged, because the expected CRC remains unverified. Both programs
-halt at the boot-entry stub (PC 0001h); no core change was needed.
+halt at the boot-entry stub (PC 0001h). These runs retain the D5h mask and
+unchanged digest-keyed output grammar; they do not witness the ten extensions.
+The accompanying release 8080 reruns also exit 0, PASS, with unchanged output
+and totals: 8080PRE 1,060 steps / 7,804 cycles; 8080EXM 2,919,050,421 steps /
+23,803,378,398 cycles (all 25 groups PASS).
 
 Rejected or not chosen: the Microcosm 8080/8085 CPU diagnostic (CPUDIAG/TST8080, 1980;
 licence unclear, so fetch-only would be the most it could be), the SuperSoft CPU test

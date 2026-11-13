@@ -44,8 +44,15 @@ cargo run -p x80-oracle --release --offline --locked -- --model 8085 oracles/808
 
 `--model 8080|8085|z80` selects the CPU (default 8080). Known programs must use their
 intended model: 8080EXM requires 8080, 8085EXM requires 8085, and 8080PRE supports
-either. A mismatch is an error before execution. The 8080/8085 models share the CP/M host,
-including the undocumented 08h BDOS rendezvous (decisions 3 and 11).
+either. A mismatch is an error before execution. The models share the CP/M host
+services. The 8080 retains its unsupported 08h BDOS rendezvous (decision-3).
+Decision-18 admits every 8085 opcode, so its host instead supplies `OUT FFh; RET`
+at 0005h through instruction reads. Data reads retain the stack word at 0006h.
+Only that stub's reserved-port write requests a host stop at the next boundary;
+the host reads C/DE, performs BDOS and clears the request before resuming RET.
+This adds exactly one retired instruction and 10 cycles per 8085 BDOS call.
+An OUT reaching the overall cycle cap times out before servicing BDOS; a slice
+boundary alone defers the stop to the next run without repeating the OUT.
 
 For 8080/8085, the CLI identifies the program bytes by SHA-256, using the three pinned digests
 from `oracles/SHA256SUMS.fetched` (8085EXM added at oracles commit `f379261`), then
@@ -84,8 +91,8 @@ Budgets stop at instruction boundaries, so totals can overshoot by the final
 instruction. The exerciser can take a long time. The digest selects the verdict
 protocol regardless of filename. Optional `--oracle pre` or `--oracle exm` checks
 the expected identity of a known program for the selected model; it cannot give
-an unknown digest a verdict. No interrupts or host stop are requested; on the
-8085, SID is low and SOD notifications are ignored.
+an unknown digest a verdict. No interrupts are requested. Only the 8085 BDOS
+stub requests host stop; on the 8085, SID is low and SOD notifications are ignored.
 
 For Z80, run the pinned preliminary test first, then the full 58-group release
 campaign (the larger cap accommodates the long ALU groups):

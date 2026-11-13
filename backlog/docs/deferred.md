@@ -2,19 +2,25 @@
 
 Do not implement these unprompted. Open work is tracked in beads.
 
-Undocumented 8085 behavior, then Zilog NMOS Z80 behavior, is planned under epic
-`x80-mn3`, always on with no embedder profile. The maintainer's 2026-11-13 direction
-is drafted in [decision-17](<../decisions/decision-17 - Two-key-evidence-rule-for-undocumented-behaviour.md>).
+Undocumented-family work is tracked under epic `x80-mn3`, always on with no
+embedder profile. All ten 8085 extensions now execute; no fetched 8085 byte
+is refused. Zilog NMOS Z80 undocumented behavior remains future work.
+The maintainer's 2026-11-13 evidence rule is recorded in [decision-17](<../decisions/decision-17 - Two-key-evidence-rule-for-undocumented-behaviour.md>).
 Source pins, two-key evidence and later per-model records precede implementation;
-those records will supersede decisions 11 and 14 in part.
+decision-18 supersedes decision-11 in part; a later Z80 record must supersede
+decision-14 in part before additional Z80 behavior is admitted.
 
-The 8085 proposal is [decision-18](<../decisions/decision-18 - 8085-undocumented-instructions-and-V-K-flags.md>)
-(Decider pending), revised for the maintainer's 2026-11-13 second-source
+The accepted 8085 contract is [decision-18](<../decisions/decision-18 - 8085-undocumented-instructions-and-V-K-flags.md>)
+and applies the maintainer's 2026-11-13 second-source
 manufacturer licence. It admits all ten instructions, their operations, lengths
 and path totals as **documented by second source (CA80C85B), unverified for
 Intel 8085**, with independent die confirmation of each encoding. Silicon's
 K=V XOR result sign wins; source defects receive explicit rulings. Physical bus
 order and unstated flag effects use labelled library rules, not silicon claims.
+These operations and rules are implemented in the 8085-owned `undocumented`
+group with independent literal witnesses; the remaining evidence gaps below
+do not reinstate fetched-byte refusals. Unsupported INTR acknowledges remain
+limited by decision-12 rule 5.
 
 | Item | Why deferred | Revisit |
 | --- | --- | --- |

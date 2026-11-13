@@ -7,7 +7,7 @@
 
 mod support;
 
-use support::{is_fetch_unsupported, Event, RecordingBus};
+use support::{Event, RecordingBus};
 use x80_core::i8085::{Flags, Latches, Registers, I8085};
 use x80_core::{Budget, Exit, MemoryAccess, Report};
 
@@ -257,9 +257,11 @@ fn ei_di_ei_ei_and_di_ei_edges_are_unverified_rearming_models() {
 }
 
 #[test]
-fn ei_di_delay_survives_budget_stop_unsupported_and_halt_exits() {
+fn ei_di_delay_survives_budget_stop_and_halt_exits() {
     // Decision-12 rule 6 counts completed instructions; rule 10 and
-    // decision-5 preserve state at Stop/Unsupported. Neither advances delay.
+    // decision-5 preserve state at Stop. Neither advances delay.
+    // Decision-18 removes fetched refusals; RSTV ordinary retirement has
+    // its independent witness in i8085_undocumented.rs.
     for opcode in [0xFB, 0xF3] {
         let mut cpu = I8085::new(registers(0x2000), Latches::default());
         let mut bus = RecordingBus::new();
@@ -287,11 +289,7 @@ fn ei_di_delay_survives_budget_stop_unsupported_and_halt_exits() {
             polls(true, false, false, false, false, false)
         );
         bus.stop = false;
-        let result = cpu.step(&mut bus);
-        assert_eq!((result.steps, result.cycles), (0, 0));
-        assert!(is_fetch_unsupported(result.exit, 0x2001, 0x08));
-        assert_eq!(cpu, before);
-        assert_eq!(bus.take_log(), fetch(0x2001, 0x08));
+        // Decision-18: 08 now executes; omit the obsolete refusal probe.
         cpu.latches_mut().halted = true;
         let halted = cpu.clone();
         assert_eq!(cpu.run(&mut bus, UNLIMITED), report(0, 0, Exit::Halt));

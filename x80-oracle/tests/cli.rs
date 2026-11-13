@@ -127,7 +127,7 @@ fn z80_unknown_digests_are_refused_before_any_guest_output() {
 }
 
 #[test]
-fn old_models_keep_identical_console_progress_and_refusal_diagnostics() {
+fn intel_models_keep_console_output_with_model_specific_rendezvous_costs() {
     let directory =
         std::env::temp_dir().join(format!("x80-oracle-old-models-{}", std::process::id()));
     std::fs::create_dir_all(&directory).unwrap();
@@ -141,10 +141,11 @@ fn old_models_keep_identical_console_progress_and_refusal_diagnostics() {
             .unwrap();
         assert_eq!(result.status.code(), Some(1));
         assert_eq!(result.stdout, b"!");
-        let cycles = if model == "8080" { 58 } else { 57 };
+        // Decision-18: 8085 uses an extra OUT (one step/10 states).
+        let (steps, cycles) = if model == "8080" { (6, 58) } else { (7, 67) };
         assert_eq!(String::from_utf8(result.stderr).unwrap(), format!(
-            "\nsummary: steps=6 cycles={cycles} exit=normal-exit (Halt PC=0001) verdict=unknown program, no verdict\n"));
-        std::fs::write(&path, [0x08]).unwrap();
+            "\nsummary: steps={steps} cycles={cycles} exit=normal-exit (Halt PC=0001) verdict=unknown program, no verdict\n"));
+        std::fs::write(&path, [0x08, 0x76]).unwrap();
         let result = Command::new(env!("CARGO_BIN_EXE_x80-oracle"))
             .args(["--model", model])
             .arg(&path)
@@ -152,8 +153,148 @@ fn old_models_keep_identical_console_progress_and_refusal_diagnostics() {
             .unwrap();
         assert_eq!(result.status.code(), Some(1));
         assert!(result.stdout.is_empty());
-        assert_eq!(String::from_utf8(result.stderr).unwrap(),
-            "\nsummary: steps=0 cycles=0 exit=unsupported PC=0100 opcode=08 verdict=unknown program, no verdict\n");
+        let expected = if model == "8080" {
+            "\nsummary: steps=0 cycles=0 exit=unsupported PC=0100 opcode=08 verdict=unknown program, no verdict\n"
+        } else {
+            // Decision-18: 08h is DSUB; the following HLT executes too.
+            "\nsummary: steps=2 cycles=15 exit=unexpected-halt PC=0102 verdict=unknown program, no verdict\n"
+        };
+        assert_eq!(String::from_utf8(result.stderr).unwrap(), expected);
+    }
+    std::fs::remove_dir_all(directory).unwrap();
+}
+
+#[test]
+fn i8085_bdos_preserves_stack_word_registers_and_flags_across_slices() {
+    let directory =
+        std::env::temp_dir().join(format!("x80-oracle-8085-abi-{}", std::process::id()));
+    std::fs::create_dir(&directory).unwrap();
+    let path = directory.join("synthetic.com");
+    let mut program = vec![
+        0x2a, 6, 0,    // LHLD 6: Data reads must still return FE00h.
+        0xf9, // SPHL
+        0x7c, 0xfe, 0xfe, // MOV A,H; CPI FEh
+    ];
+    let mut failures = Vec::new();
+    // Every failed check jumps to an unexpected HLT, never the boot stub.
+    let check = |program: &mut Vec<u8>, failures: &mut Vec<usize>, bytes: &[u8]| {
+        program.extend_from_slice(bytes);
+        program.push(0xc2); // JNZ failure
+        failures.push(program.len());
+        program.extend_from_slice(&[0, 0]);
+    };
+    check(&mut program, &mut failures, &[]);
+    check(&mut program, &mut failures, &[0x7d, 0xfe, 0]); // low stack byte
+    program.extend_from_slice(&[
+        0x01, 0xf7, 0xa6, 0xc5, 0xf1, // load A=A6h, all seven flags set
+        0x06, 0x42, 0x0e, 2, // B=42h, C=BDOS 2
+        0x11, b'!', 0x34, // DE=3421h
+        0x21, 0xef, 0xbe, // HL=BEEFh
+        0xcd, 5, 0,    // CALL 5: OUT must preserve all registers/flags
+        0xf5, // PUSH PSW before comparisons change flags
+    ]);
+    check(&mut program, &mut failures, &[0x78, 0xfe, 0x42]);
+    check(&mut program, &mut failures, &[0x79, 0xfe, 2]);
+    program.push(0xc1); // POP B, to inspect the saved A/flags
+    check(&mut program, &mut failures, &[0x79, 0xfe, 0xf7]);
+    check(&mut program, &mut failures, &[0x78, 0xfe, 0xa6]);
+    check(&mut program, &mut failures, &[0x7a, 0xfe, 0x34]);
+    check(&mut program, &mut failures, &[0x7b, 0xfe, b'!']);
+    check(&mut program, &mut failures, &[0x7c, 0xfe, 0xbe]);
+    check(&mut program, &mut failures, &[0x7d, 0xfe, 0xef]);
+    // Repeated calls exercise clearing/rearming the host flag and BDOS 9.
+    program.extend_from_slice(&[0x0e, 9, 0x11, 0, 0]);
+    let string_address_at = program.len() - 2;
+    program.extend_from_slice(&[0xcd, 5, 0, 0xcd, 5, 0, 0xc3, 0, 0]);
+    let failure = (0x100 + program.len() as u16).to_le_bytes();
+    program.push(0x76);
+    let string = (0x100 + program.len() as u16).to_le_bytes();
+    program.extend_from_slice(b"ok$");
+    program[string_address_at..string_address_at + 2].copy_from_slice(&string);
+    for at in failures {
+        program[at..at + 2].copy_from_slice(&failure);
+    }
+    std::fs::write(&path, program).unwrap();
+    let mut summary = None;
+    for slice in ["1", "10", "17", "1000000"] {
+        let result = Command::new(env!("CARGO_BIN_EXE_x80-oracle"))
+            .args(["--model", "8085", "--slice-cycles", slice])
+            .arg(&path)
+            .output()
+            .unwrap();
+        assert_eq!(result.status.code(), Some(1)); // Unknown digest never passes.
+        assert_eq!(result.stdout, b"!okok");
+        let error = String::from_utf8(result.stderr).unwrap();
+        assert!(
+            error.contains("exit=normal-exit (Halt PC=0001) verdict=unknown program, no verdict"),
+            "{error}"
+        );
+        if let Some(summary) = &summary {
+            assert_eq!(&error, summary); // Stop polls contribute no steps/cycles.
+        } else {
+            summary = Some(error);
+        }
+    }
+    std::fs::remove_dir_all(directory).unwrap();
+}
+
+#[test]
+fn i8085_bdos_errors_ports_and_cap_at_out_boundary_remain_failures() {
+    let directory =
+        std::env::temp_dir().join(format!("x80-oracle-8085-errors-{}", std::process::id()));
+    std::fs::create_dir(&directory).unwrap();
+    let path = directory.join("synthetic.com");
+    for (program, cap, expected) in [
+        (
+            vec![0x0e, 7, 0xcd, 5, 0],
+            "1000",
+            "steps=3 cycles=35 exit=host-error: unsupported BDOS function 7",
+        ),
+        // Even the reserved port must be reached through the private stub.
+        (
+            vec![0xd3, 0xff],
+            "10",
+            "steps=1 cycles=10 exit=host-error: unexpected output port FF",
+        ),
+        (
+            vec![0xd3, 0xfe],
+            "10",
+            "steps=1 cycles=10 exit=host-error: unexpected output port FE",
+        ),
+        (
+            vec![0xdb, 0xff],
+            "10",
+            "steps=1 cycles=10 exit=host-error: unexpected input port FF",
+        ),
+        // Budget wins over Stop: an OUT reaching the cap cannot service BDOS.
+        (
+            vec![0x1e, b'!', 0x0e, 2, 0xcd, 5, 0],
+            "42",
+            "steps=4 cycles=42 exit=timeout",
+        ),
+    ] {
+        std::fs::write(&path, program).unwrap();
+        for slice in ["1", "1000000"] {
+            let result = Command::new(env!("CARGO_BIN_EXE_x80-oracle"))
+                .args([
+                    "--model",
+                    "8085",
+                    "--cycle-cap",
+                    cap,
+                    "--slice-cycles",
+                    slice,
+                ])
+                .arg(&path)
+                .output()
+                .unwrap();
+            assert_eq!(result.status.code(), Some(1));
+            assert!(result.stdout.is_empty());
+            let error = String::from_utf8(result.stderr).unwrap();
+            assert_eq!(
+                error,
+                format!("\nsummary: {expected} verdict=unknown program, no verdict\n")
+            );
+        }
     }
     std::fs::remove_dir_all(directory).unwrap();
 }

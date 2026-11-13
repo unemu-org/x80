@@ -4,7 +4,8 @@ use super::opcodes::{Group, OPCODES};
 use super::vectored::Source;
 use super::Inputs;
 use super::{
-    acknowledge, arithmetic, branch, data_transfer, logical, rim_sim, stack_io_control, vectored,
+    acknowledge, arithmetic, branch, data_transfer, logical, rim_sim, stack_io_control,
+    undocumented, vectored,
 };
 use super::{Latches, Registers};
 use crate::progress::Progress;
@@ -96,7 +97,7 @@ impl I8085 {
     /// After stop, the highest eligible interrupt is accepted: internally
     /// vectored sources push PC without a bus read; INTR acknowledges RST or
     /// CALL (decision-12 rules 4/5). Halt follows, then opcode fetch. Every
-    /// documented byte executes; undocumented bytes and unsupported INTR
+    /// byte executes (decision-18); unsupported INTR
     /// acknowledges return [`Exit::Unsupported`] without effects or progress.
     /// Boundary sampling is retained on Halt, interrupt acceptance and
     /// instruction completion. Stop leaves CPU state unchanged ([`crate::Control`]);
@@ -237,8 +238,8 @@ impl I8085 {
     }
 
     /// Dispatch fetches only the opcode; the completing group executor owns
-    /// PC advancement and operand reads. Only undocumented fetched bytes
-    /// return Unsupported here (decision-5 items 6/7 closure; decision-11).
+    /// PC advancement and operand reads. Decision-18 completes all 256 slots;
+    /// only INTR acknowledges can now return Unsupported (decision-12).
     fn execute<S: Bus + Inputs>(&mut self, system: &mut S) -> Result<u8, Unsupported> {
         let pc = self.registers.pc;
         let opcode = system.read(pc, MemoryAccess::OpcodeFetch);
@@ -259,6 +260,7 @@ impl I8085 {
             Group::Branch => branch::execute(self, system, opcode, instruction),
             Group::StackIoControl => stack_io_control::execute(self, system, opcode, instruction),
             Group::RimSim => rim_sim::execute(self, system, opcode, instruction),
+            Group::Undocumented => undocumented::execute(self, system, opcode, instruction),
         };
         Ok(instruction.states.of(path))
     }

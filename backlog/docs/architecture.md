@@ -51,6 +51,7 @@ x80-core/
   src/i8085/branch.rs           Branch encodings, bus facts and shared-executor wrapper (pp. 5-13 to 5-15)
   src/i8085/stack_io_control.rs Stack/I/O wrapper, XTHL order and model-owned control (pp. 5-15 to 5-17)
   src/i8085/rim_sim.rs          RIM/SIM encodings and executor (pp. 5-17/5-18; decision-12 rule 8)
+  src/i8085/undocumented.rs     ten 8085-only extensions, encodings/totals and executor (decision-18 §§2–4)
   src/i8085/vectored.rs         TRAP and RST 5.5/6.5/7.5 acceptance (decision-12 rule 4)
   src/i8085/acknowledge.rs      INTR RST/CALL acceptance (decision-12 rule 5)
   src/z80/mod.rs                the Z80 model module and its re-exports (decisions 13–15)
@@ -102,12 +103,13 @@ x80-core/
   tests/i8085_<group>.rs        independent per-group execution witnesses, including RIM/SIM
   tests/i8085_arithmetic_reference/ independent 8085 arithmetic reference
   tests/i8085_daa.rs            decimal-adjust witnesses
+  tests/i8085_undocumented.rs   decision-18 literal flags, access traces and every conditional path
   tests/i8085_timing.rs         independent whole-set and interrupt T-state witnesses
   tests/i8085_interrupts_intr.rs INTR acknowledge and priority witnesses
   tests/i8085_interrupts_vectored.rs vectored acceptance, edge, mask and priority witnesses
   tests/i8085_machine_control.rs EI/DI inhibition, HLT and reset witnesses
   tests/i8085_run.rs            boundary sequence, sampling, budgets and exit precedence
-  tests/i8085_coverage.rs       literal whole-set execution and unsupported witnesses
+  tests/i8085_coverage.rs       literal execution closure for all 256 bytes (decision-18)
   tests/i8085_determinism.rs    mixed-program replay and budget-split witnesses
   tests/i8085_model.rs          construction, ownership and reset
   tests/i8085_registers.rs      register pairs and PSW layout
@@ -286,8 +288,8 @@ unused elements zero). Its `preceding()` accessor returns the used bytes and
 clamps invalid lengths to capacity. `pc` remains the first-byte or acknowledge
 address. Only the reads of the reported bytes have reached the bus; CPU state
 is restored and read-side device effects cannot be undone. 8080/8085
-report zero preceding bytes for fetched and acknowledge refusals; Z80 uses
-the preceding bytes for prefixed instruction refusals.
+report zero preceding bytes for refusals (8085 now refuses only INTR bytes);
+Z80 uses the preceding bytes for prefixed instruction refusals.
 
 The 8085 flag type stores `overflow` (V, bit 1) and `k` (K/X5, bit 5)
 independently alongside S/Z/AC/P/CY (decision-18 §4; PROVENANCE §1).
@@ -309,7 +311,20 @@ reconciliation) and preserves K (L). All other documented effects preserve
 V/K (L). `tests/i8085_vk_flags.rs` supplies unmasked literal witnesses for
 every row, including POP independence, reset and ordinary interrupts.
 D/S/L retain decision-18's part/revision and exact-hardware qualifications.
-No undocumented instruction is implemented by this flag change.
+The 8085-only `undocumented` group now implements all ten extensions of
+accepted decision-18 §§2–4; no fetched byte is refused. Its encoding/length/
+state slots and operations are S (documented by second source CA80C85B,
+unverified for Intel 8085), with independent D die confirmation of each
+encoding (exact 8085 part unverified). The bus access order/kinds, unsigned
+immediates and wrapping are L library mappings, exact hardware unverified.
+DSUB uses the explicit L low/high byte-step S/P/AC/CY rule, D/S combined Z,
+and S signed-word V/silicon-corrected K. ARHL clears V by the die-derived L
+rule; RDEL updates CY/V and preserves K. Other extensions preserve flags (S).
+RSTV is an ordinary software restart to 0040h, preserving interrupt latches
+and retiring the EI delay (L), with no acknowledge. JK/JNK read only byte 2
+when untaken (L). `tests/i8085_undocumented.rs` pins literal flags and traces,
+every conditional path and derived width edges. Shared `FlagRules` and the
+8080 are unchanged.
 
 Private machinery is shared under decision-10: `decode.rs` matches bit patterns
 using model-supplied field restrictions and builds maps generic over the model's
@@ -318,9 +333,10 @@ executor's reported path. `progress.rs` counts completed steps and supplied cost
 saturates the counters and checks the budget. Neither module carries hardware
 facts; both cite decisions only. The 8080 keeps its group enum, encoding lists,
 timing values, executors, ALU, flags, state, interrupts, reset and map witness.
-The 8085 owns the same categories independently, plus `rim_sim`, `vectored`
-and `acknowledge` (decision-10; `i8085/mod.rs`). Both Intel models use the
-private access helpers under decision-16, without changing their public types.
+The 8085 owns the same categories independently, plus `rim_sim`, `vectored`,
+`acknowledge` and the 8085-only `undocumented` group (decision-18;
+`i8085/mod.rs`). Both Intel models use the private access helpers under
+decision-16, without changing their public types.
 
 Flow for each model: CPU (owned registers and latches) + an embedder value
 that implements `Bus` and that model's `Inputs` → `step`/`run` → state updates,
@@ -340,10 +356,11 @@ There is no documented-but-unimplemented dispatch path (decision-5 item 7).
 
 8085 dispatch follows decision-12: budget; six polls in fixed order; stop;
 edge sampling and highest eligible interrupt; halt; opcode fetch and group
-execution. `opcodes.rs` supplies six encoding lists to `decode.rs`, separating
-RIM/SIM from the five manual groups; executors report paths and `cpu.rs`
-selects the model-owned costs. `vectored.rs` and `acknowledge.rs`, like the
-8080 acknowledge path, use `intel::access::push_and_jump` with explicit return
+execution. `opcodes.rs` supplies seven encoding lists to `decode.rs`, separating
+RIM/SIM and the decision-18 extensions from the five manual groups; executors
+report paths and `cpu.rs` selects the model-owned costs. `vectored.rs` and
+`acknowledge.rs`, like the 8080 acknowledge path, use
+`intel::access::push_and_jump` with explicit return
 PC and target for stack writes and transfer of control (decision-16 rule 5;
 decision-12 rules 4/5). Stop preserves state,
 Unsupported restores pre-sampling latches, and Halt retains samples; the

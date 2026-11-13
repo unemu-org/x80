@@ -8,9 +8,9 @@
 
 mod support;
 
-use support::{Event, RecordingBus};
+use support::RecordingBus;
 use x80_core::i8085::{Flags, Latches, Registers, I8085};
-use x80_core::{Exit, MemoryAccess, Unsupported};
+use x80_core::Exit;
 
 #[rustfmt::skip]
 const DOCUMENTED: [u8; 246] = [
@@ -48,7 +48,9 @@ const DOCUMENTED: [u8; 246] = [
     0xF8, 0xF9, 0xFA, 0xFB, 0xFC, 0xFE, 0xFF,
 ];
 
-const UNDOCUMENTED: [u8; 10] = [0x08, 0x10, 0x18, 0x28, 0x38, 0xCB, 0xD9, 0xDD, 0xED, 0xFD];
+// Decision-18 §2 S: Tundra Table 2-10 p. 2-16/W p. 145, independent
+// D encoding keys in ROM; all ten historical holes now execute.
+const ADMITTED: [u8; 10] = [0x08, 0x10, 0x18, 0x28, 0x38, 0xCB, 0xD9, 0xDD, 0xED, 0xFD];
 
 fn registers() -> Registers {
     Registers {
@@ -68,21 +70,22 @@ fn registers() -> Registers {
 #[test]
 fn literal_sets_partition_all_bytes_once() {
     let mut occurrences = [0; 256];
-    for opcode in DOCUMENTED.into_iter().chain(UNDOCUMENTED) {
+    for opcode in DOCUMENTED.into_iter().chain(ADMITTED) {
         occurrences[usize::from(opcode)] += 1;
     }
     assert_eq!(occurrences, [1; 256]);
 }
 
 #[test]
-fn every_documented_opcode_completes_a_step() {
-    for opcode in DOCUMENTED {
+fn every_admitted_opcode_completes_a_step() {
+    // Decision-18 §§2–4: both V/K paths join the documented closure.
+    for opcode in DOCUMENTED.into_iter().chain(ADMITTED) {
         // Both paths of every condition; data, stack and code are separate.
         for set in [false, true] {
             let mut registers = registers();
             registers.flags = Flags {
-                overflow: false,
-                k: false,
+                overflow: set,
+                k: set,
                 sign: set,
                 zero: set,
                 auxiliary_carry: set,
@@ -111,62 +114,6 @@ fn every_documented_opcode_completes_a_step() {
     }
 }
 
-#[test]
-fn every_undocumented_byte_is_unsupported_without_state_change() {
-    for opcode in UNDOCUMENTED {
-        let mut bus = RecordingBus::new();
-        bus.load(0x00FF, &[0x5A, opcode, 0xA5, 0x3C]);
-        // Exercise rollback of edge sampling and EI-delay expiry as well as
-        // preservation of registers, flags, SOD and the saved TRAP status.
-        bus.trap = true;
-        bus.rst7_5 = true;
-        bus.rst6_5 = true;
-        bus.rst5_5 = true;
-        bus.intr = true;
-        let mut registers = registers();
-        registers.flags = Flags {
-            sign: true,
-            auxiliary_carry: true,
-            carry: true,
-            ..Flags::default()
-        };
-        let mut cpu = I8085::new(
-            registers,
-            Latches {
-                interrupt_enable: true,
-                ei_delay: true,
-                sod: true,
-                trap_saved_interrupt_enable: true,
-                trap_rim_pending: true,
-                ..Latches::default()
-            },
-        );
-        let before = cpu.clone();
-        let memory = bus.memory.clone();
-        for _ in 0..2 {
-            let report = cpu.step(&mut bus);
-            assert_eq!((report.steps, report.cycles), (0, 0), "{opcode:#04x}");
-            assert!(matches!(report.exit, Exit::Unsupported(Unsupported {
-                pc: 0x0100, opcode: read, acknowledge: false, ..
-            }) if read == opcode));
-            assert_eq!(cpu, before, "{opcode:#04x}");
-            assert_eq!(bus.memory, memory, "{opcode:#04x}");
-            assert_eq!(
-                bus.take_log(),
-                [
-                    Event::StopPoll(false),
-                    Event::TrapPoll(true),
-                    Event::Rst7_5Poll(true),
-                    Event::Rst6_5Poll(true),
-                    Event::Rst5_5Poll(true),
-                    Event::IntrPoll(true),
-                    Event::Read {
-                        address: 0x0100,
-                        kind: MemoryAccess::OpcodeFetch,
-                        value: opcode
-                    },
-                ]
-            );
-        }
-    }
-}
+// Decision-18 supersedes decision-11's fetched-byte refusals: the former
+// refusal/rollback witness is replaced by the complete admitted-set test
+// above. Unsupported INTR bytes remain covered in i8085_interrupts_intr.rs.

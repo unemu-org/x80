@@ -21,6 +21,8 @@ use x80_core::{Budget, Bus, Control, Exit, MemoryAccess};
 const LOAD: usize = 0x0100;
 const STACK: u16 = 0xfe00;
 const RENDEZVOUS: u8 = 0x08;
+// Private 8085 host ABI, not a CPU or CP/M hardware fact (decision-18).
+const BDOS_PORT_8085: u8 = 0xff;
 
 // Both pinned exercisers print identical descriptors in identical order:
 // 8080EXM.MAC:132–158; 8085EXM.MAC:133–159. Each tuple fingerprints the
@@ -370,6 +372,7 @@ struct Host<'a, W> {
     output: Vec<u8>,
     arguments: Option<(u8, u16)>,
     awaiting_registers: bool,
+    bdos_out: bool,
     error: Option<String>,
 }
 
@@ -412,6 +415,21 @@ impl<W: Write> Host<'_, W> {
 
 impl<W: Write> Bus for Host<'_, W> {
     fn read(&mut self, address: u16, kind: MemoryAccess) -> u8 {
+        if self.model == Model::I8085 {
+            // Decision-18 admits every 8085 opcode, including DSUB at 08h.
+            // Supply OUT FFh; RET at 0005h via instruction reads only, so
+            // Data reads still see the CP/M stack word at 0006h. The OUT
+            // arms a boundary stop; servicing BDOS never changes registers.
+            match (address, kind) {
+                (5, MemoryAccess::OpcodeFetch) => {
+                    self.bdos_out = true;
+                    return 0xd3;
+                }
+                (6, MemoryAccess::OperandFetch) if self.bdos_out => return BDOS_PORT_8085,
+                (7, MemoryAccess::OpcodeFetch) => return 0xc9,
+                _ => return self.ram[usize::from(address)],
+            }
+        }
         // ED 70 is a decision-14 hole. Only synthesize its second byte for
         // this private fetch, never for Data reads of the stack word at 0006h.
         if self.model == Model::Z80
@@ -429,7 +447,7 @@ impl<W: Write> Bus for Host<'_, W> {
                 // rendezvous returns through decision-5 item 6: no instruction,
                 // cycles or register changes. The runner supplies C/DE and
                 // retries this fetch, servicing BDOS before the installed RET.
-                // 8080/8085 use unsupported 08h (decisions 3 and 11).
+                // 8080 uses unsupported 08h (decision-3).
                 // Z80 uses ED 70 (decision-14); PROVENANCE §2's audit
                 // confirms neither Z80 guest executes any ED hole.
                 self.awaiting_registers = true;
@@ -453,6 +471,11 @@ impl<W: Write> Bus for Host<'_, W> {
     }
 
     fn output(&mut self, port: u8, _value: u8) {
+        if self.model == Model::I8085 && port == BDOS_PORT_8085 && self.bdos_out {
+            self.bdos_out = false;
+            self.awaiting_registers = true;
+            return;
+        }
         self.error = Some(format!("unexpected output port {port:02X}"));
     }
 
@@ -466,7 +489,11 @@ impl<W: Write> Bus for Host<'_, W> {
     }
 }
 
-impl<W> Control for Host<'_, W> {}
+impl<W> Control for Host<'_, W> {
+    fn stop_requested(&mut self) -> bool {
+        self.model == Model::I8085 && self.awaiting_registers
+    }
+}
 impl<W> i8080::Inputs for Host<'_, W> {}
 // decision-12: no interrupts, SID low, SOD notifications ignored.
 impl<W> i8085::Inputs for Host<'_, W> {}
@@ -550,6 +577,7 @@ fn run_cpu<C: Cpu, W: Write>(
         output: Vec::new(),
         arguments: None,
         awaiting_registers: false,
+        bdos_out: false,
         error: None,
     };
     host.ram[LOAD..LOAD + program.len()].copy_from_slice(program);
@@ -595,8 +623,17 @@ fn run_cpu<C: Cpu, W: Write>(
         }
         match report.exit {
             Exit::Budget | Exit::Halt => {}
+            Exit::Stop if config.model == Model::I8085 && host.awaiting_registers => {
+                host.awaiting_registers = false;
+                let (function, pointer) = cpu.bdos_arguments();
+                host.bdos(function, pointer);
+                if let Some(error) = host.error.take() {
+                    break Reason::HostError(error);
+                }
+            }
             Exit::Unsupported(unsupported)
-                if host.awaiting_registers
+                if config.model != Model::I8085
+                    && host.awaiting_registers
                     && unsupported.pc == 5
                     && !unsupported.acknowledge
                     && if config.model == Model::Z80 {
@@ -1079,7 +1116,7 @@ mod tests {
     }
 
     #[test]
-    fn i8085_uses_the_same_bdos_rendezvous_and_boot_stub() {
+    fn i8085_out_rendezvous_preserves_console_and_boot_exit() {
         let program = [
             0x11, 0x12, 0x01, // LXI D,0112h
             0x0e, 9, 0xcd, 5, 0, // MVI C,9; CALL 5
@@ -1099,11 +1136,12 @@ mod tests {
         .unwrap();
         assert_eq!(result.output, b"Hi!");
         assert_eq!(result.reason, Reason::NormalExit);
-        assert_eq!(result.steps, 10);
+        // Decision-18: one real OUT (10 states) per BDOS call before RET.
+        assert_eq!((result.steps, result.cycles), (12, 122));
         assert_eq!(result.verdict, None);
         assert!(!result.passed());
-        let unsupported = run(
-            &[0x08],
+        let dsub = run(
+            &[0x08, 0x76],
             Config {
                 model: Model::I8085,
                 ..Config::default()
@@ -1111,15 +1149,9 @@ mod tests {
             &mut Vec::new(),
         )
         .unwrap();
-        assert_eq!(
-            unsupported.reason,
-            Reason::Unsupported {
-                pc: 0x100,
-                opcode: 8,
-                preceding: vec![],
-            }
-        );
-        assert_eq!((unsupported.steps, unsupported.cycles), (0, 0));
+        // Decision-18: DSUB executes normally away from BDOS too.
+        assert_eq!(dsub.reason, Reason::UnexpectedHalt { pc: 0x102 });
+        assert_eq!((dsub.steps, dsub.cycles), (2, 15));
     }
 
     #[test]

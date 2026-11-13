@@ -9,6 +9,9 @@
 //! All totals were cross-read on page images: U5-4..18 (PDF 89..103),
 //! L3-2..69 (PDF 56..123), A-1..5 (PDF 189..193). Source hashes were checked
 //! against PROVENANCE.md section 1. The tests require no external artifacts.
+//! Decision-18 §§2/3 adds the ten extensions: S totals from Tundra
+//! 9000000.MD302.01 Table 2-10 p. 2-16/PDF 40 and W p. 145/PDF 2,
+//! unverified for Intel 8085; their traces are L library API mappings.
 //!
 //! Known disagreements (PROVENANCE.md section 1): CPE is 9/18 in U5-14
 //! and Table 5-1, and L3-16, but A-1 prints "9/17". PUSH rp is
@@ -45,12 +48,11 @@ use x80_core::{Budget, Exit, MemoryAccess, Report};
 
 #[derive(Clone, Copy, Debug)]
 enum Timing {
-    Undocumented,
     Fixed(u8),
     Conditional(u8, u8),
 }
 
-use Timing::{Conditional as C, Fixed as F, Undocumented as U};
+use Timing::{Conditional as C, Fixed as F};
 
 // Separate tests let a confirmed defect be ignored for its byte alone.
 macro_rules! timing_witnesses {
@@ -76,7 +78,7 @@ timing_witnesses! {
     op_05: 0x05 => F(4), "f"; // DCR B; U5-8, L3-21, A-2.
     op_06: 0x06 => F(7), "fo"; // MVI B; U5-4, L3-37, A-2.
     op_07: 0x07 => F(4), "f"; // RLC; U5-11, L3-49, A-3.
-    op_08: 0x08 => U, ""; // Table 5-2; A-5.
+    op_08: 0x08 => F(10), "f"; // decision-18 §§2/3: S total, L trace.
     op_09: 0x09 => F(10), "f"; // DAD B; U5-9, L3-20, A-2.
     op_0a: 0x0A => F(7), "fr"; // LDAX B; U5-5, L3-33, A-2.
     op_0b: 0x0B => F(6), "f"; // DCX B; U5-9, L3-22, A-3.
@@ -85,7 +87,7 @@ timing_witnesses! {
     op_0e: 0x0E => F(7), "fo"; // MVI C; U5-4, L3-37, A-2.
     op_0f: 0x0F => F(4), "f"; // RRC; U5-12, L3-54, A-3.
 
-    op_10: 0x10 => U, ""; // Table 5-2; A-5.
+    op_10: 0x10 => F(7), "f"; // decision-18 §§2/3: S total, L trace.
     op_11: 0x11 => F(10), "foo"; // LXI D; U5-5, L3-35, A-2.
     op_12: 0x12 => F(7), "fw"; // STAX D; U5-6, L3-62, A-2.
     op_13: 0x13 => F(6), "f"; // INX D; U5-9, L3-26, A-2.
@@ -93,7 +95,7 @@ timing_witnesses! {
     op_15: 0x15 => F(4), "f"; // DCR D; U5-8, L3-21, A-2.
     op_16: 0x16 => F(7), "fo"; // MVI D; U5-4, L3-37, A-2.
     op_17: 0x17 => F(4), "f"; // RAL; U5-12, L3-46, A-3.
-    op_18: 0x18 => U, ""; // Table 5-2; A-5.
+    op_18: 0x18 => F(10), "f"; // decision-18 §§2/3: S total, L trace.
     op_19: 0x19 => F(10), "f"; // DAD D; U5-9, L3-20, A-2.
     op_1a: 0x1A => F(7), "fr"; // LDAX D; U5-5, L3-33, A-2.
     op_1b: 0x1B => F(6), "f"; // DCX D; U5-9, L3-22, A-3.
@@ -110,7 +112,7 @@ timing_witnesses! {
     op_25: 0x25 => F(4), "f"; // DCR H; U5-8, L3-21, A-2.
     op_26: 0x26 => F(7), "fo"; // MVI H; U5-4, L3-37, A-2.
     op_27: 0x27 => F(4), "f"; // DAA; U5-9, L3-19, A-4.
-    op_28: 0x28 => U, ""; // Table 5-2; A-5.
+    op_28: 0x28 => F(10), "fo"; // decision-18 §§2/3: S total, L trace.
     op_29: 0x29 => F(10), "f"; // DAD H; U5-9, L3-20, A-2.
     op_2a: 0x2A => F(16), "foorr"; // LHLD; U5-5, L3-34, A-4.
     op_2b: 0x2B => F(6), "f"; // DCX H; U5-9, L3-22, A-3.
@@ -127,7 +129,7 @@ timing_witnesses! {
     op_35: 0x35 => F(10), "frw"; // DCR M; U5-8, L3-21, A-3.
     op_36: 0x36 => F(10), "fow"; // MVI M; U5-4, L3-38, A-2.
     op_37: 0x37 => F(4), "f"; // STC; U5-12, L3-63, A-4.
-    op_38: 0x38 => U, ""; // Table 5-2; A-5.
+    op_38: 0x38 => F(10), "fo"; // decision-18 §§2/3: S total, L trace.
     op_39: 0x39 => F(10), "f"; // DAD SP; U5-9, L3-20, A-2.
     op_3a: 0x3A => F(13), "foor"; // LDA; U5-5, L3-33, A-2.
     op_3b: 0x3B => F(6), "f"; // DCX SP; U5-9, L3-22, A-3.
@@ -283,7 +285,7 @@ timing_witnesses! {
     op_c8: 0xC8 => C(6, 12), "f/fss"; // RZ; U5-14, L3-56, A-1.
     op_c9: 0xC9 => F(10), "fss"; // RET; U5-14, L3-48, A-1.
     op_ca: 0xCA => C(7, 10), "fo/foo"; // JZ; U5-13, L3-32, A-3.
-    op_cb: 0xCB => U, ""; // Table 5-2; A-5.
+    op_cb: 0xCB => C(6, 12), "f/ftt"; // decision-18 §§2/3: S total, L trace.
     op_cc: 0xCC => C(9, 18), "fo/foott"; // CZ; U5-14, L3-18, A-1.
     op_cd: 0xCD => F(18), "foott"; // CALL; U5-13, L3-9, A-1.
     op_ce: 0xCE => F(7), "fo"; // ACI; U5-7, L3-2, A-3.
@@ -298,11 +300,11 @@ timing_witnesses! {
     op_d6: 0xD6 => F(7), "fo"; // SUI; U5-7, L3-65, A-3.
     op_d7: 0xD7 => F(12), "ftt"; // RST 2; U5-14, L3-55, A-2.
     op_d8: 0xD8 => C(6, 12), "f/fss"; // RC; U5-14, L3-47, A-1.
-    op_d9: 0xD9 => U, ""; // Table 5-2; A-5.
+    op_d9: 0xD9 => F(10), "fww"; // decision-18 §§2/3: S total, L trace.
     op_da: 0xDA => C(7, 10), "fo/foo"; // JC; U5-13, L3-27, A-3.
     op_db: 0xDB => F(10), "foi"; // IN; U5-16, L3-25, A-2.
     op_dc: 0xDC => C(9, 18), "fo/foott"; // CC; U5-14, L3-10, A-1.
-    op_dd: 0xDD => U, ""; // Table 5-2; A-5.
+    op_dd: 0xDD => C(7, 10), "fo/foo"; // decision-18 §§2/3: S total, L trace.
     op_de: 0xDE => F(7), "fo"; // SBI; U5-8, L3-58, A-3.
     op_df: 0xDF => F(12), "ftt"; // RST 3; U5-14, L3-55, A-2.
 
@@ -319,7 +321,7 @@ timing_witnesses! {
     op_ea: 0xEA => C(7, 10), "fo/foo"; // JPE; U5-13, L3-30, A-3.
     op_eb: 0xEB => F(4), "f"; // XCHG; U5-6, L3-65, A-2.
     op_ec: 0xEC => C(9, 18), "fo/foott"; // CPE; U5-14, L3-16, A-1.
-    op_ed: 0xED => U, ""; // Table 5-2; A-5.
+    op_ed: 0xED => F(10), "frr"; // decision-18 §§2/3: S total, L trace.
     op_ee: 0xEE => F(7), "fo"; // XRI; U5-10, L3-68, A-3.
     op_ef: 0xEF => F(12), "ftt"; // RST 5; U5-14, L3-55, A-2.
 
@@ -336,20 +338,18 @@ timing_witnesses! {
     op_fa: 0xFA => C(7, 10), "fo/foo"; // JM; U5-13, L3-27, A-3.
     op_fb: 0xFB => F(4), "f"; // EI; U5-17, L3-23, A-4.
     op_fc: 0xFC => C(9, 18), "fo/foott"; // CM; U5-14, L3-11, A-1.
-    op_fd: 0xFD => U, ""; // Table 5-2; A-5.
+    op_fd: 0xFD => C(7, 10), "fo/foo"; // decision-18 §§2/3: S total, L trace.
     op_fe: 0xFE => F(7), "fo"; // CPI; U5-11, L3-17, A-3.
     op_ff: 0xFF => F(12), "ftt"; // RST 7; U5-14, L3-55, A-2.
 }
 
 #[test]
-fn table_covers_246_documented_bytes_and_24_double_path_conditionals() {
-    let mut undocumented = Vec::new();
+fn table_covers_256_admitted_bytes_and_27_double_path_conditionals() {
     let mut conditional = Vec::new();
     let mut paths = 0;
     for (index, &(opcode, timing)) in TIMINGS.iter().enumerate() {
         assert_eq!(usize::from(opcode), index);
         match timing {
-            U => undocumented.push(opcode),
             F(_) => paths += 1,
             C(_, _) => {
                 conditional.push(opcode);
@@ -357,19 +357,16 @@ fn table_covers_246_documented_bytes_and_24_double_path_conditionals() {
             }
         }
     }
-    // 205775-002 Table 5-2 p. 5-20; 9800301-04 p. A-5.
-    assert_eq!(
-        undocumented,
-        [0x08, 0x10, 0x18, 0x28, 0x38, 0xCB, 0xD9, 0xDD, 0xED, 0xFD]
-    );
-    assert_eq!(256 - undocumented.len(), 246);
-    assert_eq!(paths, 270);
-    // CCC=000..111, J/C/R entries: 205775-002 pp. 5-13/5-14.
+    // Decision-18 §2 adds ten entries and three second paths (S totals).
+    assert_eq!(TIMINGS.len(), 256);
+    assert_eq!(paths, 283);
+    // CCC=000..111, J/C/R entries: 205775-002 pp. 5-13/5-14;
+    // decision-18 §2 adds RSTV CB and JNK/JK DD/FD.
     assert_eq!(
         conditional,
         [
-            0xC0, 0xC2, 0xC4, 0xC8, 0xCA, 0xCC, 0xD0, 0xD2, 0xD4, 0xD8, 0xDA, 0xDC, 0xE0, 0xE2,
-            0xE4, 0xE8, 0xEA, 0xEC, 0xF0, 0xF2, 0xF4, 0xF8, 0xFA, 0xFC,
+            0xC0, 0xC2, 0xC4, 0xC8, 0xCA, 0xCB, 0xCC, 0xD0, 0xD2, 0xD4, 0xD8, 0xDA, 0xDC, 0xDD,
+            0xE0, 0xE2, 0xE4, 0xE8, 0xEA, 0xEC, 0xF0, 0xF2, 0xF4, 0xF8, 0xFA, 0xFC, 0xFD,
         ]
     );
 }
@@ -410,6 +407,18 @@ fn fixture(opcode: u8, flags: Flags) -> (I8085, RecordingBus) {
 // table; independently, 9800301-04 pp. A-1..3 and the cited Ch. 3 entries.
 fn flags_for_path(opcode: u8, taken: bool) -> Flags {
     let mut flags = Flags::default();
+    // Decision-18 §§2/4 S: RSTV uses V; JNK/JK use K, not CCC.
+    match opcode {
+        0xCB => {
+            flags.overflow = taken;
+            return flags;
+        }
+        0xDD | 0xFD => {
+            flags.k = taken == (opcode == 0xFD);
+            return flags;
+        }
+        _ => {}
+    }
     let polarity = if opcode & 8 == 0 { !taken } else { taken };
     match (opcode >> 4) & 3 {
         0 => flags.zero = polarity,
@@ -423,19 +432,6 @@ fn flags_for_path(opcode: u8, taken: bool) -> Flags {
 
 fn witness(opcode: u8, timing: Timing, trace: &str) {
     match timing {
-        U => {
-            let (mut cpu, mut bus) = fixture(opcode, Flags::default());
-            let before = cpu.clone();
-            let report = cpu.step(&mut bus);
-            assert_eq!((report.steps, report.cycles), (0, 0));
-            let Exit::Unsupported(unsupported) = report.exit else {
-                panic!("opcode {opcode:#04x}: {report:?}");
-            };
-            assert_eq!((unsupported.pc, unsupported.opcode), (0x4000, opcode));
-            assert!(!unsupported.acknowledge);
-            assert_eq!(cpu, before);
-            assert_eq!(bus_trace(&bus), "f");
-        }
         F(states) => witness_path(opcode, states, None, trace),
         C(untaken, taken) => {
             let (untaken_trace, taken_trace) = trace.split_once('/').unwrap();
@@ -467,13 +463,20 @@ fn witness_path(opcode: u8, states: u8, taken: Option<bool>, trace: &str) {
     // than merely selecting a reported total. PC/SP effects: 205775-002
     // pp. 5-13/5-14; 9800301-04 Ch. 3 entries cited per byte above.
     if let Some(taken) = taken {
-        let (pc, sp) = match (opcode & 7, taken) {
-            (0, false) => (0x4001, 0x8000),
-            (0, true) => (0x7040, 0x8002),
-            (2 | 4, false) => (0x4003, 0x8000),
-            (2, true) => (0x6020, 0x8000),
-            (4, true) => (0x6020, 0x7FFE),
-            _ => unreachable!(),
+        // Decision-18 §2 S: RSTV targets 0040h; JNK/JK use the address.
+        let (pc, sp) = match (opcode, taken) {
+            (0xCB, false) => (0x4001, 0x8000),
+            (0xCB, true) => (0x0040, 0x7FFE),
+            (0xDD | 0xFD, false) => (0x4003, 0x8000),
+            (0xDD | 0xFD, true) => (0x6020, 0x8000),
+            _ => match (opcode & 7, taken) {
+                (0, false) => (0x4001, 0x8000),
+                (0, true) => (0x7040, 0x8002),
+                (2 | 4, false) => (0x4003, 0x8000),
+                (2, true) => (0x6020, 0x8000),
+                (4, true) => (0x6020, 0x7FFE),
+                _ => unreachable!(),
+            },
         };
         assert_eq!(
             (cpu.registers().pc, cpu.registers().sp),
@@ -798,39 +801,27 @@ fn step_budget_counts_interrupt_acceptance_then_the_vector_instruction() {
 }
 
 #[test]
-fn unsupported_exit_preserves_earlier_real_instruction_progress() {
-    // decision-5 item 6; decision-11: 08 is undocumented (Table 5-2/A-5).
-    // MVI 7 (U5-4/L3-37), INR 4 (U5-8/L3-25),
-    // LXI 10 (U5-5/L3-35); Table 5-1 sequences FR, F, FRR.
+fn admitted_dsub_follows_earlier_real_instruction_progress() {
+    // Decision-18 §§2/3: 08 now executes DSUB (S 10 states, L fetch only).
+    // Preserve earlier MVI/INR/LXI accounting and continue through DSUB.
     let (mut cpu, mut bus) = fixture(0x3E, Flags::default());
     bus.load(0x4000, &[0x3E, 0x44, 0x3C, 0x21, 0x00, 0x30, 0x08]);
-    let report = cpu.run(
-        &mut bus,
-        Budget {
-            steps: u64::MAX,
-            cycles: u64::MAX,
-        },
-    );
-    assert_eq!((report.steps, report.cycles), (3, 21));
-    let Exit::Unsupported(unsupported) = report.exit else {
-        panic!("{report:?}");
-    };
     assert_eq!(
-        (unsupported.pc, unsupported.opcode, unsupported.acknowledge),
-        (0x4006, 0x08, false)
-    );
-    assert_eq!(cpu.registers().a, 0x45);
-    assert_eq!((cpu.registers().h, cpu.registers().l), (0x30, 0x00));
-    assert_eq!(cpu.registers().pc, 0x4006);
-    assert_eq!(bus_trace(&bus), "foffoof");
-    let before = cpu.clone();
-    assert_eq!(
-        cpu.step(&mut bus),
+        cpu.run(
+            &mut bus,
+            Budget {
+                steps: 4,
+                cycles: u64::MAX
+            }
+        ),
         Report {
-            steps: 0,
-            cycles: 0,
-            exit: report.exit
+            steps: 4,
+            cycles: 31,
+            exit: Exit::Budget
         }
     );
-    assert_eq!(cpu, before);
+    assert_eq!(cpu.registers().a, 0x45);
+    assert_eq!((cpu.registers().h, cpu.registers().l), (0x10, 0x00));
+    assert_eq!(cpu.registers().pc, 0x4007);
+    assert_eq!(bus_trace(&bus), "foffoof");
 }

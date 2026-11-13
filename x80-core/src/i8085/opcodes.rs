@@ -1,17 +1,18 @@
-//! The documented 8085 map (decision-10, decision-11).
+//! The complete 8085 map (decisions 10/11/18).
 //!
 //! Group lists transcribe Intel 205775-002 (January 1983), §5.6,
-//! pp. 5-4 to 5-18. Unmatched bytes are undocumented; documented entries
-//! whose executors have not landed also return Unsupported (decision-5
-//! item 7). The independent witness uses Tables 5-1/5-2, pp. 5-19/5-20,
+//! pp. 5-4 to 5-18. Decision-18 §§2/3 admits the ten remaining bytes
+//! from Tundra Table 2-10 p. 2-16 (Intel-unverified second-source facts).
+//! The independent witness uses Tables 5-1/5-2, pp. 5-19/5-20,
 //! cross-read with Intel 9800301-04 (May 1981), App. A.
 
-use super::{arithmetic, branch, data_transfer, logical, rim_sim, stack_io_control};
+use super::{arithmetic, branch, data_transfer, logical, rim_sim, stack_io_control, undocumented};
 use crate::decode::{build, FieldRestriction};
 
 pub(super) use crate::decode::{Encoding, Path, States};
 
-/// The five §5.6 groups (p. 5-4), with RIM/SIM separated by decision-10.
+/// The five §5.6 groups (p. 5-4), RIM/SIM (decision-10), and the
+/// 8085-only extensions admitted by decision-18.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum Group {
     DataTransfer,
@@ -20,6 +21,7 @@ pub(super) enum Group {
     Branch,
     StackIoControl,
     RimSim,
+    Undocumented,
 }
 
 pub(super) type Instruction = crate::decode::Instruction<Group>;
@@ -40,8 +42,8 @@ const FIELD_RESTRICTIONS: &[FieldRestriction] = &[
     },
 ];
 
-/// Every documented byte has length and both state slots, even before its
-/// executor lands. Single totals fill both slots (§5.2 p. 5-2 item 6).
+/// Every byte has length and both state slots (decision-18 §2 completes
+/// the map). Single totals fill both slots (§5.2 p. 5-2 item 6).
 pub(super) static OPCODES: [Option<Instruction>; 256] = build(
     &[
         (Group::DataTransfer, data_transfer::ENCODINGS),
@@ -50,6 +52,7 @@ pub(super) static OPCODES: [Option<Instruction>; 256] = build(
         (Group::Branch, branch::ENCODINGS),
         (Group::StackIoControl, stack_io_control::ENCODINGS),
         (Group::RimSim, rim_sim::ENCODINGS),
+        (Group::Undocumented, undocumented::ENCODINGS),
     ],
     FIELD_RESTRICTIONS,
 );

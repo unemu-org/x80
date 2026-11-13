@@ -128,9 +128,10 @@ Closure duplication measurements retain decision-13's sharing boundary; see
 
 **M3: done (2026-11-13, epic `x80-4gk`).** The `i8085` model executes every
 documented instruction, including RIM/SIM, and all five interrupt sources with
-8085 state totals; INTR supports RST/CALL, while undocumented bytes and other
-acknowledge bytes return `Unsupported` with boundary state preserved
-(decisions 11/12; `tests/i8085_coverage.rs`, `tests/i8085_timing.rs`).
+8085 state totals; INTR supports RST/CALL, while other
+acknowledge bytes return `Unsupported` with boundary state preserved. All 256
+fetched bytes now execute under decision-18, superseding decision-11 in part
+(decisions 12/18; `tests/i8085_coverage.rs`, `tests/i8085_timing.rs`).
 The six-poll boundary sequence, persistent TRAP/RST 7.5 sampling, serial
 notifications and budget splits have replay witnesses (`tests/i8085_run.rs`,
 `tests/i8085_determinism.rs`; decision-12).
@@ -146,8 +147,15 @@ POP loads V/K independently and discards bit 3. Default clears V/K and reset
 preserves them by library rule. Unmasked literal witnesses live in
 `tests/i8085_vk_flags.rs`; the documented five-flag expectations remain
 separate from these qualified hidden-flag rules. The ten admitted undocumented
-instructions of decision-18 remain unimplemented; their existing refusal
-behavior is unchanged. The 8080 flag model is unchanged. 8085EXM's D5h mask
+instructions now execute in the 8085-owned `undocumented` group (decision-18
+§§2–4): all 256 fetched bytes complete, with 27 conditional second paths.
+Their operations/lengths/totals are documented by second source (CA80C85B),
+unverified for Intel 8085; each encoding has independent die confirmation
+(exact 8085 part unverified). Explicit library rules cover bus mappings,
+unsigned offsets/wrapping, DSUB's high-byte flags and ARHL's V clear.
+`tests/i8085_undocumented.rs` witnesses every instruction/path with literal
+flags and traces, including width edges and RSTV's ordinary retirement.
+The 8080 implementation and flag model are unchanged. 8085EXM's D5h mask
 excludes V/K and cannot validate them (decision-18 §5).
 
 **M5: done (2026-11-13, epic `x80-8sg`).** The private `intel` tier shares

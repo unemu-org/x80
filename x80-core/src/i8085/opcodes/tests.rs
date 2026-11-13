@@ -16,6 +16,7 @@ const LO: Group = Group::Logical;
 const BR: Group = Group::Branch;
 const SC: Group = Group::StackIoControl;
 const RS: Group = Group::RimSim;
+const UD: Group = Group::Undocumented;
 
 // group, Table 5-1 row, code, byte count, states (untaken, taken).
 // Lowercase d/s are register-only fields (110 excluded); p and x take all
@@ -174,8 +175,22 @@ const TABLE_5_2: [&str; 256] = [
     "RM", "SPHL", "JM Adr", "EI", "CM Adr", "-", "CPI D8", "RST 7",
 ];
 
-// Literal dashes in Table 5-2, corroborated by 9800301-04 p. A-5.
-const UNDOCUMENTED: [u8; 10] = [0x08, 0x10, 0x18, 0x28, 0x38, 0xCB, 0xD9, 0xDD, 0xED, 0xFD];
+// Decision-18 §2 S: Tundra Table 2-10 p. 2-16/W p. 145; D encodings
+// independently confirmed by ROM rows 22/25/23/24/8/11/32/12. These fill
+// the Intel Table 5-2 dashes without altering that historical transcription.
+const ADMITTED: [u8; 10] = [0x08, 0x10, 0x18, 0x28, 0x38, 0xCB, 0xD9, 0xDD, 0xED, 0xFD];
+const SECOND_SOURCE: &[Row] = &[
+    (UD, "DSUB", b"00001000", 1, 10, 10),
+    (UD, "ARHL", b"00010000", 1, 7, 7),
+    (UD, "RDEL", b"00011000", 1, 10, 10),
+    (UD, "LDHI", b"00101000", 2, 10, 10),
+    (UD, "LDSI", b"00111000", 2, 10, 10),
+    (UD, "RSTV", b"11001011", 1, 6, 12),
+    (UD, "SHLX", b"11011001", 1, 10, 10),
+    (UD, "JNK", b"11011101", 3, 7, 10),
+    (UD, "LHLX", b"11101101", 1, 10, 10),
+    (UD, "JK", b"11111101", 3, 7, 10),
+];
 
 fn row_matches(code: &[u8; 8], byte: u8) -> bool {
     let mut register = 0;
@@ -198,7 +213,10 @@ fn row_matches(code: &[u8; 8], byte: u8) -> bool {
 fn table_5_1_independently_witnesses_every_group_length_and_state_total() {
     let mut count = 0;
     for byte in 0..=u8::MAX {
-        let mut rows = TABLE_5_1.iter().filter(|row| row_matches(row.2, byte));
+        let mut rows = TABLE_5_1
+            .iter()
+            .chain(SECOND_SOURCE)
+            .filter(|row| row_matches(row.2, byte));
         let row = rows.next();
         assert!(
             rows.next().is_none(),
@@ -222,21 +240,24 @@ fn table_5_1_independently_witnesses_every_group_length_and_state_total() {
             count += 1;
         }
     }
-    assert_eq!(count, 246);
+    // Decision-18 §2 completes the former ten holes.
+    assert_eq!(count, 256);
 }
 
 #[test]
-fn table_5_2_has_246_documented_and_ten_undocumented_bytes() {
+fn table_5_2_and_decision_18_admit_all_256_bytes() {
     for byte in 0..=u8::MAX {
         let listed = TABLE_5_2[usize::from(byte)] != "-";
-        assert_eq!(listed, !UNDOCUMENTED.contains(&byte), "{byte:02X}");
-        assert_eq!(OPCODES[usize::from(byte)].is_some(), listed, "{byte:02X}");
+        assert_eq!(listed, !ADMITTED.contains(&byte), "{byte:02X}");
+        // Decision-18 §2 adds all ten historical dashes.
+        assert!(OPCODES[usize::from(byte)].is_some(), "{byte:02X}");
     }
     let mut lengths = [0; 4];
     for instruction in OPCODES.iter().flatten() {
         lengths[usize::from(instruction.length)] += 1;
     }
-    assert_eq!(lengths, [0, 202, 18, 26]);
+    // Decision-18 §2 adds 6 one-byte, 2 two-byte and 2 three-byte entries.
+    assert_eq!(lengths, [0, 208, 20, 28]);
 }
 
 #[test]
@@ -247,6 +268,10 @@ fn c9_ca_are_the_only_table_5_2_operand_marker_disagreements() {
     assert_eq!((TABLE_5_2[0xC9], TABLE_5_2[0xCA]), ("RET Adr", "JZ"));
     let mut mismatches = [None; 256];
     for (byte, entry) in TABLE_5_2.iter().enumerate() {
+        // Decision-18 entries were dashes, not operand-marker disagreements.
+        if ADMITTED.contains(&(byte as u8)) {
+            continue;
+        }
         if let Some(instruction) = OPCODES[byte] {
             let implied = if entry.contains("Adr") || entry.contains("D16") {
                 3

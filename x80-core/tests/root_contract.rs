@@ -125,12 +125,21 @@ fn i8080_rejected_acknowledge_has_no_preceding_bytes() {
 }
 
 #[test]
-fn i8085_undocumented_byte_has_no_preceding_bytes() {
+fn i8085_has_no_undocumented_opcode_refusal() {
     let mut cpu = I8085::default();
     cpu.registers_mut().pc = 0x1234;
     let mut bus = RecordingBus::new();
     bus.load(0x1234, &[0x08]);
-    assert_single_byte_refusal(cpu.step(&mut bus), false);
+    // Decision-18 §§2–4 admits all 256 bytes: 08h now executes DSUB.
+    assert_eq!(
+        cpu.step(&mut bus),
+        Report {
+            steps: 1,
+            cycles: 10,
+            exit: Exit::Budget,
+        }
+    );
+    assert_eq!(cpu.registers().pc, 0x1235);
 }
 
 #[test]

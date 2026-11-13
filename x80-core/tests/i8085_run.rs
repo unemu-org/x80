@@ -11,11 +11,6 @@ use support::{Event, RecordingBus};
 use x80_core::i8085::{Flags, Latches, Registers, I8085};
 use x80_core::{Budget, Exit, MemoryAccess, Report};
 
-const UNLIMITED: Budget = Budget {
-    steps: u64::MAX,
-    cycles: u64::MAX,
-};
-
 fn cpu_at(pc: u16) -> I8085 {
     I8085::new(
         Registers {
@@ -270,57 +265,9 @@ fn every_eligible_source_wakes_halt_and_none_returns_halt_without_fetch() {
     }
 }
 
-fn assert_fetch_unsupported(exit: Exit, pc: u16, opcode: u8) {
-    let Exit::Unsupported(unsupported) = exit else {
-        panic!("expected Unsupported, got {exit:?}")
-    };
-    assert_eq!(
-        (unsupported.pc, unsupported.opcode, unsupported.acknowledge),
-        (pc, opcode, false)
-    );
-}
-
-fn unsupported_byte_has_no_instruction_effects(opcode: u8) {
-    let mut cpu = cpu_at(0x1234);
-    cpu.latches_mut().ei_delay = true;
-    cpu.latches_mut().rst7_5_pending = true;
-    cpu.latches_mut().sod = true;
-    let before = cpu.clone();
-    let mut bus = RecordingBus::new();
-    bus.load(0x1234, &[opcode, 0xAA, 0xBB]);
-    let memory = bus.memory.clone();
-    for _ in 0..2 {
-        let report = cpu.step(&mut bus);
-        assert_eq!((report.steps, report.cycles), (0, 0));
-        assert_fetch_unsupported(report.exit, 0x1234, opcode);
-        assert_eq!(cpu, before, "{opcode:02X}");
-        assert_eq!(bus.memory, memory);
-        assert_eq!(
-            bus.take_log(),
-            [
-                Event::StopPoll(false),
-                Event::TrapPoll(false),
-                Event::Rst7_5Poll(false),
-                Event::Rst6_5Poll(false),
-                Event::Rst5_5Poll(false),
-                Event::IntrPoll(false),
-                Event::Read {
-                    address: 0x1234,
-                    kind: MemoryAccess::OpcodeFetch,
-                    value: opcode
-                }
-            ]
-        );
-    }
-}
-
-#[test]
-fn ten_undocumented_bytes_are_unsupported_without_state_change() {
-    // Table 5-2 p. 5-20 and 9800301-04 p. A-5's literal dashes.
-    for opcode in [0x08, 0x10, 0x18, 0x28, 0x38, 0xCB, 0xD9, 0xDD, 0xED, 0xFD] {
-        unsupported_byte_has_no_instruction_effects(opcode);
-    }
-}
+// Decision-18 §§2–4 removes all ten fetched-byte refusals. Their old
+// no-effects/retry witnesses are replaced by complete-set execution in
+// i8085_coverage.rs and literal path/retirement traces in i8085_undocumented.rs.
 
 #[test]
 fn nop_is_one_step_four_states_and_only_advances_pc_and_ei_delay() {
@@ -414,7 +361,7 @@ fn cycle_budget_overshoots_and_reached_budget_does_not_poll_again() {
 }
 
 #[test]
-fn unsupported_reports_earlier_nop_and_trap_progress() {
+fn budget_reports_earlier_nop_and_trap_progress() {
     let mut cpu = cpu_at(0x2000);
     cpu.latches_mut().ei_delay = true;
     let mut bus = RecordingBus::new();
@@ -422,9 +369,16 @@ fn unsupported_reports_earlier_nop_and_trap_progress() {
     bus.load(0x0024, &[0x08]);
     bus.trap_levels.extend([false, true]);
     bus.rst7_5_levels.extend([false, true]);
-    let report = cpu.run(&mut bus, UNLIMITED);
+    // Decision-18: 08 is executable; stop at the acceptance boundary by budget.
+    let report = cpu.run(
+        &mut bus,
+        Budget {
+            steps: 2,
+            cycles: u64::MAX,
+        },
+    );
     assert_eq!((report.steps, report.cycles), (2, 16));
-    assert_fetch_unsupported(report.exit, 0x0024, 0x08);
+    assert_eq!(report.exit, Exit::Budget);
     assert_eq!((cpu.registers().pc, cpu.registers().sp), (0x0024, 0xDEEE));
     assert!(!cpu.latches().ei_delay);
     assert!(!cpu.latches().trap_pending);
@@ -463,88 +417,116 @@ fn unsupported_reports_earlier_nop_and_trap_progress() {
                 kind: MemoryAccess::Stack,
                 value: 0x01
             },
+        ]
+    );
+}
+
+#[test]
+fn unsupported_acknowledge_reports_earlier_nop_progress() {
+    // Decision-12 rule 5 / decision-5 item 6: refusal contributes no
+    // progress and restores the rejection boundary, retaining the NOP.
+    let mut cpu = cpu_at(0x2000);
+    cpu.latches_mut().interrupt_enable = true;
+    cpu.latches_mut().ei_delay = true;
+    let mut bus = RecordingBus::new();
+    bus.load(0x2000, &[0x00]);
+    bus.intr = true;
+    bus.rst7_5_levels.extend([false, true]);
+    // 08 executes when fetched (decision-18), but INTR accepts only RST/CALL.
+    bus.acknowledges.push_back(0x08);
+    let memory = bus.memory.clone();
+    let report = cpu.run(
+        &mut bus,
+        Budget {
+            steps: 10,
+            cycles: 100,
+        },
+    );
+    assert_eq!((report.steps, report.cycles), (1, 4));
+    let Exit::Unsupported(unsupported) = report.exit else {
+        panic!("expected Unsupported, got {:?}", report.exit);
+    };
+    assert_eq!(unsupported.pc, 0x2001);
+    assert_eq!(unsupported.opcode, 0x08);
+    assert!(unsupported.acknowledge);
+    assert_eq!(unsupported.preceding, [0, 0, 0]);
+    assert_eq!(unsupported.preceding_len, 0);
+    assert_eq!(
+        cpu,
+        I8085::new(
+            Registers {
+                a: 0x91,
+                flags: Flags {
+                    overflow: false,
+                    k: false,
+                    sign: true,
+                    zero: true,
+                    auxiliary_carry: true,
+                    parity: true,
+                    carry: true,
+                },
+                b: 0x12,
+                c: 0x34,
+                d: 0x56,
+                e: 0x78,
+                h: 0x9A,
+                l: 0xBC,
+                sp: 0xDEF0,
+                pc: 0x2001,
+            },
+            Latches {
+                interrupt_enable: true,
+                ei_delay: false,
+                halted: false,
+                mask5_5: true,
+                mask6_5: true,
+                mask7_5: true,
+                rst7_5_pending: false,
+                trap_pending: false,
+                trap_armed: true,
+                trap_saved_interrupt_enable: false,
+                trap_rim_pending: false,
+                sod: false,
+                last_trap: false,
+                last_rst7_5: false,
+            },
+        )
+    );
+    assert_eq!(bus.memory, memory);
+    assert_eq!(
+        bus.take_log(),
+        [
             Event::StopPoll(false),
             Event::TrapPoll(false),
             Event::Rst7_5Poll(false),
             Event::Rst6_5Poll(false),
             Event::Rst5_5Poll(false),
-            Event::IntrPoll(false),
+            Event::IntrPoll(true),
             Event::Read {
-                address: 0x0024,
+                address: 0x2000,
                 kind: MemoryAccess::OpcodeFetch,
-                value: 0x08
+                value: 0x00,
+            },
+            Event::StopPoll(false),
+            Event::TrapPoll(false),
+            Event::Rst7_5Poll(true),
+            Event::Rst6_5Poll(false),
+            Event::Rst5_5Poll(false),
+            Event::IntrPoll(true),
+            Event::Read {
+                address: 0x2001,
+                kind: MemoryAccess::InterruptAcknowledge,
+                value: 0x08,
             },
         ]
     );
 }
 
 #[test]
-fn unsupported_preserves_latches_then_held_edges_are_sampled() {
-    // Control/decision-5 item 6 preserve the pre-sampling boundary state.
-    let mut cpu = cpu_at(0x3000);
-    // Inhibit acceptance so the high TRAP reaches the unsupported fetch.
-    cpu.latches_mut().ei_delay = true;
-    let before = cpu.clone();
-    let mut bus = RecordingBus::new();
-    bus.load(0x3000, &[0x08]);
-    bus.trap = true;
-    bus.rst7_5 = true;
-    let report = cpu.step(&mut bus);
-    assert_eq!((report.steps, report.cycles), (0, 0));
-    assert_fetch_unsupported(report.exit, 0x3000, 0x08);
-    assert_eq!(cpu.latches(), before.latches());
-    assert_eq!(cpu, before);
-    assert_eq!(
-        bus.take_log(),
-        [
-            Event::StopPoll(false),
-            Event::TrapPoll(true),
-            Event::Rst7_5Poll(true),
-            Event::Rst6_5Poll(false),
-            Event::Rst5_5Poll(false),
-            Event::IntrPoll(false),
-            Event::Read {
-                address: 0x3000,
-                kind: MemoryAccess::OpcodeFetch,
-                value: 0x08
-            }
-        ]
-    );
-    bus.load(0x3000, &[0x00]);
-    assert_eq!(
-        cpu.step(&mut bus),
-        Report {
-            steps: 1,
-            cycles: 4,
-            exit: Exit::Budget
-        }
-    );
-    assert!(cpu.latches().trap_pending);
-    assert!(cpu.latches().rst7_5_pending);
-    assert!(cpu.latches().last_trap);
-    assert!(cpu.latches().last_rst7_5);
-    assert_eq!(
-        bus.take_log(),
-        [
-            Event::StopPoll(false),
-            Event::TrapPoll(true),
-            Event::Rst7_5Poll(true),
-            Event::Rst6_5Poll(false),
-            Event::Rst5_5Poll(false),
-            Event::IntrPoll(false),
-            Event::Read {
-                address: 0x3000,
-                kind: MemoryAccess::OpcodeFetch,
-                value: 0x00
-            }
-        ]
-    );
-}
-
-#[test]
-fn stop_and_unsupported_preserve_pending_and_history_when_lines_fall() {
+fn stop_preserves_pending_and_history_when_lines_fall() {
     // Roll back cancellation, re-arm and history as well as new rising edges.
-    for stop in [true, false] {
+    // Decision-18 removes the fetched-refusal path; retain Stop restoration.
+    {
         let mut cpu = cpu_at(0x3000);
         cpu.latches_mut().trap_pending = true;
         cpu.latches_mut().trap_armed = false;
@@ -554,13 +536,9 @@ fn stop_and_unsupported_preserve_pending_and_history_when_lines_fall() {
         let before = cpu.clone();
         let mut bus = RecordingBus::new();
         bus.load(0x3000, &[0x08]);
-        bus.stop = stop;
+        bus.stop = true;
         let report = cpu.step(&mut bus);
-        if stop {
-            assert_eq!(report.exit, Exit::Stop);
-        } else {
-            assert_fetch_unsupported(report.exit, 0x3000, 0x08);
-        }
+        assert_eq!(report.exit, Exit::Stop);
         assert_eq!((report.steps, report.cycles), (0, 0));
         assert_eq!(cpu.latches(), before.latches());
         assert_eq!(cpu, before);
@@ -576,25 +554,22 @@ fn stop_and_unsupported_preserve_pending_and_history_when_lines_fall() {
 }
 
 #[test]
-fn pulses_only_at_stop_or_unsupported_are_not_retained() {
+fn pulses_only_at_stop_are_not_retained() {
     // Decision-5 item 6 / Control: the embedder must keep the pulse high
     // until a boundary that retains sampling (decision-12 rule 2).
-    for stop in [true, false] {
+    // Decision-18 removes the fetched-refusal path; retain Stop restoration.
+    {
         let mut cpu = cpu_at(0x3000);
         // Keep TRAP from preempting the boundary being tested.
         cpu.latches_mut().ei_delay = true;
         let before = *cpu.latches();
         let mut bus = RecordingBus::new();
         bus.load(0x3000, &[0x08]);
-        bus.stop = stop;
+        bus.stop = true;
         bus.trap = true;
         bus.rst7_5 = true;
         let report = cpu.step(&mut bus);
-        if stop {
-            assert_eq!(report.exit, Exit::Stop);
-        } else {
-            assert_fetch_unsupported(report.exit, 0x3000, 0x08);
-        }
+        assert_eq!(report.exit, Exit::Stop);
         assert_eq!(cpu.latches(), &before);
         bus.stop = false;
         bus.trap = false;
