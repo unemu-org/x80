@@ -395,6 +395,67 @@ not required anew for each timing under the maintainer's amendment.
 | decision-11 partial supersession / decision-16 ownership | Decisions 17/18 source policy; i8085 flags.rs/alu.rs/state.rs and reset/PSW conversion; accepted decision-19 | All ten operations/lengths/totals implemented; primary-only refusal and filler1/5 replaced by seven flags and chosen PSW rules. Preserve bit3=0, unsupported transaction for other unadmitted behaviour, documented operand-marker reconciliation, all 8080 rules and model-specific types. Decision-19 amends decision-16 with four flag-only hooks; further methods still require an amendment |
 | 8085EXM masked CRC invariance | Pinned 8085EXM.MAC, May 2020, SHA-256 caf4bf988ee3127947e5d22877cd0a120b5d2acabbb6d0eefc39bc82d296172e; lines 38–39, 186–378, 390–392, 846–855; lines 810–825 DAD before PUSH | **Library verification scope**: all 25 masks D5h exclude bits5/3/1, snapshot masked before CRC. Changes confined to these bits cannot change judged CRCs; no V/K/ten-opcode witness, new oracle run or guarantee for other flags/state. Keep §2's 24 judged/one reported qualification |
 
+### Z80 undocumented-behaviour sources (M6; x80-mn3.5, source pins only)
+
+READ locally, 2026-11-13, without network access: Young's PDF title/copyright,
+history, relevant opcode/flag prose and tables on rendered page images;
+the supplied MEMPTR text; Banks' measurement Markdown and result-page link
+inventory. The z80test archive was extracted temporarily to inspect its README,
+licence, changes and test/host assembly sources (not an emulator). Full URLs,
+byte sizes, all 22 wiki page hashes and specimen inventory are in
+[oracles/MANIFEST.md](oracles/MANIFEST.md#z80-undocumented-behaviour-sources-x80-m6--fetch-only);
+original bytes are pinned in `oracles/SHA256SUMS.fetched`. All remain fetch-only.
+The supplied wiki commit association is the supervisor's retrieval record;
+there is no local wiki git metadata or capture-image corpus to authenticate it
+independently in this offline audit. Revision plus page hashes identify exactly
+what was read. These pins make no behaviour ruling or change to decision-14.
+
+| Path in `oracles/` | Title / author / revision or date | SHA-256 | Class, label, silicon and source locators |
+| --- | --- | --- | --- |
+| `zilog/z80-undocumented/young-undocumented-z80-documented-v0.91.pdf` | The Undocumented Z80 Documented — Sean Young, maintained by Jan (named in §§1.1/1.4; surname not in the document); v0.91, 18 September 2005; Wayback 20260108105255 | `6413048f39c2e735373b1fb23102599133bc64ccd0ed63b16fbc1173643d7a9d` | **C; third-party analysis.** GFDL 1.1-or-later, no invariant sections/cover texts (p. i/PDF 2); 52 PDF pages. §§3.1–3.7 pp. 11–14: index halves, SLL, ED holes/aliases, ignored/repeated prefixes, DD/FD CB copies, ED 70/71. §§2.3, 4.1–4.7 pp. 8, 15–18 and §§8.1–8.11 pp. 26–35: per-instruction bits 5/3 and an explicitly incomplete hidden-register account. §1.1 describes collection/checking; §3.4 quotes a Spectrum bus experiment, without identifying a specimen. No per-fact NMOS/CMOS scope established |
+| `zilog/z80-undocumented/memptr-boo-boo-2006.txt` | MEMPTR, esoteric register of the ZiLOG Z80 CPU — Boo-boo, draft English translation Vladimir Kladov; ©2006 zx.pk.ru; supplied 2014 third-party gist copy (retrieval record: gist revision cdd2889d; raw identifier 0157588ecd91bb82eec06d85d5be0ca2a3472c30) | `78d19f0809c31dfb516150ad5e7ba747063f40bbb528439f1316539c7f0c612a` | **C; third-party analysis.** No licence grant. Opening experiment description, instruction-by-instruction MEMPTR list and footer credits; CPI/CPD/BIT probing recovers 14 low bits. Real-chip testers named Wlodek, CHRV, icebear, molodcov_alex, goodboy; ordinary Z80 parts unidentified, KP1858BM1/T34BM1 exceptions explicitly named. A mirrored account of experiments is not an identified-Zilog B capture |
+| `zilog/z80-undocumented/z80decoder-wiki/Undocumented-Flags.md` | Z80Decoder wiki, Undocumented Flags — David Banks; git 49e542dd40c36ef7367cb5806292764416dc987a, includes literal update 9/7/2026; read 2026-11-13 | `a5b100b3046e88485a939b5f1a0a76536c4ec59c050ca800db4b76fa1652e9ef` | **B; hardware-measured (Zilog NMOS Z80, by David Banks)** for the author's reported verification; exact date code not given here. “Interrupted block instructions” reports LDxR/CPxR/INxR/OTxR repeat-step flags; “SCF/CCF” covers predecessor/Q, POP AF, NEC NMOS/ST CMOS differences and DD/FD prefixes. No licence grant found. Distinguish these reports from linked/simulator material and later screen results |
+| `zilog/z80-undocumented/z80decoder-wiki/Unstable-CCF-SCF-Behaviour.md` and `Results-*.md` | Z80Decoder wiki, Unstable CCF/SCF Behaviour and result matrices — David Banks; same pinned git revision, no publication date in these pages; read 2026-11-13 | `485c12182ee05bffc734fd30545e763f81b6f5723eaf94aaa7da9e3c10395f01` (write-up); each result page pinned separately in MANIFEST/SHA256SUMS.fetched | **B; hardware-measured (listed Z80 parts, by David Banks)**, reported Acorn Z80 Second Processor screen experiments, 2.0/3.5/6.0 MHz; “Introduction”, “Conclusions”, “Test Program” and per-part pages. Zilog NMOS 8039/8644/8811, ambiguous 8817; Zilog CMOS 9044/0047/1930; SGS NMOS, NEC NMOS/CMOS and ST CMOS (date codes unstated). No licence grant in Markdown; images are linked, absent and unread |
+
+Young page map: title PDF 1, copyright p. i/PDF 2, contents pp. ii–iii/PDF 3–4;
+Arabic printed pages 5–52 equal their PDF page numbers. §4.1 p. 15 admits
+untested hidden-register cases; §8.5 p. 30 states A-derived SCF/CCF flags without
+the later Q qualification. §4.5 p. 17 discusses repeat/interruptibility without
+Banks' later interrupted-repeat flag findings. No systematic NMOS/CMOS or CMOS
+ED 71 output comparison is present. These are reading limits, not corrections.
+
+The MEMPTR copy's original-host URL is cpcwiki; the supplied retrieval record
+says that host refused automated access. Its actual pin is the third-party gist,
+not an authenticated author-host capture. The full URL and distinction between
+the supplied gist revision and raw identifier are recorded in MANIFEST. The
+text credits its own experiment team while referring to Young and another
+project; those linked implementations/documentation were not consulted.
+
+Banks' eleven per-part result entries are enumerated in MANIFEST, with
+aggregate pages by frequency and all results. Preserve two unresolved readings:
+`Results-Zilog-NMOS-Date-Code-8817.md` and aggregate headings say NMOS, while
+its own heading and image roots say CMOS; the unstable conclusions say 8634
+where result filenames/headings/paths say 8644. The Markdown does not establish
+package markings for SGS/NEC/ST. Capture images/chip photos are not included;
+no image-level result is claimed verified. The later SCF/CCF specimen list must
+not be retroactively applied to every earlier interrupted-block statement.
+Capture setup notes are context; the exported NMI/simulator discussion is
+excluded from evidence. Fetch uses a **git-pinned Markdown export**, not raw-page
+URLs; offline verification hashes the exported pages.
+
+Independence must be established **per fact**. Young compiles other origins
+(§1.1 and bibliography [1], [2], [5]), including Cringle's exercisers. MEMPTR
+cites Young but reports additional experiments by its credited team. Banks
+starts with Young and credits Patrik Rak's 2012 SCF/CCF discovery; z80test's
+README cites Banks. Those retellings count once. Banks' own Acorn measurements
+and Rak's Spectrum CRCs have distinct reported acquisition origins where the
+same fact is actually discriminated; shared prose/discovery is not another key.
+ZEXALL/ZEXDOC share the Cringle lineage and unidentified hardware: falsifiers
+only. A Young statement plus ZEXALL CRC is not automatically independent.
+No source here is class A or qualifies for decision-18's second-source
+manufacturer amendment. Class C alone never licenses; oracle CRCs never supply
+the written fact. Individual NMOS/CMOS findings remain limited to named parts.
+
 ### Discovery inventory
 
 The list below is **not a set of pinned sources**. Unknown metadata is marked
@@ -740,17 +801,58 @@ time. The nine excluded groups are reported "not run (decision-14)". The pass
 found no falsifying case; it licenses no behaviour, which stays pinned to the
 cited pages and witnesses.
 
-#### Recorded Z80 candidates
+#### Additional pinned Z80 oracles (M6; x80-mn3.5)
 
-| Candidate | Disposition | Licence / host evidence |
-| --- | --- | --- |
-| ZEXALL | Rejected for M4: compares flag bits 5 and 3, outside the documented behavior set; no fetch pin | Same Cringle exerciser family; specific candidate bytes and licence header **to confirm** if reconsidered. CP/M-style host expected from family lineage; exact build's host needs **to confirm** |
-| Patrik Rak's z80test | Evaluated candidate only; not selected, fetched or run | No local pinned source or licence inspected: exact licence and redistribution terms **to confirm**. Prior local knowledge suggests ZX Spectrum-oriented builds, requiring a target-specific loading/ROM/I/O environment rather than assuming the CALL 5 ABI; exact build, load address, entry/exit, stack, ROM calls, ports, interrupt/timing needs and any alternative host **to confirm** |
+READ/MEASURED locally, 2026-11-13: source/header/host and SHA-256 audit only;
+neither program was run. These pins supersede the earlier candidate-only
+inventory without expanding the M4 host or its documented-encoding audit.
 
-Unresolved provenance: the exact Z80 part/revision and per-group capture behind
-Cringle's expected CRCs are unstated. Candidate licence/host details above remain
-unverified; no network lookup was made. The Zilog manual pin is maintained
-separately; this block records the revision and page images used for classification.
+| Program / revision | Files and SHA-256 | Licence | Decision-17 class, label and oracle role |
+| --- | --- | --- | --- |
+| ZEXALL — Frank D. Cringle, ©1994, original yaze 1.14; same `993d8647eabf95c61e49b134198a240ab577358b` distribution pin as ZEXDOC | `z80-exercisers/zexall.com`: `6e2da55147a04f28d303d5da6a1e6b771557ac244653590a0f24a2d39c8537e8`; `z80-exercisers/zexall.z80`: `495f686b3f4418d50a110ba6ae4c6d86d715506e1eb6117040bd6f1eb4e011c5` | GPL-2.0-or-later (source header), same pinned COPYING as ZEXDOC; fetch-only | **B, reported hardware measurement; hardware-measured (Z80; exact part and measurer unverified)**. Source lines 34–39 say empirical real-Z80 CRCs but identify no maker, revision or capture. **Falsifier only**, never an independent identified-silicon confirmation. Includes flag bits 5/3 and undocumented encodings; shares origin with ZEXDOC |
+| Zilog Z80 CPU test suite (z80test) — Patrik Rak, v1.2a, 2 December 2023 (`changes.txt`) | `z80-exercisers/z80test-1.2a.zip`: `7df0443d703e6b3114ea04b4cdef3e13b91421c62e37185c1036d06864cacbaf` | MIT, `license.txt`, ©2012–2023 Patrik Rak; kept fetch-only | **B; hardware-measured (Zilog Z80 in a 48K Spectrum, by Patrik Rak)**. README: “values obtained from a real 48K Spectrum with Zilog Z80 CPU”. No package/date code or NMOS/CMOS revision specified. Identified-hardware CRCs **may confirm stated facts only where the groups discriminate them**, with an independent written origin; never license a fact alone |
+
+ZEXALL host, read at `org`, `start`, `done`, `bdos`: writable load/entry 0100h,
+SP from word 0006h, CALL 0005h BDOS functions 2 (E) and 9 ('$'-terminated DE),
+JP 0000h exit. DI/EI surrounds cases; no injected interrupt/port device needed.
+A source/binary correspondence and digest/encoding audit is still required for
+this artifact before a harness run; the existing ZEXDOC audit does not establish
+ZEXALL correspondence. No expectation was derived from distribution emulator code.
+
+z80test archive URL, complete host requirements and coverage are also recorded
+in [MANIFEST's exerciser section](oracles/MANIFEST.md#z80-cpu-exercisers-x80-oracles-falsify-never-define--fetch-only).
+Locators in the extracted `z80test-1.2a/` tree:
+
+- `readme.txt` and `src/z80*.asm`: full/register and flags-only, documented-mask,
+  post-CCF, MEMPTR/BIT and screen variants. `src/tests.asm` `testtable` and
+  descriptors include index halves, SLL (SLIA), DD/FD CB copies/BIT aliases,
+  per-instruction bits 5/3, ED aliases, IN (C), OUT (C),0, and self-overwriting
+  LDxR/INxR cases exposing repeat-step state. This is not an exhaustive audit
+  of holes, ignored prefixes or injected-interrupt paths. OUT CRCs observe
+  CPU/memory state, not output-bus bytes; the ED 71 mnemonic is no confirmation
+  of its emitted value or of any NMOS/CMOS difference.
+- `readme.txt`: CCF CRCs assume the genuine Zilog variant, warns of other-maker
+  differences and board-dependent randomness. `z80ccfscr` visualises it. MEMPTR
+  vectors were **not designed to stress MEMPTR**, so many cases may escape.
+  `changes.txt` v1.2a corrects interrupted INIR/INDR MEMPTR CRCs. NEC/ST-named
+  descriptors do not establish identified-hardware CRC provenance for those parts.
+- `src/loader.bas`, `Makefile`, `main.asm`, `print.asm`: Spectrum TAP/BASIC host,
+  CLEAR 32767 and USR 32768; code load/entry **8000h**. Writable RAM and caller
+  stack; CHAN-OPEN **1601h** (A=2), RST **10h** printing and Spectrum system
+  variables (IY **5C3Ah**). Printing temporarily enables interrupts; tests use DI.
+  Ordinary exit restores HL'/IY, EI, RET to BASIC/caller and prints a final pass
+  or failure count. `z80ccfscr.asm` writes Spectrum screen/attributes and loops
+  without normal exit; no CP/M CALL 5 service applies.
+- `main.asm` `.incheck`, `idea.asm`, `tests.asm`: Spectrum I/O, OUT (FEh),07h
+  and expected IN (FEh)=BFh, otherwise affected input tests report a precheck
+  failure and are avoided. `idea.asm` warns that moving the **8800h** data area
+  changes expected CRCs. Preserve linked addresses and self-modifying code.
+
+Pinning/eligibility is not a PASS or a blanket witness. Banks/Rak shared
+SCF/CCF discovery/prose and Young/Cringle references require per-fact origin
+accounting as in §1. Cringle's exact silicon/capture remains unverified;
+z80test names its machine and maker but not a specimen/revision. No hardware
+behaviour ruling or harness change is made by this audit.
 
 ## 3. Witnesses and current scope
 
