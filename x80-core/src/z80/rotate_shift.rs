@@ -1,18 +1,22 @@
-//! Rotate and Shift Group: encoding data only (decision-13 rule 2).
+//! Rotate and Shift Group: encodings and execution (decision-13 rules 2–4).
 //!
 //! Primary: Zilog UM008011-0816, rev. 11 (August 2016), pp. 204–241.
 //! Entry citations below use printed pages; PDF = printed + 14.
 //! Independent cross-read: 03-0029-01 (1977), Table 7.0-7, p. 50
 //! (PDF = printed + 6). Whole-instruction lengths and T-state totals include
 //! every prefix, operand and displacement (decision-13 rules 3–5).
+//! Execution witnesses: tests/z80_rotate_shift.rs. Access kinds and refresh
+//! follow decision-15 rules 5–6, including its unverified indexed-CB fourth-
+//! byte classification. Only six flags are stored (decision-14 rules 5–6).
 
-use super::cpu::Decoded;
+use super::cpu::{Decoded, IndexRegister, Table};
 use super::opcodes::{Encoding, Instruction, States};
-use super::Z80;
+use super::{Flags, Registers, Z80};
 use crate::decode::Path;
-use crate::Bus;
+use crate::{Bus, MemoryAccess};
 
-// Entry bit-diagram slips on pp. 225, 228: see PROVENANCE.md §1.
+// Entry bit-diagram slips on pp. 225, 228 and RRCA's worked example
+// on p. 210: see PROVENANCE.md §1. Follow the agreeing bit routing.
 
 pub(super) const MAIN: &[Encoding] = &[
     // UM RLCA, p. 205.
@@ -83,18 +87,136 @@ pub(super) const ED: &[Encoding] = &[
 /// Flip only this group-owned switch when its executor is complete. Until
 /// then dispatch refuses before any operand/data/stack/port access
 /// (decision-5 item 7 staging; decision-14 rule 4).
-pub(super) const LANDED: bool = false;
+pub(super) const LANDED: bool = true;
 
 /// Final executor seam (decision-13 rule 4). PC is after prefix/key bytes;
 /// read remaining operands through Z80::fetch_operand. INDEX d is executor-
 /// owned; INDEX_CB d is in Decoded. Return the complete instruction's path.
 /// Repeating blocks rewind PC by two and return Path::Taken (rule 11).
 pub(super) fn execute<S: Bus>(
-    _cpu: &mut Z80,
-    _system: &mut S,
+    cpu: &mut Z80,
+    system: &mut S,
     _instruction: &Instruction,
-    _decoded: &Decoded,
+    decoded: &Decoded,
 ) -> Path {
-    // Unreachable while LANDED is false; never a panic or a public stub.
+    let registers = cpu.registers_mut();
+    match decoded.table {
+        Table::Main => {
+            // UM RLCA/RLA/RRCA/RRA pp. 205, 207, 209, 211;
+            // TM Table 7.0-7 p. 50: S/Z/P-V unaffected, H=N=0.
+            let (value, carry) = rotate_shift(decoded.opcode, registers.a, registers.flags.carry);
+            registers.a = value;
+            registers.flags.half_carry = false;
+            registers.flags.subtract = false;
+            registers.flags.carry = carry;
+        }
+        Table::Cb => {
+            let address = if decoded.opcode & 7 == 6 {
+                Some(registers.hl())
+            } else {
+                None
+            };
+            execute_cb(registers, system, decoded.opcode, address);
+        }
+        Table::IndexCb => {
+            // UM pp. 217, 219 and analogous forms pp. 221–237;
+            // TM p. 50: d is signed two's complement. The dispatcher has
+            // already fetched d/op. Wrap is derived from 16-bit addresses.
+            if let (Some(index), Some(displacement)) = (decoded.index, decoded.displacement) {
+                let base = match index {
+                    IndexRegister::Ix => registers.ix,
+                    IndexRegister::Iy => registers.iy,
+                };
+                let address = base.wrapping_add_signed(i16::from(displacement as i8));
+                execute_cb(registers, system, decoded.opcode, Some(address));
+            }
+        }
+        Table::Ed => {
+            // UM RLD pp. 238–239, RRD pp. 240–241; TM p. 50.
+            // Rotate the three low nibbles, preserving A's high nibble.
+            // S/Z/P-V describe the resulting A; C is unaffected, H=N=0.
+            let address = registers.hl();
+            let memory = system.read(address, MemoryAccess::Data);
+            let a = registers.a;
+            let (value, memory) = if decoded.opcode == 0x6F {
+                ((a & 0xF0) | (memory >> 4), (memory << 4) | (a & 0x0F))
+            } else {
+                (
+                    (a & 0xF0) | (memory & 0x0F),
+                    ((a & 0x0F) << 4) | (memory >> 4),
+                )
+            };
+            system.write(address, memory, MemoryAccess::Data);
+            registers.a = value;
+            registers.flags = result_flags(value, registers.flags.carry);
+        }
+        // This group has no terminals in the ordinary DD/FD table.
+        Table::Index => {}
+    }
     Path::Untaken
+}
+
+/// CB register fields and read/modify/write memory: UM pp. 213–237;
+/// TM Table 7.0-7 p. 50. The map excludes SLL and indexed register copies
+/// (decision-14 rules 1–2), so indexed writeback changes memory only.
+fn execute_cb<S: Bus>(registers: &mut Registers, system: &mut S, opcode: u8, address: Option<u16>) {
+    let operand = if let Some(address) = address {
+        system.read(address, MemoryAccess::Data)
+    } else {
+        match opcode & 7 {
+            0 => registers.b,
+            1 => registers.c,
+            2 => registers.d,
+            3 => registers.e,
+            4 => registers.h,
+            5 => registers.l,
+            _ => registers.a,
+        }
+    };
+    let (value, carry) = rotate_shift(opcode, operand, registers.flags.carry);
+    if let Some(address) = address {
+        system.write(address, value, MemoryAccess::Data);
+    } else {
+        match opcode & 7 {
+            0 => registers.b = value,
+            1 => registers.c = value,
+            2 => registers.d = value,
+            3 => registers.e = value,
+            4 => registers.h = value,
+            5 => registers.l = value,
+            _ => registers.a = value,
+        }
+    }
+    registers.flags = result_flags(value, carry);
+}
+
+/// Bit routing: UM RLC pp. 213–220, RL pp. 221–223, RRC pp. 224–226,
+/// RR pp. 227–229, SLA pp. 230–232, SRA pp. 233–235, SRL pp. 236–237;
+/// TM Table 7.0-7 p. 50. Main accumulator forms share the first four
+/// selectors (UM pp. 205, 207, 209, 211), but preserve S/Z/P-V separately.
+fn rotate_shift(opcode: u8, value: u8, carry: bool) -> (u8, bool) {
+    match opcode & 0x38 {
+        0x00 => (value.rotate_left(1), value & 0x80 != 0),
+        0x08 => (value.rotate_right(1), value & 1 != 0),
+        0x10 => ((value << 1) | u8::from(carry), value & 0x80 != 0),
+        0x18 => ((value >> 1) | (u8::from(carry) << 7), value & 1 != 0),
+        0x20 => (value << 1, value & 0x80 != 0),
+        0x28 => ((value >> 1) | (value & 0x80), value & 1 != 0),
+        // The map admits 38h (SRL) here; 30h (SLL) is absent.
+        _ => (value >> 1, value & 1 != 0),
+    }
+}
+
+/// UM flag lists pp. 214–215, 217–220, 222, 226, 229, 231, 234, 237–241;
+/// TM p. 50: S/Z from result, P-V even parity, H=N=0. For nibble rotates
+/// the caller supplies preserved C and the resulting accumulator.
+fn result_flags(value: u8, carry: bool) -> Flags {
+    Flags {
+        sign: value & 0x80 != 0,
+        zero: value == 0,
+        half_carry: false,
+        parity_overflow: value.count_ones() & 1 == 0,
+        subtract: false,
+        carry,
+    }
 }
