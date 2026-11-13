@@ -1,4 +1,4 @@
-//! Input and Output Group: encoding data only (decision-13 rule 2).
+//! Input and Output Group (decision-13 rule 2; decision-15 rules 4/11).
 //!
 //! Primary: Zilog UM008011-0816, rev. 11 (August 2016), pp. 294–316.
 //! Entry citations below use printed pages; PDF = printed + 14.
@@ -10,7 +10,7 @@ use super::cpu::Decoded;
 use super::opcodes::{Encoding, Instruction, States};
 use super::Z80;
 use crate::decode::Path;
-use crate::Bus;
+use crate::{Bus, MemoryAccess};
 
 // Repeats use terminating/repeating slots (decision-15 rule 11).
 
@@ -75,18 +75,111 @@ pub(super) const ED: &[Encoding] = &[
 /// Flip only this group-owned switch when its executor is complete. Until
 /// then dispatch refuses before any operand/data/stack/port access
 /// (decision-5 item 7 staging; decision-14 rule 4).
-pub(super) const LANDED: bool = false;
+pub(super) const LANDED: bool = true;
 
 /// Final executor seam (decision-13 rule 4). PC is after prefix/key bytes;
 /// read remaining operands through Z80::fetch_operand. INDEX d is executor-
 /// owned; INDEX_CB d is in Decoded. Return the complete instruction's path.
 /// Repeating blocks rewind PC by two and return Path::Taken (rule 11).
 pub(super) fn execute<S: Bus>(
-    _cpu: &mut Z80,
-    _system: &mut S,
+    cpu: &mut Z80,
+    system: &mut S,
     _instruction: &Instruction,
-    _decoded: &Decoded,
+    decoded: &Decoded,
 ) -> Path {
-    // Unreachable while LANDED is false; never a panic or a public stub.
+    let opcode = decoded.opcode;
+    match opcode {
+        // UM IN A,(n) p. 295 / OUT (n),A p. 306; TM Table 7.0-11
+        // p. 54: A supplies A8–A15, n A0–A7, flags unchanged. Input
+        // samples the port BEFORE replacing A (decision-15 rule 4).
+        0xDB | 0xD3 => {
+            let n = cpu.fetch_operand(system);
+            let registers = cpu.registers_mut();
+            let port = u16::from_be_bytes([registers.a, n]);
+            if opcode == 0xDB {
+                registers.a = system.input16(port);
+            } else {
+                system.output16(port, registers.a);
+            }
+        }
+        // UM IN r,(C) pp. 296–297; TM p. 54: address from old BC,
+        // even for IN B/IN C. S/Z/parity reflect input; H/N reset,
+        // C unchanged. H reset is also explicit in 03-0002-01 p. 255
+        // (TM marks H affected: PROVENANCE §1, IN H notation).
+        // The map excludes r=110 under decision-14 rules 1–2.
+        0x40 | 0x48 | 0x50 | 0x58 | 0x60 | 0x68 | 0x78 => {
+            let registers = cpu.registers_mut();
+            let value = system.input16(registers.bc());
+            match opcode {
+                0x40 => registers.b = value,
+                0x48 => registers.c = value,
+                0x50 => registers.d = value,
+                0x58 => registers.e = value,
+                0x60 => registers.h = value,
+                0x68 => registers.l = value,
+                _ => registers.a = value,
+            }
+            registers.flags.sign = value & 0x80 != 0;
+            registers.flags.zero = value == 0;
+            registers.flags.half_carry = false;
+            registers.flags.parity_overflow = value.count_ones().is_multiple_of(2);
+            registers.flags.subtract = false;
+        }
+        // UM OUT (C),r pp. 307–308; TM p. 54: BC address, selected
+        // register data, no flags. r=110 is absent from the map.
+        0x41 | 0x49 | 0x51 | 0x59 | 0x61 | 0x69 | 0x79 => {
+            let registers = cpu.registers();
+            let value = match opcode {
+                0x41 => registers.b,
+                0x49 => registers.c,
+                0x51 => registers.d,
+                0x59 => registers.e,
+                0x61 => registers.h,
+                0x69 => registers.l,
+                _ => registers.a,
+            };
+            system.output16(registers.bc(), value);
+        }
+        // UM INI p. 298, INIR pp. 300–301, IND p. 302, INDR
+        // pp. 304–305; OUTI p. 309, OTIR pp. 311–312, OUTD p. 313,
+        // OTDR pp. 315–316; TM Table 7.0-11 p. 54. Input precedes
+        // memory write and B decrement; output follows memory read
+        // and B decrement. Thus input uses old B, output new B on
+        // A8–A15 (decision-15 rule 4). HL changes after the transfer.
+        0xA2 | 0xB2 | 0xAA | 0xBA | 0xA3 | 0xB3 | 0xAB | 0xBB => {
+            let registers = cpu.registers_mut();
+            let address = registers.hl();
+            if opcode & 1 == 0 {
+                let value = system.input16(registers.bc());
+                system.write(address, value, MemoryAccess::Data);
+                registers.b = registers.b.wrapping_sub(1);
+            } else {
+                let value = system.read(address, MemoryAccess::Data);
+                registers.b = registers.b.wrapping_sub(1);
+                system.output16(registers.bc(), value);
+            }
+            // Wrapping is derived from 8-bit B / 16-bit HL and PC
+            // (UM Registers p. 3) and the cited entry equations.
+            registers.set_hl(if opcode & 0x08 == 0 {
+                address.wrapping_add(1)
+            } else {
+                address.wrapping_sub(1)
+            });
+            registers.flags.zero = registers.b == 0;
+            registers.flags.subtract = true;
+            // C is explicitly unaffected in each primary entry, despite
+            // TM's unknown marking (existing PROVENANCE row). Unknown
+            // S/H/P/V stay unchanged by decision-14 rule 6, mask 43h.
+            // Repeating descriptions explicitly rewind PC by two while
+            // B != 0. One iteration per step is decision-15 rule 11;
+            // Taken selects 21 states, termination selects 16.
+            if opcode & 0x10 != 0 && registers.b != 0 {
+                registers.pc = registers.pc.wrapping_sub(2);
+                return Path::Taken;
+            }
+        }
+        // Only the encodings listed above are assigned to this executor.
+        _ => {}
+    }
     Path::Untaken
 }
