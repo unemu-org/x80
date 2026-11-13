@@ -28,6 +28,31 @@
 //! assert!(!cpu.latches().iff1);
 //! ```
 
+#[cfg_attr(not(test), expect(dead_code, reason = "dispatch lands in x80-bi2.9"))]
+mod arithmetic16;
+#[cfg_attr(not(test), expect(dead_code, reason = "dispatch lands in x80-bi2.9"))]
+mod arithmetic8;
+#[cfg_attr(not(test), expect(dead_code, reason = "dispatch lands in x80-bi2.9"))]
+mod bit_set_reset_test;
+#[cfg_attr(not(test), expect(dead_code, reason = "dispatch lands in x80-bi2.9"))]
+mod call_return;
+#[cfg_attr(not(test), expect(dead_code, reason = "dispatch lands in x80-bi2.9"))]
+mod exchange_block_search;
+#[cfg_attr(not(test), expect(dead_code, reason = "dispatch lands in x80-bi2.9"))]
+mod general_arithmetic_cpu_control;
+#[cfg_attr(not(test), expect(dead_code, reason = "dispatch lands in x80-bi2.9"))]
+mod input_output;
+#[cfg_attr(not(test), expect(dead_code, reason = "dispatch lands in x80-bi2.9"))]
+mod jump;
+#[cfg_attr(not(test), expect(dead_code, reason = "dispatch lands in x80-bi2.9"))]
+mod load16;
+#[cfg_attr(not(test), expect(dead_code, reason = "dispatch lands in x80-bi2.9"))]
+mod load8;
+#[cfg_attr(not(test), expect(dead_code, reason = "dispatch lands in x80-bi2.9"))]
+mod opcodes;
+#[cfg_attr(not(test), expect(dead_code, reason = "dispatch lands in x80-bi2.9"))]
+mod rotate_shift;
+
 mod cpu;
 mod flags;
 mod interrupt;

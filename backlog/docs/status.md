@@ -82,9 +82,16 @@ register sets, pair accessors, the six-flag F/F' image and reset. Construction
 defaults, unused F bits 5/3 reading as zero, reset preservation and sampler
 bookkeeping are library choices. Literal witnesses cover these types and the
 recording bus's independent Z80 NMI/INT poll events (`tests/z80_model.rs`,
-`tests/z80_registers.rs`). Nothing executes in the Z80 model yet: opcode tables,
-the boundary loop, prefix dispatch and instruction groups remain pending. See
-[plan §5](plan.md#5-milestones).
+`tests/z80_registers.rs`). The Z80 now also has eleven encoding-data modules
+and five private 256-entry opcode tables, with full lengths, group tags and both state totals
+(`x80-bi2.8`; decisions 13–15). An independent literal map witness checks
+MAIN 252, CB 248, ED 58, INDEX 39 and INDEX_CB 31 entries plus every hole;
+shared DD/FD maps represent 698 logical encodings. ED 63/6B are included;
+ED 70/71, CB 30–37, index halves and ignored-prefix forms remain excluded.
+The witness cross-reads UM008011-0816's rendered compact tables and instruction
+entries with 03-0029-01 Tables 7.0-1–7.0-11, pinning the reconciliations in
+PROVENANCE.md §1. Nothing executes in the Z80 model yet: the boundary loop,
+prefix dispatch and group executors remain pending. See [plan §5](plan.md#5-milestones).
 
 **M3: done (2026-11-13, epic `x80-4gk`).** The `i8085` model executes every
 documented instruction, including RIM/SIM, and all five interrupt sources with

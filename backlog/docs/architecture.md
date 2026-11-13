@@ -4,8 +4,8 @@ The design sketch is [plan §2](plan.md#2-architecture-sketch). The `i8080` and
 `i8085` models execute every documented instruction through `step` and budgeted
 `run`, with their own interrupt paths (decisions 5/10/12;
 `tests/i8080_coverage.rs`, `tests/i8085_coverage.rs`; [status](status.md)).
-The `z80` module has model-owned state, flag images, inputs and reset, with
-execution still pending (decisions 13–15).
+The `z80` module has model-owned state, flag images, inputs, reset and the
+documented opcode maps, with execution still pending (decisions 13–15).
 
 ```text
 x80-core/
@@ -50,6 +50,19 @@ x80-core/
   src/z80/flags.rs              six flags and the decision-14 library F/F' image
   src/z80/interrupt.rs          Inputs: asserted-true NMI and INT requests
   src/z80/cpu.rs                Z80: state ownership and reset; no execution yet
+  src/z80/opcodes.rs            eleven model groups and five private maps via decode::build
+  src/z80/opcodes/tests.rs      independent literal whole-map and source-disagreement witnesses
+  src/z80/load8.rs              8-Bit Load encoding slices (UM pp. 70–97)
+  src/z80/load16.rs             16-Bit Load encoding slices (pp. 98–122)
+  src/z80/exchange_block_search.rs Exchange, Block Transfer, and Search slices (pp. 123–143)
+  src/z80/arithmetic8.rs        8-Bit Arithmetic encoding slices (pp. 144–171)
+  src/z80/general_arithmetic_cpu_control.rs General-Purpose Arithmetic and CPU Control (pp. 172–186)
+  src/z80/arithmetic16.rs       16-Bit Arithmetic encoding slices (pp. 187–203)
+  src/z80/rotate_shift.rs       Rotate and Shift encoding slices (pp. 204–241)
+  src/z80/bit_set_reset_test.rs Bit Set, Reset, and Test encoding slices (pp. 242–260)
+  src/z80/jump.rs               Jump encoding slices (pp. 261–279)
+  src/z80/call_return.rs        Call and Return encoding slices (pp. 280–293)
+  src/z80/input_output.rs       Input and Output encoding slices (pp. 294–316)
   tests/boundary.rs             zero-dependency and model-neutral root tripwires
   tests/root_contract.rs        full-width port defaults/overrides and preceding-byte diagnostics
   tests/support/                recording test bus, sample state, unsupported check
@@ -144,6 +157,21 @@ Unsupported restores pre-sampling latches, and Halt retains samples; the
 boundary and replay witnesses are `tests/i8085_run.rs` and
 `tests/i8085_determinism.rs`. Residual qualifications are in PROVENANCE.md §3.
 
+Z80 map data (decision-13 rules 2–5; decision-14 rule 1): eleven group
+modules each supply only their applicable `MAIN`, `CB`, `ED`, `INDEX` and
+`INDEX_CB` slices. `opcodes.rs` calls the unchanged `decode::build` separately
+for each table, with model-owned field restrictions. The key is respectively
+the first byte, second byte after CB/ED/DD/FD, or fourth byte after DD/FD CB d.
+All lengths and both cost slots describe the complete instruction. MAIN's four
+prefix slots and INDEX's CB slot have no terminal entry. INDEX and INDEX_CB
+serve both IX and IY, so the five stored counts 252/248/58/39/31 represent 698
+logical terminal encodings. Repeating blocks store terminating/repeating totals
+as untaken/taken (decision-15 rule 11). The independent literal witness checks
+every key, group, length, cost slot and complement against the rendered primary
+UM008011-0816 tables/entries and 03-0029-01 Tables 7.0-1–7.0-11; source
+reconciliations are pinned separately and recorded in PROVENANCE.md §1.
+These are data only; prefix dispatch, executors and the boundary loop are pending.
+
 An integration test that needs a bus includes `tests/support` with
 `mod support;`. Its `RecordingBus` logs every access and input poll for trace
 witnesses. Witness expectations are literals derived from the cited pages,
@@ -155,7 +183,7 @@ selected model and gives a verdict only for their pinned SHA-256 digests
 (commands.md, "Oracle runs"; PROVENANCE.md §2).
 
 Any future dependency-bearing oracle harness will also be separate and unpublished.
-The Z80 module waits for its milestone beads.
-Its layout is planned (decision-13, accepted): [Z80 model, prefix tables and sharing](<../decisions/decision-13 - z80-model-layout-prefix-tables-and-sharing.md>).
+The Z80 execution work waits for its milestone beads.
+Its layout follows decision-13 (accepted): [Z80 model, prefix tables and sharing](<../decisions/decision-13 - z80-model-layout-prefix-tables-and-sharing.md>).
 The V20 adapter belongs to the embedder; x80 will expose only agreed boundaries.
 Keep this map current when modules change.
