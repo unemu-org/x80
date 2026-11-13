@@ -250,6 +250,7 @@ no 8080 corpus is pinned yet.
 | M2 — V20 integration | Agree the shared contract with x86jit; borrowed-state/memory entry, RETEM/CALLN and interrupt handoffs pass joint witnesses. |
 | M3 — 8085 | Pin 8085 sources; record its unsupported-encoding policy; add the `i8085` model, extracting what it shares with the 8080; implement and test model-specific instructions, flags, interrupts and timing without changing 8080 witnesses. Done 2026-11-13 (epic `x80-4gk`). |
 | M4 — Z80 | Pin Zilog sources; record its unsupported-encoding policy; add the `z80` model with its own state, prefix decoding, input lines and timing; revisit the port address in the bus contract; model-specific witnesses and licensed oracles. Done 2026-11-13 (epic `x80-bi2`). |
+| M5 — shared Intel executors | Extract the private 8080/8085 register view, access helpers and five shared executor groups under decision-16; preserve public types, model-owned facts, encodings and witnesses; re-measure duplication and release oracle runtime. Done 2026-11-13 (epic `x80-8sg`; [closure measurements](architecture.md)). |
 
 These are planning landmarks; after setup, beads holds priorities, dependencies
 and claims. Do not turn this draft into a second task tracker.

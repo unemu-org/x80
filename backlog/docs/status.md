@@ -139,5 +139,23 @@ notifications and budget splits have replay witnesses (`tests/i8085_run.rs`,
 [§3](../../PROVENANCE.md#residual-unverified-or-derived-facts-at-the-m3-closure-2026-11-13)
 lists the residual unverified readings, derivations and library choices.
 
+**M5: done (2026-11-13, epic `x80-8sg`).** The private `intel` tier shares
+8080/8085 register access and Data Transfer, Arithmetic (including DAA), Logical,
+Branch and Stack/I/O executor bodies under decision-16. Concrete borrowed
+register views and the closed `FlagRules` contract preserve separate public
+model types. Encoding tables, state totals, flag/ALU facts, qualified DAA carry
+and XTHL order, conditional operand reads, run loops, reset, interrupts and
+machine control remain model-owned. Z80's sharing boundary is unchanged.
+The existing tests and hardware witnesses remain intact; this extraction
+admits no additional encodings or hardware claims. The closure measurement
+reproduces the baseline and checkpoint, reducing the two models' five group
+modules from 570/556 to 226/220 stripped lines, with 448 lines in the shared
+tier; [architecture](architecture.md) records the method and per-file counts.
+The optional release closure campaign passed 8080EXM's 25 judged groups and
+8085EXM's 24 judged groups, retaining the long-ALU qualification. Alternating
+runtime measurements and an unsuccessful, reverted inline-hint experiment are
+recorded there; the checkpoint's 8085 slowdown was absent from the final
+baseline comparison within the observed timing variation.
+
 This is a capability snapshot, not the task board. Consult beads for claims and
 priorities. Update this file when a milestone advances.

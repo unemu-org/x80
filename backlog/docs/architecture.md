@@ -19,6 +19,11 @@ x80-core/
   src/progress.rs               private run counters, saturation and budget check
   src/intel/mod.rs              private borrowed View and flag/ALU FlagRules (decision-16)
   src/intel/access.rs           shared operand/location/pair/condition/address and push-and-jump helpers
+  src/intel/data_transfer.rs    shared Data Transfer executor
+  src/intel/arithmetic.rs       shared Arithmetic executor, model-supplied DaaCarry
+  src/intel/logical.rs          shared Logical executor, model-owned flag/ALU rules
+  src/intel/branch.rs           shared Branch executor, model-supplied BranchFacts
+  src/intel/stack_io.rs         shared Stack/I/O executor, model-supplied XthlOrder
   src/i8080/mod.rs              the 8080 model module and its re-exports
   src/i8080/state.rs            Registers (BC, DE, HL and PSW accessors) and Latches
   src/i8080/flags.rs            Flags and the cited flag byte of the PSW
@@ -26,12 +31,12 @@ x80-core/
   src/i8080/cpu.rs              I8080: run/step, reset, interrupt acceptance, fetch and dispatch
   src/i8080/opcodes.rs          private model groups, field restrictions and opcode-map assembly
   src/i8080/opcodes/tests.rs    map witness against 98-153B p. 4-15 and 9800301-04 p. A-5
-  src/i8080/data_transfer.rs    Data Transfer Group: encodings and executor (pp. 4-4, 4-5)
+  src/i8080/data_transfer.rs    Data Transfer encodings and shared-executor wrapper (pp. 4-4, 4-5)
   src/i8080/alu.rs              arithmetic primitives and shared flag calculation
   src/i8080/arithmetic.rs       Arithmetic encodings, derived DAA carry policy and shared-executor wrapper (pp. 4-6 to 4-8)
   src/i8080/logical.rs          Logical encodings and shared-executor wrapper (pp. 4-8 to 4-11)
-  src/i8080/branch.rs           Branch Group (pp. 4-11, 4-12)
-  src/i8080/stack_io_control.rs Stack, I/O and Machine Control Group (pp. 4-13, 4-14)
+  src/i8080/branch.rs           Branch encodings, bus facts and shared-executor wrapper (pp. 4-11, 4-12)
+  src/i8080/stack_io_control.rs Stack/I/O wrapper, XTHL order and model-owned control (pp. 4-13, 4-14)
   src/i8085/mod.rs              the 8085 model module and its re-exports (decisions 10–12)
   src/i8085/state.rs            Registers, pair/PSW accessors, interrupt and sampler Latches
   src/i8085/flags.rs            five flags and the decision-11 library PSW image
@@ -39,12 +44,12 @@ x80-core/
   src/i8085/cpu.rs              I8085: run/step, reset, boundary sampling, priority and dispatch
   src/i8085/opcodes.rs          model groups, field restrictions and shared-builder map assembly
   src/i8085/opcodes/tests.rs    independent map witness (205775-002 Tables 5-1/5-2 pp. 5-19/5-20)
-  src/i8085/data_transfer.rs    Data Transfer encodings and executor (205775-002 pp. 5-4 to 5-6)
+  src/i8085/data_transfer.rs    Data Transfer encodings and shared-executor wrapper (205775-002 pp. 5-4 to 5-6)
   src/i8085/alu.rs              model-owned arithmetic primitives and result flags
   src/i8085/arithmetic.rs       Arithmetic encodings, derived DAA carry policy and shared-executor wrapper (pp. 5-6 to 5-9)
   src/i8085/logical.rs          Logical encodings and shared-executor wrapper (pp. 5-9 to 5-12)
-  src/i8085/branch.rs           Branch encodings and executor (pp. 5-13 to 5-15)
-  src/i8085/stack_io_control.rs Stack, I/O and Machine Control, excluding RIM/SIM (pp. 5-15 to 5-17)
+  src/i8085/branch.rs           Branch encodings, bus facts and shared-executor wrapper (pp. 5-13 to 5-15)
+  src/i8085/stack_io_control.rs Stack/I/O wrapper, XTHL order and model-owned control (pp. 5-15 to 5-17)
   src/i8085/rim_sim.rs          RIM/SIM encodings and executor (pp. 5-17/5-18; decision-12 rule 8)
   src/i8085/vectored.rs         TRAP and RST 5.5/6.5/7.5 acceptance (decision-12 rule 4)
   src/i8085/acknowledge.rs      INTR RST/CALL acceptance (decision-12 rule 5)
@@ -168,6 +173,77 @@ model paths, and now checks the family source files non-vacuously. Decision-16
 requires a maintainer checkpoint after Stack/IO to assess interim duplication, oracle
 runtime and undocumented-8085 flag research; `x80-8sg.7` and `x80-8sg.8` authorize
 the Logical and Arithmetic extractions following that checkpoint.
+
+M5 closure (2026-11-13, `x80-8sg.9`, base `66b06ef`), **MEASURED** with
+decision-16's method: remove comments and blank lines, trim each remaining line,
+and sum per-group longest common subsequences. Normalisation replaces only
+`I8080`/`I8085` and `i8080`/`i8085`; complete `execute` functions include signatures.
+An in-memory Python script reproduces the baseline at `fac28c7` and the
+Stack/IO checkpoint at `65e7352` exactly:
+
+| Revision | Model group lines 8080/8085 | Module LCS exact/normalised | Execute lines 8080/8085 | Execute LCS exact/normalised |
+| --- | ---: | ---: | ---: | ---: |
+| Baseline `fac28c7` | 570/556 | 488/498 | 319/310 | 279/284 |
+| Checkpoint `65e7352` | 335/325 | 276/285 | 193/186 | 166/171 |
+| Final `66b06ef` | 226/220 | 186/196 | 87/82 | 74/79 |
+
+| Final model group | Lines 8080/8085 | Module LCS exact/normalised | Execute lines 8080/8085 | Execute LCS exact/normalised |
+| --- | ---: | ---: | ---: | ---: |
+| `data_transfer.rs` | 33/33 | 30/32 | 13/13 | 12/13 |
+| `arithmetic.rs` | 44/44 | 38/40 | 14/14 | 13/14 |
+| `logical.rs` | 37/37 | 35/37 | 13/13 | 12/13 |
+| `branch.rs` | 52/52 | 41/43 | 14/14 | 13/14 |
+| `stack_io_control.rs` | 60/54 | 42/44 | 33/28 | 24/25 |
+
+| Shared Intel file | Stripped lines |
+| --- | ---: |
+| `mod.rs` | 32 |
+| `access.rs` | 82 |
+| `data_transfer.rs` | 59 |
+| `arithmetic.rs` | 81 |
+| `logical.rs` | 57 |
+| `branch.rs` | 66 |
+| `stack_io.rs` | 71 |
+| Total | 448 |
+
+The five model groups plus the Intel tier total 894 stripped lines, versus
+1,126 at baseline and 962 at checkpoint. The 109-line `ENCODINGS` blocks per
+model remain unchanged; residual model duplication includes these deliberate
+tables, wrappers and model-owned control. These counts exclude model ALU/flag
+implementations, tests and other modules; they measure extraction scope, not
+the whole crate.
+
+Closure runtime, **MEASURED** in offline release builds with Rust 1.98.1 on
+an aarch64 macOS host, identical SDK/link flags and separate target directories:
+three alternating runs per revision and model gave these mean wall times.
+The programs, cycle cap and verdict rules are in [commands](commands.md#oracle-runs).
+
+| Revision | 8080EXM mean seconds | 8085EXM mean seconds |
+| --- | ---: | ---: |
+| Baseline `fac28c7` | 15.559 | 16.884 |
+| Final `66b06ef` | 15.994 | 16.826 |
+
+The final means are 2.8% slower for 8080 and 0.3% faster for 8085; individual
+runs varied substantially, so small differences are inconclusive. The earlier
+checkpoint's roughly 7% 8080 gain and 9% 8085 loss cannot be carried forward as
+final results. A second, three-round 8085 comparison rotated checkpoint, final
+and a branch-executor `#[inline]` trial through each execution position:
+checkpoint `65e7352` averaged 18.597 s, final 17.260 s and the trial 17.604 s.
+The checkpoint was 7.7% slower than final in that comparison; the hint was
+2.0% slower and was reverted. The corresponding three-round 8080 trial
+averaged 15.567 s without the hint and 15.321 s with it (1.6% faster), again
+with substantial variation. No performance code change was retained.
+
+Generated-code inspection found direct, monomorphic flag/ALU operations and
+no separate view-constructor call. Outlined shared executors nevertheless
+require callers to build the ten-reference view on the stack. The checkpoint
+outlines the shared 8085 Data Transfer body, whereas final inlines it into the
+run path; the branch hint also changes other groups' inlining decisions.
+Compiler inlining and layout are plausible contributors, but these experiments
+do not isolate a single cause. They do not support blaming dynamic `FlagRules`
+dispatch or adding hints to already-inlined small helpers. Every full oracle
+run passed with identical per-model step/cycle totals; the 8085 long-ALU result
+retains its reported-but-unjudged qualification.
 
 M4 closure duplication (2026-11-13, `x80-bi2.27`, base `37571c9`),
 **MEASURED** using decision-13 rule 7's comment-stripped, nonblank, trimmed-line
