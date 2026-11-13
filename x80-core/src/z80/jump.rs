@@ -90,6 +90,8 @@ pub(super) fn execute<S: Bus>(
         opcode if opcode == 0xC3 || opcode & 0xC7 == 0xC2 => {
             let low = cpu.fetch_operand(system);
             let high = cpu.fetch_operand(system);
+            // L: decision-20 §5; MEMPTR (©2006), JP: even untaken.
+            cpu.latches_mut().wz = u16::from_le_bytes([low, high]);
             if opcode == 0xC3 || condition(cpu.registers().flags, (opcode >> 3) & 7) {
                 cpu.registers_mut().pc = u16::from_le_bytes([low, high]);
                 Path::Taken
@@ -132,6 +134,8 @@ pub(super) fn execute<S: Bus>(
                 // Sixteen-bit wrap is derived from PC width (UM p. 2).
                 let registers = cpu.registers_mut();
                 registers.pc = registers.pc.wrapping_add_signed(i16::from(displacement));
+                // L: decision-20 §5; MEMPTR (©2006), JR/DJNZ.
+                cpu.latches_mut().wz = cpu.registers().pc;
                 Path::Taken
             } else {
                 Path::Untaken

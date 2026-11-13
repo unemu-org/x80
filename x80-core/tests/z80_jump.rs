@@ -61,6 +61,7 @@ fn registers(pc: u16, image: u8) -> Registers {
 
 fn latches() -> Latches {
     Latches {
+        wz: 0,
         iff1: true,
         iff2: true,
         interrupt_mode: InterruptMode::Mode2,
@@ -94,6 +95,7 @@ fn check(
     expected: Registers,
     cycles: u64,
     trace: Vec<Event>,
+    wz: u16,
 ) {
     let memory = bus.memory.clone();
     let mut cpu = Z80::new(initial, latches());
@@ -115,6 +117,7 @@ fn check(
     assert_eq!(
         *cpu.latches(),
         Latches {
+            wz,
             ei_delay: false,
             nmi_asserted: false,
             parity_note_pending: false,
@@ -150,6 +153,7 @@ fn jp_nn_reads_low_then_high_and_wraps_operand_addresses() {
                 },
                 10,
                 trace,
+                target,
             );
         }
     }
@@ -197,6 +201,7 @@ fn every_jp_condition_reads_both_operands_in_ten_states_on_both_paths() {
                     },
                     10,
                     trace,
+                    0x4DB6,
                 );
             }
         }
@@ -238,6 +243,7 @@ fn jr_uses_signed_displacement_after_the_instruction_including_derived_wraps() {
                 },
                 12,
                 trace,
+                target,
             );
         }
     }
@@ -280,6 +286,7 @@ fn every_jr_condition_fetches_displacement_on_both_seven_and_twelve_state_paths(
                     },
                     if taken { 12 } else { 7 },
                     trace,
+                    if taken { target } else { 0 },
                 );
             }
         }
@@ -310,6 +317,7 @@ fn jp_hl_loads_the_pair_without_reading_memory_at_the_target() {
                 },
                 4,
                 fetch(0xFFFF, 0xE9),
+                0,
             );
         }
     }
@@ -348,6 +356,7 @@ fn jp_ix_and_iy_use_the_selected_pair_and_two_opcode_fetches() {
                 },
                 8,
                 trace,
+                0,
             );
         }
     }
@@ -385,6 +394,7 @@ fn djnz_decrements_b_before_testing_it_and_preserves_every_flag() {
                 },
                 cycles,
                 trace,
+                if next_b != 0 { pc } else { 0 },
             );
         }
     }
@@ -421,6 +431,7 @@ fn djnz_signed_extrema_and_derived_pc_wraps_on_both_paths() {
                     },
                     cycles,
                     trace,
+                    if next_b != 0 { pc } else { 0 },
                 );
             }
         }
@@ -454,6 +465,7 @@ fn jr_nc_zero_displacement_continues_and_minus_two_repeats() {
                 },
                 if taken { 12 } else { 7 },
                 trace,
+                if taken { target } else { 0 },
             );
         }
     }

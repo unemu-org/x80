@@ -49,6 +49,7 @@ fn cpu_at(pc: u16, flags: u8) -> Z80 {
             r: 0xFF,
         },
         Latches {
+            wz: 0,
             iff1: false,
             iff2: true,
             interrupt_mode: InterruptMode::Mode2,
@@ -289,6 +290,7 @@ fn indexed_reads_use_signed_displacements_and_real_h_l() {
                 for flags in [0, 0xD7] {
                     let mut cpu = index_cpu(prefix, base, flags);
                     let mut expected = after(&cpu, 1, 0x81);
+                    expected.latches_mut().wz = address;
                     set(expected.registers_mut(), 0x39);
                     let mut bus = RecordingBus::new();
                     bus.load(0xFFFE, &[prefix, opcode, d]);
@@ -324,7 +326,8 @@ fn indexed_register_stores_use_signed_displacements_and_real_h_l() {
             {
                 for flags in [0, 0xD7] {
                     let mut cpu = index_cpu(prefix, base, flags);
-                    let expected = after(&cpu, 1, 0x81);
+                    let mut expected = after(&cpu, 1, 0x81);
+                    expected.latches_mut().wz = address;
                     let mut bus = RecordingBus::new();
                     bus.load(0xFFFE, &[prefix, opcode, d]);
                     let mut memory = bus.memory.clone();
@@ -356,7 +359,8 @@ fn indexed_immediate_fetches_d_before_n_and_does_not_increment_r_for_either() {
         for (base, d, address) in INDEX_ADDRESSES {
             for flags in [0, 0xD7] {
                 let mut cpu = index_cpu(prefix, base, flags);
-                let expected = after(&cpu, 2, 0x81);
+                let mut expected = after(&cpu, 2, 0x81);
+                expected.latches_mut().wz = address;
                 let mut bus = RecordingBus::new();
                 bus.load(0xFFFE, &[prefix, 0x36, d, 0x5A]);
                 let mut memory = bus.memory.clone();
@@ -383,12 +387,16 @@ fn indexed_immediate_fetches_d_before_n_and_does_not_increment_r_for_either() {
 #[test]
 fn accumulator_indirect_loads_and_stores() {
     // UM pp. 88–89,91–92: BC and DE, 7 states; no flags.
-    for (load, store, address) in [(0x0A, 0x02, 0xB2C3), (0x1A, 0x12, 0xD4E5)] {
+    for (load, store, address, load_wz, store_wz) in [
+        (0x0A, 0x02, 0xB2C3, 0xB2C4, 0xA1C4),
+        (0x1A, 0x12, 0xD4E5, 0xD4E6, 0xA1E6),
+    ] {
         for flags in [0, 0xD7] {
             for is_load in [false, true] {
                 let opcode = if is_load { load } else { store };
                 let mut cpu = cpu_at(0x1000, flags);
                 let mut expected = after(&cpu, 0x1001, 0x80);
+                expected.latches_mut().wz = if is_load { load_wz } else { store_wz };
                 let mut bus = RecordingBus::new();
                 bus.load(0x1000, &[opcode]);
                 bus.load(address, &[0x12]);
@@ -420,6 +428,7 @@ fn accumulator_absolute_address_is_little_endian_with_operand_pc_wrap() {
         for flags in [0, 0xD7] {
             let mut cpu = cpu_at(0xFFFE, flags);
             let mut expected = after(&cpu, 1, 0x80);
+            expected.latches_mut().wz = if is_load { 0x8833 } else { 0xA133 };
             let mut bus = RecordingBus::new();
             bus.load(0xFFFE, &[opcode, 0x32, 0x88]);
             bus.load(0x8832, &[0x04]);

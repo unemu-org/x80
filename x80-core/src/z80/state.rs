@@ -166,12 +166,19 @@ pub enum InterruptMode {
 
 /// Persistent Z80 execution and boundary-sampler state (decision-15).
 ///
-/// `Default` clears every bool and selects IM 0. These are library
+/// `Default` clears WZ and every bool and selects IM 0. These are library
 /// construction values, not a hardware power-up claim (rule 12).
 /// The boundary loop owns sampling and expiry; group and interrupt
 /// executors own their instruction-specific changes.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 pub struct Latches {
+    /// Retained 16-bit WZ/MEMPTR, exposed for supplied state and complete
+    /// snapshots (decision-20 §5, superseding decision-15's omission).
+    /// Exact update equations are L library rules following pinned MEMPTR
+    /// (©2006), instruction headings; only projected bits13/11 have Rak
+    /// z80test v1.2a observations. Default=0000h and RESET preservation
+    /// are library policy, not hardware power-up/reset assertions.
+    pub wz: u16,
     /// Maskable interrupt enable (UM Table 1 p. 18; rules 7/12).
     pub iff1: bool,
     /// Saved interrupt enable (UM Table 1 pp. 18–19; rules 7/12).

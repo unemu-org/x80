@@ -125,6 +125,7 @@ fn discarded_fetch_neither_decodes_nor_advances_the_saved_pc() {
         assert_eq!(
             *cpu.latches(),
             Latches {
+                wz: 0x0066,
                 iff1: false,
                 nmi_asserted: true,
                 ..latches()
@@ -182,6 +183,7 @@ fn accepts_with_iff1_clear_and_preserves_iff2_mode_and_pending_ei_delay() {
                     assert_eq!(
                         *cpu.latches(),
                         Latches {
+                            wz: 0x0066,
                             iff1: false,
                             ei_delay: delay,
                             nmi_asserted: true,
@@ -261,6 +263,7 @@ fn halted_cpu_with_iff1_clear_wakes_and_saves_its_resume_pc() {
     assert_eq!(
         *cpu.latches(),
         Latches {
+            wz: 0x0066,
             halted: false,
             ei_delay: true,
             nmi_asserted: true,
@@ -318,6 +321,7 @@ fn held_assertion_accepts_once_and_a_not_asserted_sample_rearms() {
         assert_eq!(
             *cpu.latches(),
             Latches {
+                wz: 0x0066,
                 iff1: false,
                 nmi_asserted: level,
                 ..latches()
@@ -510,6 +514,7 @@ fn unsupported_restores_sampler_and_reports_the_earlier_nmi_progress() {
             ..registers()
         },
         Latches {
+            wz: 0x2345,
             nmi_asserted: true,
             ..latches()
         },
@@ -764,6 +769,7 @@ fn budget_splits_before_and_after_nmi_preserve_state_and_literal_trace() {
     assert_eq!(
         *split.latches(),
         Latches {
+            wz: 0x0066,
             iff1: false,
             nmi_asserted: true,
             ..latches()
@@ -813,6 +819,7 @@ fn retn_round_trip_restores_iff1_from_the_preserved_iff2() {
         assert_eq!(
             *cpu.latches(),
             Latches {
+                wz: 0x2345,
                 iff1: iff2,
                 nmi_asserted: true,
                 ..initial
@@ -897,6 +904,7 @@ fn ld_a_i_or_r_then_nmi_clears_only_pending_parity_across_budget_and_stop() {
         assert_eq!(
             *cpu.latches(),
             Latches {
+                wz: 0x0066,
                 iff1: false,
                 nmi_asserted: true,
                 parity_note_pending: false,

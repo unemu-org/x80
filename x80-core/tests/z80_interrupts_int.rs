@@ -134,6 +134,7 @@ fn im0_accepts_every_rst_with_unchanged_boundary_pc_and_derived_thirteen_states(
         assert_eq!(
             *cpu.latches(),
             Latches {
+                wz: target,
                 iff1: false,
                 iff2: false,
                 ..latches(InterruptMode::Mode0)
@@ -180,6 +181,7 @@ fn im1_ignores_every_acknowledge_byte_and_uses_0038_in_derived_thirteen_states()
         assert_eq!(
             *cpu.latches(),
             Latches {
+                wz: 0x0038,
                 iff1: false,
                 iff2: false,
                 ..latches(InterruptMode::Mode1)
@@ -233,6 +235,7 @@ fn im2_uses_i_and_even_byte_then_reads_low_high_after_push_in_stated_nineteen_st
         assert_eq!(
             *cpu.latches(),
             Latches {
+                wz: 0x5678,
                 iff1: false,
                 iff2: false,
                 ..latches(InterruptMode::Mode2)
@@ -284,6 +287,7 @@ fn im2_stack_alias_changes_the_vector_before_lookup() {
     assert_eq!(
         *cpu.latches(),
         Latches {
+            wz: 0x2345,
             iff1: false,
             iff2: false,
             ..latches(InterruptMode::Mode2)
@@ -515,6 +519,7 @@ fn ei_defers_asserted_int_through_one_instruction_then_accepts() {
     assert_eq!(
         *cpu.latches(),
         Latches {
+            wz: 0x0038,
             iff1: false,
             iff2: false,
             ..latches(InterruptMode::Mode1)
@@ -631,6 +636,7 @@ fn halted_cpu_wakes_on_eligible_int_and_saves_the_post_halt_pc() {
     assert_eq!(
         *cpu.latches(),
         Latches {
+            wz: 0x0038,
             iff1: false,
             iff2: false,
             ..latches(InterruptMode::Mode1)
@@ -695,6 +701,7 @@ fn nmi_edge_beats_simultaneous_eligible_int_then_retn_allows_the_held_int() {
             assert_eq!(
                 *cpu.latches(),
                 Latches {
+                    wz: 0x0066,
                     iff1: false,
                     nmi_asserted: true,
                     ..latches(mode)
@@ -724,6 +731,7 @@ fn nmi_edge_beats_simultaneous_eligible_int_then_retn_allows_the_held_int() {
             assert_eq!(
                 *cpu.latches(),
                 Latches {
+                    wz: 0x2345,
                     nmi_asserted: true,
                     ..latches(mode)
                 }
@@ -753,6 +761,7 @@ fn nmi_edge_beats_simultaneous_eligible_int_then_retn_allows_the_held_int() {
             assert_eq!(
                 *cpu.latches(),
                 Latches {
+                    wz: target,
                     iff1: false,
                     iff2: false,
                     nmi_asserted: true,
@@ -865,6 +874,7 @@ fn ld_a_i_then_int_clears_pv_but_an_intervening_nop_expires_the_note() {
         assert_eq!(
             *cpu.latches(),
             Latches {
+                wz: 0x0038,
                 iff1: false,
                 iff2: false,
                 ..latches(InterruptMode::Mode1)
@@ -925,6 +935,7 @@ fn each_mode_consumes_pending_parity_only_and_clears_both_iff_polarities() {
                 assert_eq!(
                     *cpu.latches(),
                     Latches {
+                        wz: target,
                         iff1: false,
                         iff2: false,
                         ..latches(mode)
@@ -983,6 +994,7 @@ fn reti_after_im2_service_restores_pc_without_reenabling_interrupts() {
     assert_eq!(
         *cpu.latches(),
         Latches {
+            wz: 0x2345,
             iff1: false,
             iff2: false,
             ..latches(InterruptMode::Mode2)
@@ -1050,6 +1062,7 @@ fn acknowledge_counts_one_refresh_increment_preserving_bit_seven() {
             assert_eq!(
                 *cpu.latches(),
                 Latches {
+                    wz: target,
                     iff1: false,
                     iff2: false,
                     ..latches(mode)
@@ -1101,6 +1114,7 @@ fn stack_wrap_is_derived_and_boundary_pc_ffff_does_not_advance() {
         assert_eq!(
             *cpu.latches(),
             Latches {
+                wz: 8,
                 iff1: false,
                 iff2: false,
                 ..latches(InterruptMode::Mode0)
@@ -1152,6 +1166,7 @@ fn cycle_budget_overshoots_by_one_whole_acceptance_without_handler_fetch() {
             assert_eq!(
                 *cpu.latches(),
                 Latches {
+                    wz: target,
                     iff1: false,
                     iff2: false,
                     ..latches(mode)
@@ -1267,6 +1282,7 @@ fn budget_splits_before_and_after_acceptance_preserve_state_and_literal_trace() 
         assert_eq!(
             *split.latches(),
             Latches {
+                wz: target,
                 iff1: false,
                 iff2: false,
                 ..latches(mode)

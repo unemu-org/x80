@@ -85,7 +85,11 @@ ZEXALL can falsify full-byte flag rules after its own artifact audit. The six
 z80test variants now have a Spectrum-style oracle host in `x80-oracle`, with
 fixed linked/data addresses and explicit input precheck accounting; see
 [commands](commands.md#z80test-v12a-spectrum-style-host). Its runs are non-final
-baselines. A MEMPTR
+baselines. Section 5's WZ implementation now passes all 156 judged
+z80memptr groups, with 003–006 skipped diagnostics, zero input-check failures
+and 160/160 groups complete (worker campaign, MEASURED 2026-11-13).
+The exact latch table remains **L**; WZ implementation is no longer deferred.
+Q and continuing-step flag overrides remain staged for §6. A MEMPTR
 CRC observes a two-bit projection, not an entire latch; post-CCF observes only
 tested predecessor distinctions. The decision-20 source audit itself did not run
 these campaigns. The Z80 CP/M host now uses a private

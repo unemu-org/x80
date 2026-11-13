@@ -43,6 +43,7 @@ fn cpu_at(a: u8, flags: u8) -> Z80 {
             r: 0xFF,
         },
         Latches {
+            wz: 0,
             iff1: true,
             iff2: false,
             interrupt_mode: InterruptMode::Mode2,

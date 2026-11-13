@@ -52,6 +52,14 @@ pub(super) fn execute<S: Bus>(
     _instruction: &Instruction,
     decoded: &Decoded,
 ) -> Path {
+    // L: decision-20 §5; MEMPTR (©2006), ADD/ADC/SBC rp1,rp2:
+    // old destination+1, including carry; Young v0.91 §4.1 p. 15's
+    // old-H approximation is insufficient at low-byte FFh.
+    if decoded.table == Table::Ed || decoded.opcode & 0x0F == 9 {
+        cpu.latches_mut().wz = accumulator_pair(decoded.index)
+            .get(cpu.registers())
+            .wrapping_add(1);
+    }
     let registers = cpu.registers_mut();
     let pair = operand_pair(decoded);
     match (decoded.table, decoded.opcode) {

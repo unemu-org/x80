@@ -51,6 +51,7 @@ fn cpu_at(pc: u16, a: u8, flags: u8) -> Z80 {
             r: 0xFF,
         },
         Latches {
+            wz: 0,
             iff1: true,
             iff2: true,
             interrupt_mode: InterruptMode::Mode2,
@@ -214,6 +215,9 @@ fn binary(base: u8, immediate: u8, form: Operand, row: Binary) {
             }
         };
         let mut expected = after(&cpu, pc, r, flags);
+        if let Operand::Index(_, _, _, address) = form {
+            expected.latches_mut().wz = address;
+        }
         expected.registers_mut().a = result;
         let memory = bus.memory.clone();
         check(&mut cpu, &mut bus, &expected, &memory, cycles, &accesses);
@@ -472,6 +476,9 @@ fn unary(decrement: bool, form: Operand, row: Unary) {
         };
         let final_flags = flags | (initial & 1);
         let mut expected = after(&cpu, pc, r, final_flags);
+        if let Operand::Index(_, _, _, address) = form {
+            expected.latches_mut().wz = address;
+        }
         let mut memory = bus.memory.clone();
         if let Some(address) = destination {
             memory[usize::from(address)] = result;

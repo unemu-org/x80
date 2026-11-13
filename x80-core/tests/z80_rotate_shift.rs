@@ -95,7 +95,7 @@ fn polls() -> Vec<Event> {
     ]
 }
 
-fn completed(cpu: &Z80, report: Report, expected: Registers, cycles: u64) {
+fn completed(cpu: &Z80, report: Report, expected: Registers, cycles: u64, wz: u16) {
     assert_eq!(
         report,
         Report {
@@ -109,6 +109,7 @@ fn completed(cpu: &Z80, report: Report, expected: Registers, cycles: u64) {
     assert_eq!(
         *cpu.latches(),
         Latches {
+            wz,
             ei_delay: false,
             parity_note_pending: false,
             ..latches()
@@ -153,7 +154,7 @@ fn accumulator(opcode: u8, cases: &[(u8, bool, u8, bool)]) {
                 bus.load(0xFFFF, &[opcode]);
                 let memory = bus.memory.clone();
                 let report = cpu.step(&mut bus);
-                completed(&cpu, report, expected, 4);
+                completed(&cpu, report, expected, 4, 0);
                 assert_eq!(bus.memory, memory);
                 let mut trace = polls();
                 trace.push(read(0xFFFF, OP, opcode));
@@ -310,7 +311,7 @@ fn cb(base: u8, cases: &[Case]) {
                     8
                 };
                 let report = cpu.step(&mut bus);
-                completed(&cpu, report, expected, cycles);
+                completed(&cpu, report, expected, cycles, 0);
                 assert_eq!(bus.memory, memory);
                 assert_eq!(bus.take_log(), trace, "CB {opcode:02X}");
             }
@@ -392,7 +393,7 @@ fn indexed_cb_all_operations_both_indexes_signed_displacement_and_wraps() {
                         let mut memory = bus.memory.clone();
                         memory[usize::from(address)] = result;
                         let report = cpu.step(&mut bus);
-                        completed(&cpu, report, expected, 23);
+                        completed(&cpu, report, expected, 23, address);
                         assert_eq!(bus.memory, memory);
                         let mut trace = polls();
                         trace.extend([
@@ -431,7 +432,7 @@ fn nibble(opcode: u8, cases: &[(u8, u8, u8, u8, u8)]) {
                 let mut memory = bus.memory.clone();
                 memory[0x9012] = result;
                 let report = cpu.step(&mut bus);
-                completed(&cpu, report, expected, 18);
+                completed(&cpu, report, expected, 18, 0x9013);
                 assert_eq!(bus.memory, memory);
                 let mut trace = polls();
                 trace.extend([

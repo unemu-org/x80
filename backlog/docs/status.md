@@ -115,9 +115,18 @@ rules retain their **H** observed-vector limits; BIT-register Y/X remains
 `tests/z80_undocumented_flags.rs` supplies independent literal full-byte
 witnesses; existing six-bit/unknown-preservation assertions are replaced.
 The changed-assertion inventory and measured campaigns are in PROVENANCE §1,
-“Decision-20 §4 implementation”. **Interim L:** BIT (HL) preserves old Y/X
-until §5 retained WZ (`x80-mn3.11`); indexed BIT uses effective address directly;
-SCF/CCF uses unconditional A until §6 Q (`x80-mn3.16`). Continuing repeats use
+“Decision-20 §4 implementation”. Decision-20 §5 now supplies public
+`Latches.wz`: Z80-owned 16-bit state, Default=0000h, preserved by reset,
+included in supplied/cloned boundary snapshots, deterministic continuation,
+Budget preservation and Stop/Unsupported rollback. Every exact update rule
+is **L**, including continuing INIR/INDR's accepted ED-address+1 replacement
+for the falsified BC rule. BIT (HL) observes retained WZ13/11; indexed BIT
+first sets WZ to its effective address. The projected observations retain
+their **H** vector limits; they do not establish whole-word hardware state.
+`tests/z80_wz.rs` has 21 literal row/state witnesses, with carry/no-carry,
+wrapping, both block paths, ignored prefixes and BIT projection probes.
+Existing full-state expectations now include WZ without added bus accesses.
+**Interim L:** SCF/CCF uses unconditional A until §6 Q (`x80-mn3.16`). Continuing repeats use
 ordinary §4 flags until §6's boundary overrides; terminating iterations use
 §4 in full. These staged results do not claim final Z80 conformance.
 
@@ -125,8 +134,20 @@ ordinary §4 flags until §6's boundary overrides; terminating iterations use
 refused key sets for every table, distinguishing dispatch slots. Every admitted
 encoding completes one step from neutral state. Interrupt API refusals retain
 zero contributed progress and full CPU restoration, including R, alternate
-registers, EI delay, parity-note and NMI history. Per-group witnesses pin semantics,
+registers, EI delay, parity-note, NMI history and WZ. Per-group witnesses pin semantics,
 flags, timing and bus accesses with the A/H/L limits of the accepted contracts.
+
+The §5 worker campaign is **MEASURED**, offline, 2026-11-13: fmt, clippy,
+workspace tests (1,234 tests plus 15 doctests) and separate doctests PASS;
+release prelim PASS, ZEXDOC 58/58 judged PASS, 8080PRE/8080EXM/8085EXM PASS.
+All six z80test variants complete 160/160 groups with zero input-check
+failures: memptr/doc/docflags 156 judged OK, full/flags 150 OK / 6 FAILED,
+ccf 89 OK / 67 FAILED. Memptr groups 000–002 and 007–159 are OK; diagnostics
+003–006 are skipped. Full/flags now pass both BIT (HL) groups; remaining
+failures are SCF/CCF and the four continuing LDxR/INxR self-overwrite groups,
+consistent with the deferred §6 flags. No final conformance claim follows.
+Full campaign totals and changed-assertion inventory are in PROVENANCE §1,
+“Decision-20 §5 implementation”. Supervisor gates/review/landing are separate.
 
 NMI and INT acceptance execute, including HALT wakeup, RETN/RETI, EI delay,
 IM 0's RST-only restriction, IM 1's fixed vector and IM 2's even-vector table

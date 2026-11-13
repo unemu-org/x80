@@ -101,7 +101,7 @@ fn fetch(pc: u16, code: &[u8]) -> Vec<Event> {
     trace
 }
 
-fn complete(cpu: &Z80, report: Report, expected: Registers, cycles: u64) {
+fn complete(cpu: &Z80, report: Report, expected: Registers, cycles: u64, wz: u16) {
     assert_eq!(
         report,
         Report {
@@ -115,6 +115,7 @@ fn complete(cpu: &Z80, report: Report, expected: Registers, cycles: u64) {
     assert_eq!(
         *cpu.latches(),
         Latches {
+            wz,
             ei_delay: false,
             parity_note_pending: false,
             ..latches()
@@ -180,7 +181,7 @@ fn ld_dd_nn_low_operand_first_with_derived_pc_wrap() {
             let mut trace = fetch(0xFFFE, &[opcode]);
             trace.extend([read(0xFFFF, ARG, 0x35), read(0, ARG, 0xD2)]);
             let report = cpu.step(&mut bus);
-            complete(&cpu, report, expected, 10);
+            complete(&cpu, report, expected, 10, 0);
             assert_eq!(bus.memory, memory);
             assert_eq!(bus.take_log(), trace);
         }
@@ -209,7 +210,7 @@ fn ld_ix_iy_nn_two_m1s_and_derived_pc_wrap() {
             let mut trace = fetch(0xFFFE, &[prefix, 0x21]);
             trace.extend([read(0, ARG, 0x35), read(1, ARG, 0xD2)]);
             let report = cpu.step(&mut bus);
-            complete(&cpu, report, expected, 14);
+            complete(&cpu, report, expected, 14, 0);
             assert_eq!(bus.memory, memory);
             assert_eq!(bus.take_log(), trace);
         }
@@ -253,7 +254,7 @@ fn ld_pairs_from_memory_including_ed_6b_with_derived_address_wrap() {
                     read(high_at, DATA, 0xD2),
                 ]);
                 let report = cpu.step(&mut bus);
-                complete(&cpu, report, expected, cycles);
+                complete(&cpu, report, expected, cycles, high_at);
                 assert_eq!(bus.memory, memory);
                 assert_eq!(bus.take_log(), trace);
             }
@@ -297,7 +298,7 @@ fn ld_memory_from_pairs_including_ed_63_with_derived_address_wrap() {
                     write(high_at, DATA, high),
                 ]);
                 let report = cpu.step(&mut bus);
-                complete(&cpu, report, expected, cycles);
+                complete(&cpu, report, expected, cycles, high_at);
                 assert_eq!(bus.memory, memory);
                 assert_eq!(bus.take_log(), trace);
             }
@@ -326,7 +327,7 @@ fn ld_sp_hl_ix_iy_changes_only_sp_and_fetch_bookkeeping() {
             bus.load(0x2000, code);
             let memory = bus.memory.clone();
             let report = cpu.step(&mut bus);
-            complete(&cpu, report, expected, cycles);
+            complete(&cpu, report, expected, cycles, 0);
             assert_eq!(bus.memory, memory);
             assert_eq!(bus.take_log(), fetch(0x2000, code));
         }
@@ -367,7 +368,7 @@ fn push_pairs_high_then_low_with_derived_sp_wrap() {
                 let mut trace = fetch(0x2000, code);
                 trace.extend([write(high_at, STACK, high), write(low_at, STACK, low)]);
                 let report = cpu.step(&mut bus);
-                complete(&cpu, report, expected, cycles);
+                complete(&cpu, report, expected, cycles, 0);
                 assert_eq!(bus.memory, memory);
                 assert_eq!(bus.take_log(), trace);
             }
@@ -410,7 +411,7 @@ fn pop_pairs_low_then_high_including_iy_operation_line_resolution() {
                 let mut trace = fetch(0x2000, code);
                 trace.extend([read(sp, STACK, 0x35), read(high_at, STACK, 0xD2)]);
                 let report = cpu.step(&mut bus);
-                complete(&cpu, report, expected, cycles);
+                complete(&cpu, report, expected, cycles, 0);
                 assert_eq!(bus.memory, memory);
                 assert_eq!(bus.take_log(), trace);
             }
@@ -463,7 +464,7 @@ fn pop_and_push_af_pin_all_eight_bits_decision_20() {
         let mut trace = fetch(0x2000, &[0xF1]);
         trace.extend([read(0xFFFF, STACK, image), read(0, STACK, 0xD2)]);
         let report = cpu.step(&mut bus);
-        complete(&cpu, report, expected, 10);
+        complete(&cpu, report, expected, 10, 0);
         assert_eq!(bus.memory, memory);
         assert_eq!(bus.take_log(), trace);
         assert_eq!(cpu.registers().flags.to_byte(), image);
@@ -475,7 +476,7 @@ fn pop_and_push_af_pin_all_eight_bits_decision_20() {
         let mut trace = fetch(0x2001, &[0xF5]);
         trace.extend([write(0, STACK, 0xD2), write(0xFFFF, STACK, image)]);
         let report = cpu.step(&mut bus);
-        complete(&cpu, report, expected, 11);
+        complete(&cpu, report, expected, 11, 0);
         assert_eq!(bus.memory, memory);
         assert_eq!(bus.take_log(), trace);
     }

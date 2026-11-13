@@ -53,6 +53,7 @@ pub(super) fn execute<S: Bus>(
     _instruction: &Instruction,
     decoded: &Decoded,
 ) -> Path {
+    let mut wz = cpu.latches().wz;
     let registers = cpu.registers_mut();
     // UM BIT pp. 247/249, SET pp. 255/257, RES p. 259; TM Table
     // 7.0-8 p. 51: indexed memory uses IX/IY plus signed two's-complement
@@ -73,6 +74,10 @@ pub(super) fn execute<S: Bus>(
     } else {
         registers.hl()
     };
+    if decoded.table == Table::IndexCb {
+        // L exact word: decision-20 §5; MEMPTR (©2006), indexed address.
+        wz = address;
+    }
     // Register codes: UM pp. 243/251/260; HL memory: pp. 245/253/259.
     // H decision-20 §3 aliases always read memory, irrespective of low bits;
     // Young §3.5 p. 14; Rak .bit_n_xyd_, .set_n_xyd_/.res_n_xyd_.
@@ -102,21 +107,18 @@ pub(super) fn execute<S: Bus>(
             registers.flags.half_carry = true;
             registers.flags.subtract = false;
             // L no Bus write or register copy: decision-20 §3 API mapping.
-            if decoded.table == Table::IndexCb {
-                // H address-vs-data selection: decision-20 §4; Young §4.1
-                // p. 15 / MEMPTR (2006) indexed-address entry; Rak .bit_n_xyd*.
-                // Interim L: use effective address directly until §5 WZ
-                // (x80-mn3.11); no exact latch claim.
-                registers.flags.set_yx((address >> 8) as u8);
-            } else if code != 6 {
+            if decoded.table == Table::IndexCb || code == 6 {
+                // H projected Y/X: decision-20 §§4–5; Young v0.91
+                // §4.1 p. 15 / MEMPTR opening; Rak .bit_n_hl,
+                // .bit_n_xyd* and idea.asm 124–127. Exact word stays L.
+                registers.flags.set_yx((wz >> 8) as u8);
+            } else {
                 // L written-key gap: decision-20 §4; Young §4.1 p. 15
                 // instead says masked operand; Rak .bit_n_a/.bit_n_r
                 // lines 805–824 discriminate original-register Y/X.
                 registers.flags.set_yx(operand);
             }
-            // Interim L for BIT (HL): preserve old Y/X until §5 retained
-            // WZ (x80-mn3.11). Young §4.1 p. 15 / MEMPTR opening;
-            // Rak .bit_n_hl observes WZ bits13/11, not memory or HL.
+            cpu.latches_mut().wz = wz;
             return Path::Untaken;
         }
         // UM RES pp. 259–260 and SET pp. 251–258; TM p. 51:
@@ -139,5 +141,6 @@ pub(super) fn execute<S: Bus>(
         6 => {}
         _ => registers.a = value,
     }
+    cpu.latches_mut().wz = wz;
     Path::Untaken
 }

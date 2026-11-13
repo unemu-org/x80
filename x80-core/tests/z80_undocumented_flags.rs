@@ -285,7 +285,7 @@ fn bit_register_l_written_key_gap_and_all_forms_s_pv() {
     }
     for bytes in [[0xDD, 0xCB, 1, 0x46], [0xFD, 0xCB, 0xFF, 0x40]] {
         // H address-vs-data: Y §4.1 p. 15 / M indexed-address entry;
-        // R .bit_n_xyd*. Interim L: direct EA=2800 until §5 WZ.
+        // R .bit_n_xyd*. L exact WZ=2800; H projected high-byte selection.
         let (cpu, _) = run(
             &bytes,
             Registers {
@@ -312,21 +312,24 @@ fn bit_register_l_written_key_gap_and_all_forms_s_pv() {
 }
 
 #[test]
-fn interim_l_bit_hl_preserves_yx_until_x80_mn3_11_retained_wz() {
-    // Interim L only: decision-20 §4 staging; §5 / x80-mn3.11 MUST update
-    // this witness to retained WZ bits13/11. Y §4.1 p. 15 / M opening,
-    // R .bit_n_hl and memptr idea.asm 124–127: neither memory nor HL Y/X.
-    for (before, expected) in [(0, 0x54), (8, 0x5C), (0x20, 0x74), (0x28, 0x7C)] {
-        let (cpu, _) = run(
-            &[0xCB, 0x46],
-            Registers {
-                flags: Flags::from_byte(before),
-                ..registers()
+fn bit_hl_uses_retained_wz_independent_of_old_flags_hl_and_data() {
+    // H projection / L exact state: decision-20 §§4–5; Young v0.91
+    // §4.1 p. 15 / MEMPTR opening; Rak .bit_n_hl / idea.asm 124–127.
+    for (wz, expected) in [(0, 0x54), (0x0800, 0x5C), (0x2000, 0x74), (0x2800, 0x7C)] {
+        let mut bus = RecordingBus::new();
+        bus.load(0x1000, &[0xCB, 0x46]);
+        bus.memory[0x4000] = 0x28;
+        let mut cpu = Z80::new(
+            registers(),
+            Latches {
+                wz,
+                ..Latches::default()
             },
-            0x28,
-            0,
         );
+        cpu.registers_mut().flags = Flags::from_byte(0x28);
+        cpu.step(&mut bus);
         assert_eq!(cpu.registers().flags.to_byte(), expected);
+        assert_eq!(cpu.latches().wz, wz);
     }
 }
 

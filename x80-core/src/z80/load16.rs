@@ -72,6 +72,9 @@ pub(super) fn execute<S: Bus>(
         // UM pp. 102–106: low at nn, high at nn+1; ED includes HL.
         (Table::Main | Table::Index, 0x2A) | (Table::Ed, 0x4B | 0x5B | 0x6B | 0x7B) => {
             let address = fetch_word(cpu, system);
+            // L: decision-20 §5; MEMPTR (©2006), LD rp,(addr) /
+            // LD (addr),rp headings, including ED63/6B and IX/IY.
+            cpu.latches_mut().wz = address.wrapping_add(1);
             let low = system.read(address, MemoryAccess::Data);
             let high = system.read(address.wrapping_add(1), MemoryAccess::Data);
             pair.set(cpu.registers_mut(), u16::from_le_bytes([low, high]));
@@ -79,6 +82,9 @@ pub(super) fn execute<S: Bus>(
         // UM pp. 107–111: store low then high, including ED 63's HL.
         (Table::Main | Table::Index, 0x22) | (Table::Ed, 0x43 | 0x53 | 0x63 | 0x73) => {
             let address = fetch_word(cpu, system);
+            // L: decision-20 §5; MEMPTR (©2006), LD rp,(addr) /
+            // LD (addr),rp headings, including ED63/6B and IX/IY.
+            cpu.latches_mut().wz = address.wrapping_add(1);
             let [low, high] = pair.get(cpu.registers()).to_le_bytes();
             system.write(address, low, MemoryAccess::Data);
             system.write(address.wrapping_add(1), high, MemoryAccess::Data);

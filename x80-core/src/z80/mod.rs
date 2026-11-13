@@ -20,6 +20,11 @@
 //! (decision-20 §4, library representation). H transfer rules: Young v0.91
 //! §2.3 p. 8 / §§8.2–8.3 pp. 28–29; Rak v1.2a .selftest/.poppush_af/
 //! .ex_af_af. Hardware comparisons for admitted flags use the full byte.
+//! `Latches::wz` supplies the retained 16-bit WZ/MEMPTR for complete state
+//! snapshots and deterministic continuation (decision-20 §5 / §7).
+//! Exact update equations, Default=0 and reset preservation are L library
+//! rules; only the discriminated BIT projections have hardware observations.
+//! Stop/Unsupported preserve the complete state; Budget does not sample it.
 //!
 //! ```
 //! use x80_core::z80::{Z80, Latches, Registers};

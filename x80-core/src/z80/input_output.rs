@@ -98,6 +98,12 @@ pub(super) fn execute<S: Bus>(
             } else {
                 system.output16(port, registers.a);
             }
+            // L: decision-20 §5; MEMPTR (©2006), IN A,(n)/OUT (n),A.
+            cpu.latches_mut().wz = if opcode == 0xDB {
+                port.wrapping_add(1)
+            } else {
+                u16::from_be_bytes([(port >> 8) as u8, n.wrapping_add(1)])
+            };
         }
         // UM IN r,(C) pp. 296–297; TM p. 54: address from old BC,
         // even for IN B/IN C. S/Z/parity reflect input; H/N reset,
@@ -108,6 +114,9 @@ pub(super) fn execute<S: Bus>(
         // H Y/X: decision-20 §4; Young v0.91 §8.11 p. 35;
         // Rak .in_r_c/.in_c at BFh; arbitrary input follows written rule.
         0x40 | 0x48 | 0x50 | 0x58 | 0x60 | 0x68 | 0x70 | 0x78 => {
+            // L completion: decision-20 §5; MEMPTR (©2006) names IN A,(C);
+            // all codes including ED70 use BC before register replacement.
+            cpu.latches_mut().wz = cpu.registers().bc().wrapping_add(1);
             let registers = cpu.registers_mut();
             let value = system.input16(registers.bc());
             match opcode {
@@ -144,6 +153,9 @@ pub(super) fn execute<S: Bus>(
                 _ => registers.a,
             };
             system.output16(registers.bc(), value);
+            // L completion: decision-20 §5; MEMPTR (©2006), OUT (C),A;
+            // extended to every register code and ED71.
+            cpu.latches_mut().wz = cpu.registers().bc().wrapping_add(1);
         }
         // UM INI p. 298, INIR pp. 300–301, IND p. 302, INDR
         // pp. 304–305; OUTI p. 309, OTIR pp. 311–312, OUTD p. 313,
@@ -154,6 +166,7 @@ pub(super) fn execute<S: Bus>(
         0xA2 | 0xB2 | 0xAA | 0xBA | 0xA3 | 0xB3 | 0xAB | 0xBB => {
             let registers = cpu.registers_mut();
             let address = registers.hl();
+            let old_bc = registers.bc();
             let data = if opcode & 1 == 0 {
                 let value = system.input16(registers.bc());
                 system.write(address, value, MemoryAccess::Data);
@@ -196,10 +209,28 @@ pub(super) fn execute<S: Bus>(
             // Repeating descriptions explicitly rewind PC by two while
             // B != 0. One iteration per step is decision-15 rule 11;
             // Taken selects 21 states, termination selects 16.
-            if opcode & 0x10 != 0 && registers.b != 0 {
+            let continuing = opcode & 0x10 != 0 && registers.b != 0;
+            let bc = if opcode & 1 == 0 {
+                old_bc
+            } else {
+                registers.bc()
+            };
+            let delta = if opcode & 8 == 0 { 1 } else { u16::MAX };
+            // L: decision-20 §5; MEMPTR (©2006), block I/O headings.
+            // Continuing INxR REPLACEMENT uses this iteration's ED+1.
+            // M's BC-derived continuing rule is falsified (Rak .inir_nop/
+            // .indr_nop); output keeps decremented BC±1 on every iteration.
+            let wz = if continuing && opcode & 1 == 0 {
+                registers.pc.wrapping_sub(1)
+            } else {
+                bc.wrapping_add(delta)
+            };
+            if continuing {
                 registers.pc = registers.pc.wrapping_sub(2);
+                cpu.latches_mut().wz = wz;
                 return Path::Taken;
             }
+            cpu.latches_mut().wz = wz;
         }
         // Only the encodings listed above are assigned to this executor.
         _ => {}

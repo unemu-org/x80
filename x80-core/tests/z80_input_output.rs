@@ -100,10 +100,10 @@ fn retired(steps: u64, cycles: u64) -> Report {
     }
 }
 
-fn complete(cpu: &Z80, report: Report, expected: Registers, cycles: u64) {
+fn complete(cpu: &Z80, report: Report, expected: Registers, cycles: u64, wz: u16) {
     assert_eq!(report, retired(1, cycles));
     assert_eq!(*cpu.registers(), expected);
-    assert_eq!(*cpu.latches(), latches());
+    assert_eq!(*cpu.latches(), Latches { wz, ..latches() });
 }
 
 #[test]
@@ -115,7 +115,7 @@ fn immediate_input_uses_old_a_for_the_full_port_and_preserves_flags() {
         (0xFFFE, 0xFFFF, 0),
         (0xFFFF, 0, 1),
     ] {
-        for (a, n, port, value) in [(0x23, 0x01, 0x2301, 0x7B), (0x80, 0xFF, 0x80FF, 0)] {
+        for (a, n, port, value) in [(0x23, 0x01, 0x2301_u16, 0x7B), (0x80, 0xFF, 0x80FF, 0)] {
             for flags in [0x00, 0xD7] {
                 let before = Registers {
                     a,
@@ -139,6 +139,7 @@ fn immediate_input_uses_old_a_for_the_full_port_and_preserves_flags() {
                         ..before
                     },
                     11,
+                    port.wrapping_add(1),
                 );
                 assert_eq!(bus.memory, memory);
                 let mut trace = fetch(pc, 0xDB);
@@ -175,6 +176,7 @@ fn immediate_output_places_a_on_both_data_and_high_address_bits() {
                 ..before
             },
             11,
+            0x2302,
         );
         assert_eq!(bus.memory, memory);
         let mut trace = fetch(0xFFFF, 0xD3);
@@ -232,7 +234,7 @@ fn every_register_input_samples_old_bc_and_sets_sz_parity_clearing_hn() {
                 bus.inputs.push_back(value);
                 let memory = bus.memory.clone();
                 let report = cpu.step(&mut bus);
-                complete(&cpu, report, expected, 12);
+                complete(&cpu, report, expected, 12, 0xB2C4);
                 assert_eq!(bus.memory, memory);
                 let mut trace = ed_fetch(0x2000, 0x2001, opcode);
                 trace.push(Event::Input16 {
@@ -277,6 +279,7 @@ fn every_register_output_uses_bc_and_preserves_all_registers_and_flags() {
                     ..before
                 },
                 12,
+                0xB2C4,
             );
             assert_eq!(bus.memory, memory);
             let mut trace = ed_fetch(0x2000, 0x2001, opcode);
@@ -314,7 +317,7 @@ fn block_io_hardware_results_ports_order_wraps_and_both_repeat_paths() {
     // full-byte flags replace the former 43h mask and preservation.
     for (opcode, input, decrement, repeat) in BLOCKS {
         for (b, next_b, input_port, output_port, repeat_pc, repeat_cycles) in [
-            (2, 1, 0x02C3, 0x01C3, 0x2000, 21),
+            (2, 1, 0x02C3_u16, 0x01C3_u16, 0x2000, 21),
             (1, 0, 0x01C3, 0x00C3, 0x2002, 16),
             (0, 0xFF, 0x00C3, 0xFFC3, 0x2000, 21),
         ] {
@@ -372,6 +375,15 @@ fn block_io_hardware_results_ports_order_wraps_and_both_repeat_paths() {
                         ..before
                     },
                     if repeat { repeat_cycles } else { 16 },
+                    if input && repeat && next_b != 0 {
+                        0x2001
+                    } else {
+                        (if input { input_port } else { output_port }).wrapping_add(if decrement {
+                            u16::MAX
+                        } else {
+                            1
+                        })
+                    },
                 );
                 assert_eq!(bus.memory, memory);
                 let mut trace = ed_fetch(0x2000, 0x2001, opcode);
@@ -546,7 +558,17 @@ fn all_repeating_forms_resume_after_a_cycle_budget_splits_the_block() {
                 ..before
             }
         );
-        assert_eq!(*cpu.latches(), latches());
+        assert_eq!(
+            *cpu.latches(),
+            Latches {
+                wz: match opcode {
+                    0xB2 | 0xBA => 0,
+                    0xB3 => 0x0108,
+                    _ => 0x0106,
+                },
+                ..latches()
+            }
+        );
         assert_eq!(bus.memory, memory);
         assert_eq!(bus.take_log(), trace);
         let mut final_trace = ed_fetch(0xFFFF, 0, opcode);
@@ -586,7 +608,18 @@ fn all_repeating_forms_resume_after_a_cycle_budget_splits_the_block() {
                 ..before
             }
         );
-        assert_eq!(*cpu.latches(), latches());
+        assert_eq!(
+            *cpu.latches(),
+            Latches {
+                wz: match opcode {
+                    0xB2 => 0x0108,
+                    0xBA => 0x0106,
+                    0xB3 => 0x0008,
+                    _ => 0x0006,
+                },
+                ..latches()
+            }
+        );
         assert_eq!(bus.memory, memory);
         assert_eq!(bus.take_log(), final_trace);
         assert!(bus.inputs.is_empty());

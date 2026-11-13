@@ -111,6 +111,7 @@ fn check(a: u8, before_f: u8, result: u8, result_f: u8) {
             r: 0xFF,
         },
         Latches {
+            wz: 0,
             iff1: true,
             iff2: false,
             interrupt_mode: InterruptMode::Mode1,

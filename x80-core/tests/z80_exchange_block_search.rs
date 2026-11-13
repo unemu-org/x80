@@ -139,6 +139,7 @@ fn witness(
     after: Registers,
     cycles: u64,
     accesses: &[Event],
+    wz: u16,
 ) {
     let mut bus = RecordingBus::new();
     for &(address, value) in fetches.iter().chain(seed) {
@@ -153,7 +154,7 @@ fn witness(
     let mut cpu = Z80::new(before, latches());
     assert_eq!(cpu.step(&mut bus), report(1, cycles), "{fetches:02X?}");
     assert_eq!(*cpu.registers(), after, "{fetches:02X?}");
-    assert_eq!(*cpu.latches(), latches());
+    assert_eq!(*cpu.latches(), Latches { wz, ..latches() });
     // Decision-20 §4: full F/F' compared with Registers above.
     assert_eq!(bus.memory, memory, "unexpected memory effect");
     assert_eq!(bus.take_log(), trace(fetches, accesses));
@@ -172,7 +173,7 @@ fn ex_de_hl() {
         after.l = 0x78;
         after.pc = 0x2001;
         after.r = 0x80;
-        witness(before, &[(0x2000, 0xEB)], &[], after, 4, &[]);
+        witness(before, &[(0x2000, 0xEB)], &[], after, 4, &[], 0);
     }
 }
 
@@ -190,7 +191,7 @@ fn ex_af_af_alternate() {
         after.flags_alternate = flags(active);
         after.pc = 0x2001;
         after.r = 0x80;
-        witness(before, &[(0x2000, 0x08)], &[], after, 4, &[]);
+        witness(before, &[(0x2000, 0x08)], &[], after, 4, &[], 0);
     }
 }
 
@@ -218,7 +219,7 @@ fn exx_exchanges_only_bc_de_hl_banks() {
         after.l_alternate = 0xBC;
         after.pc = 0x2001;
         after.r = 0x80;
-        witness(before, &[(0x2000, 0xD9)], &[], after, 4, &[]);
+        witness(before, &[(0x2000, 0xD9)], &[], after, 4, &[], 0);
     }
 }
 
@@ -246,6 +247,7 @@ fn ex_sp_hl_uses_stack_and_keeps_sp() {
                 write(0xDEF1, STACK, 0x9A),
                 write(0xDEF0, STACK, 0xBC),
             ],
+            0x2211,
         );
     }
 }
@@ -277,6 +279,7 @@ fn ex_sp_ix_and_iy_select_the_correct_pair() {
                     write(0xDEF1, STACK, high),
                     write(0xDEF0, STACK, low),
                 ],
+                0x2211,
             );
         }
     }
@@ -332,6 +335,7 @@ fn ex_sp_all_forms_wrap_sp_plus_one_and_opcode_fetches() {
                 write(0, STACK, high),
                 write(0xFFFF, STACK, low),
             ],
+            if prefix.is_some() { 0x22E3 } else { 0x2211 },
         );
     }
 }
@@ -376,6 +380,7 @@ fn single_transfer(opcode: u8, next_e: u8, next_l: u8) {
                 after,
                 16,
                 &[read(0x9ABC, DATA, 0x88), write(0x5678, DATA, 0x88)],
+                0,
             );
         }
     }
@@ -432,6 +437,13 @@ fn searches(opcode: u8, next_l: u8, repeating: bool) {
                 after,
                 if repeats { 21 } else { 16 },
                 &[read(0x9ABC, DATA, value)],
+                if repeats {
+                    0x2001
+                } else if opcode & 8 == 0 {
+                    1
+                } else {
+                    0xFFFF
+                },
             );
         }
     }
@@ -491,6 +503,7 @@ fn single_transfers_wrap_both_data_pointers() {
             after,
             16,
             &[read(address, DATA, 0xA5), write(address, DATA, 0xA5)],
+            0,
         );
     }
 }
@@ -535,6 +548,7 @@ fn repeating_transfer(opcode: u8, next_e: u8, next_l: u8) {
                 after,
                 cycles,
                 &[read(0x9ABC, DATA, 0x88), write(0x5678, DATA, 0x88)],
+                if count == 1 { 0 } else { 0x2001 },
             );
         }
     }
@@ -584,7 +598,13 @@ fn repeating_transfer(opcode: u8, next_e: u8, next_l: u8) {
         after.pc = pc;
         after.r = r;
         assert_eq!(*cpu.registers(), after);
-        assert_eq!(*cpu.latches(), latches());
+        assert_eq!(
+            *cpu.latches(),
+            Latches {
+                wz: 0x2001,
+                ..latches()
+            }
+        );
         memory[usize::from(destination)] = value;
         assert_eq!(bus.memory, memory);
         assert_eq!(
@@ -676,7 +696,13 @@ fn every_repeating_form_resumes_after_a_mid_block_step_budget() {
         middle.flags = flags(if transfer { 0xE5 } else { 0x3F }); // §4 H t-bit rule.
         middle.r = 0x83;
         assert_eq!(*cpu.registers(), middle);
-        assert_eq!(*cpu.latches(), latches());
+        assert_eq!(
+            *cpu.latches(),
+            Latches {
+                wz: 0x2001,
+                ..latches()
+            }
+        );
         assert_eq!(bus.memory, memory);
         let mut events = trace(&[(0x2000, 0xED), (0x2001, opcode)], &first);
         events.extend(trace(&[(0x2000, 0xED), (0x2001, opcode)], &second));
@@ -700,7 +726,19 @@ fn every_repeating_form_resumes_after_a_mid_block_step_budget() {
         after.pc = 0x2002;
         after.r = 0x85;
         assert_eq!(*cpu.registers(), after);
-        assert_eq!(*cpu.latches(), latches());
+        assert_eq!(
+            *cpu.latches(),
+            Latches {
+                wz: if transfer {
+                    0x2001
+                } else if opcode == 0xB1 {
+                    0x2002
+                } else {
+                    0x2000
+                },
+                ..latches()
+            }
+        );
         let third = if transfer {
             memory[usize::from(destination3)] = 0xA5;
             vec![read(source3, DATA, 0xA5), write(destination3, DATA, 0xA5)]
@@ -740,6 +778,7 @@ fn repeating_transfers_wrap_pointers_and_rewind_pc_across_zero() {
             after,
             21,
             &[read(address, DATA, value), write(address, DATA, value)],
+            0,
         );
     }
 }
@@ -777,6 +816,13 @@ fn all_search_forms_wrap_hl_and_pc() {
             after,
             cycles,
             &[read(address, DATA, value)],
+            if opcode == 0xA1 {
+                1
+            } else if opcode == 0xA9 {
+                0xFFFF
+            } else {
+                0
+            },
         );
     }
 }

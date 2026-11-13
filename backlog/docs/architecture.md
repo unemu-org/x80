@@ -57,8 +57,8 @@ x80-core/
   src/i8085/vectored.rs         TRAP and RST 5.5/6.5/7.5 acceptance (decision-12 rule 4)
   src/i8085/acknowledge.rs      INTR RST/CALL acceptance (decision-12 rule 5)
   src/z80/mod.rs                the Z80 model module and its re-exports (decisions 13–15)
-  src/z80/state.rs              main/alternate Registers, pair accessors, InterruptMode and Latches
-  src/z80/flags.rs              six flags and the decision-14 library F/F' image
+  src/z80/state.rs              main/alternate Registers, pair accessors, InterruptMode and Latches (including public WZ)
+  src/z80/flags.rs              eight independent flags and the decision-20 §4 F/F' image
   src/z80/alu.rs                model-owned arithmetic primitives and flag rules
   src/z80/interrupt.rs          Inputs: asserted-true NMI and INT requests
   src/z80/cpu.rs                Z80: run/step, reset, boundary sampling, prefix dispatch and executor context
@@ -88,6 +88,7 @@ x80-core/
   tests/z80_interrupts_int.rs   IM 0/1/2 acceptance, refusal and halt witnesses
   tests/z80_timing.rs           independent whole-set/path and interrupt T-state witnesses
   tests/z80_arithmetic_reference/ independent byte/pair ALU and flag witnesses
+  tests/z80_wz.rs               decision-20 §5 literal latch rows, state and BIT projection witnesses
   tests/z80_model.rs            ownership, construction, reset, input defaults and recording polls
   tests/z80_registers.rs        main/alternate register pairs and F/F' image witnesses
   tests/i8080_run.rs            budget, boundary sequence, exit precedence, step, determinism
@@ -483,6 +484,20 @@ validation and before service. That helper clears P/V only when a note is
 pending, consumes the note and leaves the EI delay alone. Module comments
 pin the access order, mode restrictions, costs and primary/second citations
 of decision-15 rules 8–10 for each implementation.
+
+Decision-20 §5 adds public `Latches.wz: u16` for supplied/snapshotted Z80
+state; it is not a shared-family register or a bus service. The existing
+register/latch snapshot restores it on Unsupported, Stop leaves it intact,
+Budget performs no update, and clone/new preserve deterministic continuation.
+Default=0000h and reset preservation are **L** library policies (UM RESET
+p. 6 / TM p. 9 omit WZ). Group executors own the complete **L** exact-latch
+table following pinned MEMPTR (©2006) instruction headings, with §5's
+continuing-INxR replacement. BIT (HL) preserves WZ and observes its high-byte
+Y/X bits; every indexed-memory form sets WZ to the effective address first.
+Only discriminated projected observations are **H**, never a whole-word claim.
+The 21 independent witnesses in `tests/z80_wz.rs` cover every table row,
+16-bit and low-byte-only wrapping, preservation, state restoration and
+cross-instruction BIT probes; existing trace witnesses retain their bus calls.
 
 An integration test that needs a bus includes `tests/support` with
 `mod support;`. Its `RecordingBus` logs every access and input poll for trace

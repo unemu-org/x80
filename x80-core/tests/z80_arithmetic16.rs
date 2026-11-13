@@ -69,6 +69,7 @@ fn sample(f: u8) -> Registers {
 
 fn latches() -> Latches {
     Latches {
+        wz: 0,
         iff1: true,
         iff2: false,
         interrupt_mode: InterruptMode::Mode2,
@@ -174,6 +175,17 @@ fn witness(code: &[u8], before: Registers, mut expected: Registers, f: u8, cycle
     assert_eq!(
         *cpu.latches(),
         Latches {
+            // L exact word: decision-20 §5; literal edge witnesses in z80_wz.
+            wz: if arithmetic {
+                match code[0] {
+                    0xDD => before.ix,
+                    0xFD => before.iy,
+                    _ => u16::from_be_bytes([before.h, before.l]),
+                }
+                .wrapping_add(1)
+            } else {
+                0
+            },
             ei_delay: false,
             parity_note_pending: false,
             nmi_asserted: false,

@@ -133,7 +133,10 @@ pub(super) fn execute<S: Bus>(
             Some(IndexRegister::Iy) => cpu.registers().iy,
             None => cpu.registers().hl(),
         };
-        base.wrapping_add_signed(displacement)
+        let address = base.wrapping_add_signed(displacement);
+        // L: decision-20 §5; MEMPTR (©2006), indexed-address heading.
+        cpu.latches_mut().wz = address;
+        address
     } else {
         cpu.registers().hl()
     };

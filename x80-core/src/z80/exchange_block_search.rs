@@ -155,6 +155,8 @@ fn exchange_stack<S: Bus>(cpu: &mut Z80, system: &mut S, index: Option<IndexRegi
         Some(IndexRegister::Iy) => r.iy = value,
         None => r.set_hl(value),
     }
+    // L: decision-20 §5; MEMPTR (©2006), EX (SP),rp.
+    cpu.latches_mut().wz = value;
 }
 
 // UM LDI pp. 130–131, LDIR pp. 132–133, LDD pp. 134–135, LDDR
@@ -166,6 +168,7 @@ fn block<S: Bus>(cpu: &mut Z80, system: &mut S, opcode: u8) -> Path {
     let repeating = opcode & 0x10 != 0;
     // DERIVED modulo-16-bit +/-1 for pointers and decrement for BC.
     let delta = if opcode & 0x08 != 0 { u16::MAX } else { 1 };
+    let old_wz = cpu.latches().wz;
     let r = cpu.registers_mut();
     let value = system.read(r.hl(), MemoryAccess::Data);
     if !compare {
@@ -216,8 +219,15 @@ fn block<S: Bus>(cpu: &mut Z80, system: &mut S, opcode: u8) -> Path {
     // Taken=21; termination means Untaken=16. PC wrap is DERIVED.
     if repeating && count != 0 && (!compare || !r.flags.zero) {
         r.pc = r.pc.wrapping_sub(2);
+        // L: decision-20 §5; MEMPTR (©2006), continuing LDxR/CPxR.
+        // PC now names this iteration's ED, even after ignored prefixes.
+        cpu.latches_mut().wz = cpu.registers().pc.wrapping_add(1);
         Path::Taken
     } else {
+        if compare {
+            // L: decision-20 §5; MEMPTR (©2006), CPI/CPD/CPIR/CPDR.
+            cpu.latches_mut().wz = old_wz.wrapping_add(delta);
+        }
         Path::Untaken
     }
 }

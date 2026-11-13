@@ -50,6 +50,7 @@ fn cpu_at(pc: u16, sp: u16, flags: u8) -> Z80 {
             r: 0xFF,
         },
         Latches {
+            wz: 0,
             iff1: true,
             iff2: true,
             interrupt_mode: InterruptMode::Mode2,
@@ -91,11 +92,12 @@ fn fetch(pc: u16, opcode: u8) -> Vec<Event> {
 }
 
 // Boundary expiry is a library rule, separate from instruction effects.
-fn expected_after(initial: &Z80, pc: u16, sp: u16, r: u8) -> Z80 {
+fn expected_after(initial: &Z80, pc: u16, sp: u16, r: u8, wz: u16) -> Z80 {
     let mut expected = initial.clone();
     expected.registers_mut().pc = pc;
     expected.registers_mut().sp = sp;
     expected.registers_mut().r = r;
+    expected.latches_mut().wz = wz;
     expected.latches_mut().ei_delay = false;
     expected.latches_mut().parity_note_pending = false;
     expected.latches_mut().nmi_asserted = false;
@@ -153,7 +155,7 @@ fn call_reads_address_then_pushes_next_pc_high_first_in_seventeen_states() {
     // UM pp. 281–282 (including its literal example); TM p. 53.
     for flags in flag_images() {
         let cpu = cpu_at(0x1A47, 0x3002, flags);
-        let expected = expected_after(&cpu, 0x2135, 0x3000, 0x80);
+        let expected = expected_after(&cpu, 0x2135, 0x3000, 0x80, 0x2135);
         let mut bus = RecordingBus::new();
         bus.load(0x1A47, &[0xCD, 0x35, 0x21]);
         let mut trace = fetch(0x1A47, 0xCD);
@@ -180,6 +182,7 @@ fn every_call_condition_both_ways_reads_both_operands_in_ten_or_seventeen_states
                 if taken { 0x4DB6 } else { 0x2401 },
                 if taken { 0x80FE } else { 0x8100 },
                 0x80,
+                0x4DB6,
             );
             let mut bus = RecordingBus::new();
             bus.load(0x23FE, &[opcode, 0xB6, 0x4D]);
@@ -209,7 +212,7 @@ fn call_c_uses_carry_independently_of_zero_despite_primary_table_label() {
         (0x40, 0x2401, 0x8100, 10, &[][..]),
     ] {
         let cpu = cpu_at(0x23FE, 0x8100, flags);
-        let expected = expected_after(&cpu, pc, sp, 0x80);
+        let expected = expected_after(&cpu, pc, sp, 0x80, 0x4DB6);
         let mut bus = RecordingBus::new();
         bus.load(0x23FE, &[0xDC, 0xB6, 0x4D]);
         let mut trace = fetch(0x23FE, 0xDC);
@@ -224,7 +227,7 @@ fn ret_pops_low_then_high_in_ten_states() {
     // UM p. 285 literal example; TM p. 53. SP advances twice.
     for flags in flag_images() {
         let cpu = cpu_at(0x3535, 0x2000, flags);
-        let expected = expected_after(&cpu, 0x18B5, 0x2002, 0x80);
+        let expected = expected_after(&cpu, 0x18B5, 0x2002, 0x80, 0x18B5);
         let mut bus = RecordingBus::new();
         bus.load(0x3535, &[0xC9]);
         bus.load(0x2000, &[0xB5, 0x18]);
@@ -246,6 +249,7 @@ fn every_ret_condition_both_ways_has_no_stack_reads_or_two_in_five_or_eleven_sta
                 if taken { 0x18B5 } else { 0x3536 },
                 if taken { 0x2002 } else { 0x2000 },
                 0x80,
+                if taken { 0x18B5 } else { 0 },
             );
             let mut bus = RecordingBus::new();
             bus.load(0x3535, &[opcode]);
@@ -266,7 +270,7 @@ fn interrupt_return(opcode: u8, restores_iff1: bool) {
                 let mut cpu = cpu_at(0x1234, 0x0FFE, flags);
                 cpu.latches_mut().iff1 = iff1;
                 cpu.latches_mut().iff2 = iff2;
-                let mut expected = expected_after(&cpu, 0x1A45, 0x1000, 0x81);
+                let mut expected = expected_after(&cpu, 0x1A45, 0x1000, 0x81, 0x1A45);
                 if restores_iff1 {
                     expected.latches_mut().iff1 = iff2;
                 }
@@ -305,7 +309,7 @@ fn all_rst_vectors_push_next_pc_high_first_through_shared_helper_in_eleven_state
     for (opcode, target) in RESTARTS {
         for flags in flag_images() {
             let cpu = cpu_at(0x15B3, 0x8100, flags);
-            let expected = expected_after(&cpu, target, 0x80FE, 0x80);
+            let expected = expected_after(&cpu, target, 0x80FE, 0x80, target);
             let mut bus = RecordingBus::new();
             bus.load(0x15B3, &[opcode]);
             let mut trace = fetch(0x15B3, opcode);
@@ -332,6 +336,7 @@ fn call_operand_return_pc_and_both_push_decrements_wrap_derived() {
                     if taken { 0x4DB6 } else { return_pc },
                     if taken { low_at } else { sp },
                     0x80,
+                    0x4DB6,
                 );
                 let mut bus = RecordingBus::new();
                 bus.load(pc, &[opcode, 0xB6, 0x4D]);
@@ -358,7 +363,7 @@ fn every_return_class_wraps_each_pop_increment_derived() {
     ] {
         for (sp, high_at, next_sp) in [(0xFFFE, 0xFFFF, 0), (0xFFFF, 0, 1)] {
             let cpu = cpu_at(0x7FFF, sp, flags);
-            let expected = expected_after(&cpu, 0x4DB6, next_sp, r);
+            let expected = expected_after(&cpu, 0x4DB6, next_sp, r, 0x4DB6);
             let mut bus = RecordingBus::new();
             bus.load(0x7FFF, bytes);
             bus.load(sp, &[0xB6, 0x4D]);
@@ -379,7 +384,7 @@ fn rst_wraps_return_pc_and_both_stack_decrements_derived() {
     for (opcode, target) in RESTARTS {
         for (sp, high_at, low_at) in [(0, 0xFFFF, 0xFFFE), (1, 0, 0xFFFF)] {
             let cpu = cpu_at(0xFFFF, sp, 0xD7);
-            let expected = expected_after(&cpu, target, low_at, 0x80);
+            let expected = expected_after(&cpu, target, low_at, 0x80, target);
             let mut bus = RecordingBus::new();
             bus.load(0xFFFF, &[opcode]);
             let mut trace = fetch(0xFFFF, opcode);

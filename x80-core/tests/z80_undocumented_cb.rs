@@ -9,7 +9,7 @@
 //! no independent timing or write-ignoring-device capture. Pins/limits:
 //! PROVENANCE §1 and decision-20 §§3–4. H shifted-byte Y/X and BIT S/PV:
 //! Young §4.1 p. 15 / §8.7 p. 32; Rak .sro_xyd*, .bit_n_*. L register
-//! BIT written-key gap; interim L (HL) old Y/X / indexed direct EA until §5.
+//! BIT written-key gap; §5 L retained WZ / indexed WZ; H bits13/11 projection.
 
 #![forbid(unsafe_code)]
 mod support;
@@ -92,7 +92,7 @@ const SHIFT_81: [(u8, u8); 8] = [
 ];
 const RESET_81: [u8; 8] = [0x80, 0x81, 0x81, 0x81, 0x81, 0x81, 0x81, 0x01];
 const SET_81: [u8; 8] = [0x81, 0x83, 0x85, 0x89, 0x91, 0xA1, 0xC1, 0x81];
-// Decision-20 §4 H S/PV; L register Y/X; interim L (HL) preserves Y/X.
+// Decision-20 §4 H S/PV; L register Y/X; §5 BIT (HL) uses retained WZ.
 const BIT_81: [u8; 8] = [0x11, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x91];
 
 #[test]
@@ -190,6 +190,7 @@ fn all_256_ddcb_and_fdcb_terminals_copy_ordinary_registers_or_alias_bit() {
             bus.load(0xFFFE, &[prefix, 0xCB, 0xFF, opcode]);
             bus.load(address, &[0x81]);
             let mut expected = cpu.clone();
+            expected.latches_mut().wz = address;
             expected.registers_mut().pc = 2;
             expected.registers_mut().r = 0x81;
             let bit = usize::from((opcode >> 3) & 7);
@@ -273,6 +274,7 @@ fn write_ignoring_device_still_copies_computed_result_without_reread() {
             bus.0.load(0xFFFE, &[prefix, 0xCB, 0xFF, opcode]);
             bus.0.load(0x2000, &[0x81]);
             let mut expected = cpu.clone();
+            expected.latches_mut().wz = 0x2000;
             expected.registers_mut().pc = 2;
             expected.registers_mut().r = 0x81;
             set_register(expected.registers_mut(), opcode & 7, result);
@@ -301,6 +303,7 @@ fn repeated_selectors_into_indexed_sll_use_last_index_one_boundary_and_extra_m1_
     bus.load(0xFFFE, &[0xDD, 0xFD, 0xDD, 0xFD, 0xCB, 0xFF, 0x35]);
     bus.load(0x3000, &[0x81]);
     let mut expected = cpu.clone();
+    expected.latches_mut().wz = 0x3000;
     expected.registers_mut().pc = 5;
     expected.registers_mut().r = 0x84;
     expected.registers_mut().l = 3;

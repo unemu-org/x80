@@ -81,6 +81,8 @@ pub(super) fn accept<S: Bus>(cpu: &mut Z80, system: &mut S) -> Option<Result<u8,
             // An admitted even pointer cannot actually reach FFFFh here.
             let high = system.read(vector.wrapping_add(1), MemoryAccess::Data);
             cpu.registers_mut().pc = u16::from_le_bytes([low, high]);
+            // L: decision-20 §5; MEMPTR (©2006), interrupt CALL extension.
+            cpu.latches_mut().wz = cpu.registers().pc;
             // STATED: UM p. 20/Fig. 17; TM §8 p. 57: 7 acknowledge,
             // 6 PC-save and 6 table-read clocks, explicitly 19 in total.
             19

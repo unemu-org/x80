@@ -91,6 +91,7 @@ pub(super) fn execute<S: Bus>(
     _instruction: &Instruction,
     decoded: &Decoded,
 ) -> Path {
+    let mut wz = None;
     let registers = cpu.registers_mut();
     match decoded.table {
         Table::Main => {
@@ -121,6 +122,8 @@ pub(super) fn execute<S: Bus>(
                     IndexRegister::Iy => registers.iy,
                 };
                 let address = base.wrapping_add_signed(i16::from(displacement as i8));
+                // L: decision-20 §5; MEMPTR (©2006), indexed address.
+                wz = Some(address);
                 execute_cb(registers, system, decoded.opcode, Some(address));
             }
         }
@@ -129,6 +132,8 @@ pub(super) fn execute<S: Bus>(
             // Rotate the three low nibbles, preserving A's high nibble.
             // S/Z/P-V describe the resulting A; C is unaffected, H=N=0.
             let address = registers.hl();
+            // L: decision-20 §5; MEMPTR (©2006), RLD/RRD.
+            wz = Some(address.wrapping_add(1));
             let memory = system.read(address, MemoryAccess::Data);
             let a = registers.a;
             let (value, memory) = if decoded.opcode == 0x6F {
@@ -145,6 +150,9 @@ pub(super) fn execute<S: Bus>(
         }
         // This group has no terminals in the ordinary DD/FD table.
         Table::Index => {}
+    }
+    if let Some(wz) = wz {
+        cpu.latches_mut().wz = wz;
     }
     Path::Untaken
 }

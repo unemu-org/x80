@@ -100,6 +100,7 @@ impl Z80 {
     ///
     /// Preserving SP, both general/AF register sets, IX, IY and flags is a
     /// library choice: those reset descriptions do not specify their values.
+    /// WZ is also preserved (decision-20 §5, L library policy).
     /// Clearing EI delay and the parity-note latch and setting NMI history
     /// to not asserted are library bookkeeping choices, not hardware claims.
     /// No bus access or poll occurs, and no elapsed cycles are reported.
@@ -107,7 +108,11 @@ impl Z80 {
         self.registers.pc = 0;
         self.registers.i = 0;
         self.registers.r = 0;
-        self.latches = Latches::default();
+        // L: decision-20 §5; UM RESET p. 6 / TM p. 9 omit WZ.
+        self.latches = Latches {
+            wz: self.latches.wz,
+            ..Latches::default()
+        };
     }
 
     /// Runs until a budget limit or another exit (decision-15 rules 1–3).

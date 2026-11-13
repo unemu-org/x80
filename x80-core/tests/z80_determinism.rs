@@ -318,6 +318,7 @@ fn assert_completed(result: &Session) {
     assert_eq!(
         *result.cpu.latches(),
         Latches {
+            wz: 0x013D,
             interrupt_mode: InterruptMode::Mode2,
             halted: true,
             ..Latches::default()

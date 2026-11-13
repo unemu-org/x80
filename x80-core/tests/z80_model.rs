@@ -59,6 +59,7 @@ const ZERO_REGISTERS: Registers = Registers {
     r: 0,
 };
 const RESET_LATCHES: Latches = Latches {
+    wz: 0,
     iff1: false,
     iff2: false,
     interrupt_mode: InterruptMode::Mode0,
@@ -94,6 +95,7 @@ const DIRTY_REGISTERS: Registers = Registers {
     r: 0x89,
 };
 const DIRTY_LATCHES: Latches = Latches {
+    wz: 0x2800,
     iff1: true,
     iff2: true,
     interrupt_mode: InterruptMode::Mode2,
@@ -182,7 +184,13 @@ fn reset_preserves_both_register_sets_flags_sp_and_indexes_by_library_choice() {
 fn reset_clears_bookkeeping_by_library_choice_and_is_idempotent() {
     let mut cpu = Z80::new(DIRTY_REGISTERS, DIRTY_LATCHES);
     cpu.reset();
-    assert_eq!(*cpu.latches(), RESET_LATCHES);
+    assert_eq!(
+        *cpu.latches(),
+        Latches {
+            wz: 0x2800,
+            ..RESET_LATCHES
+        }
+    );
     let once = cpu.clone();
     cpu.reset();
     assert_eq!(cpu, once);

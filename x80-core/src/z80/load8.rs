@@ -134,7 +134,10 @@ pub(super) fn execute<S: Bus>(
             Some(IndexRegister::Iy) => cpu.registers().iy,
             None => cpu.registers().hl(),
         };
-        base.wrapping_add_signed(displacement)
+        let address = base.wrapping_add_signed(displacement);
+        // L: decision-20 §5; MEMPTR (©2006), indexed-address heading.
+        cpu.latches_mut().wz = address;
+        address
     } else {
         cpu.registers().hl()
     };
@@ -183,6 +186,13 @@ pub(super) fn execute<S: Bus>(
                 u16::from_le_bytes([low, high])
             }
             _ => address,
+        };
+        // L: decision-20 §5; MEMPTR (©2006), LD A,(addr)/(rp)
+        // and LD (addr)/(rp),A headings; stores suppress high-byte carry.
+        cpu.latches_mut().wz = if opcode & 0x08 != 0 {
+            address.wrapping_add(1)
+        } else {
+            u16::from_be_bytes([cpu.registers().a, (address as u8).wrapping_add(1)])
         };
         if opcode & 0x08 != 0 {
             cpu.registers_mut().a = system.read(address, MemoryAccess::Data);

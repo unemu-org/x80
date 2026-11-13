@@ -90,6 +90,7 @@ fn ed70_discards_input_uses_full_bc_and_sets_eight_stored_flags() {
             let mut cpu = cpu_at(0xFFFF);
             cpu.registers_mut().flags = Flags::from_byte(0xD6 | carry);
             let mut expected = cpu.clone();
+            expected.latches_mut().wz = 0xABCE;
             expected.registers_mut().pc = 1;
             expected.registers_mut().r = 0x81;
             expected.registers_mut().flags = Flags::from_byte(base_flags | carry | (value & 0x28));
@@ -114,6 +115,7 @@ fn ed71_emits_library_zero_at_full_bc_preserving_all_state() {
     // Young §3.4 p. 13 / §8.11 p. 35; Rak .out_c_0 has no bus capture.
     let mut cpu = cpu_at(0x1234);
     let mut expected = cpu.clone();
+    expected.latches_mut().wz = 0xABCE;
     expected.registers_mut().pc = 0x1236;
     expected.registers_mut().r = 0x81;
     let mut bus = RecordingBus::new();
@@ -168,6 +170,7 @@ fn all_ed_returns_pop_wrapping_stack_and_copy_unequal_iffs_including_reti() {
             cpu.latches_mut().iff1 = iff1;
             cpu.latches_mut().iff2 = iff2;
             let mut expected = cpu.clone();
+            expected.latches_mut().wz = 0x2468;
             expected.registers_mut().pc = 0x2468;
             expected.registers_mut().sp = 1;
             expected.registers_mut().r = 0x81;

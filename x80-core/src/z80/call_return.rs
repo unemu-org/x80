@@ -73,6 +73,8 @@ pub(super) fn execute<S: Bus>(
         0xCD | 0xC4 | 0xCC | 0xD4 | 0xDC | 0xE4 | 0xEC | 0xF4 | 0xFC => {
             let low = cpu.fetch_operand(system);
             let high = cpu.fetch_operand(system);
+            // L: decision-20 §5; MEMPTR (©2006), CALL: even untaken.
+            cpu.latches_mut().wz = u16::from_le_bytes([low, high]);
             if opcode == 0xCD || condition(cpu.registers().flags, opcode) {
                 let return_pc = cpu.registers().pc;
                 push_pc_and_jump(cpu, system, return_pc, u16::from_le_bytes([low, high]));
@@ -129,10 +131,13 @@ fn pop_pc(cpu: &mut Z80, system: &mut impl Bus) {
     let high = system.read(registers.sp, MemoryAccess::Stack);
     registers.sp = registers.sp.wrapping_add(1);
     registers.pc = u16::from_le_bytes([low, high]);
+    // L: decision-20 §5; MEMPTR (©2006), RET/RETI (RETN completion).
+    cpu.latches_mut().wz = cpu.registers().pc;
 }
 
 /// Pushes the supplied PC high byte first, then loads `target` without
-/// advancing PC or changing flags/latches, fetching bytes or accounting R/time.
+/// advancing PC or changing flags, fetching bytes or accounting R/time.
+/// WZ receives the target (decision-20 §5, L).
 /// CALL/RST supply their next PC; NMI/INT supply the boundary PC
 /// (decision-15 rules 8–9). This is the same stack operation for all callers.
 /// UM CALL p. 281, RETN example p. 290 and RST p. 292 explicitly order
@@ -148,4 +153,7 @@ pub(super) fn push_pc_and_jump(cpu: &mut Z80, system: &mut impl Bus, return_pc: 
     registers.sp = registers.sp.wrapping_sub(1);
     system.write(registers.sp, low, MemoryAccess::Stack);
     registers.pc = target;
+    // L: decision-20 §5; MEMPTR (©2006), CALL/RST/interrupt headings.
+    // Each successful interrupt mode uses its actual handler destination.
+    cpu.latches_mut().wz = target;
 }

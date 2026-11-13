@@ -163,6 +163,7 @@ fn cpu(flags_byte: u8) -> Z80 {
             r: 0xFF,
         },
         Latches {
+            wz: 0,
             iff1: true,
             iff2: true,
             interrupt_mode: InterruptMode::Mode2,
@@ -252,7 +253,7 @@ fn check(cpu: &Z80, expected: Z80, report: Report, cycles: u64) {
         }
     );
     // Decision-20 §4: compare every admitted bit; Registers includes F/F'.
-    // L register Y/X written-key gap; interim L (HL) old Y/X / indexed EA
+    // L register Y/X written-key gap; §5 retained WZ / indexed WZ
     // until x80-mn3.11 WZ. Sources and limits: z80_undocumented_flags.rs.
     assert_eq!(*cpu, expected);
 }
@@ -347,7 +348,7 @@ fn memory(operation: Operation, prefix: Option<u8>) {
                     };
                     bus.memory[usize::from(address)] = input;
                     let mut want_memory = bus.memory.clone();
-                    let want = expected(
+                    let mut want = expected(
                         cpu.clone(),
                         operation,
                         outcome.0,
@@ -355,10 +356,13 @@ fn memory(operation: Operation, prefix: Option<u8>) {
                         if prefix.is_some() {
                             (address >> 8) as u8
                         } else {
-                            old & 0x28
+                            0 // Default retained WZ=0000h (§5).
                         },
                         next_pc,
                     );
+                    if prefix.is_some() {
+                        want.latches_mut().wz = address;
+                    }
                     let value = result(operation, input, outcome);
                     trace.push(read(address, DATA, input));
                     if operation != Operation::Bit {
