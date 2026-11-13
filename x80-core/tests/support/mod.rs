@@ -11,6 +11,8 @@
 //! It also implements `i8085::Inputs` with independent scripts and fallback
 //! levels for all five interrupt lines and SID, and logs SOD notifications
 //! (decision-12). Existing 8080 INT scripting is independent of 8085 INTR.
+//! Z80 NMI/INT requests have separate scripts, fallbacks and poll events
+//! (`z80::Inputs`, decision-15); true means asserted, pin Low.
 //!
 //! [`sample_registers`] and [`sample_latches`] give a CPU state with a
 //! distinct value everywhere, and [`assert_unsupported`] checks the
@@ -65,6 +67,10 @@ pub enum Event {
     SidPoll(bool),
     /// 8085 SOD notification, including repeated levels (decision-12 rule 8).
     SodChanged(bool),
+    /// Z80 NMI asserted request read (decision-15 rule 1).
+    NmiPoll(bool),
+    /// Z80 INT asserted request read (decision-15 rule 1).
+    IntPoll(bool),
 }
 
 /// A recording bus with scriptable responses; see the module docs.
@@ -119,6 +125,15 @@ pub struct RecordingBus {
     pub sid: bool,
     /// Scripted SID levels, then `sid` when empty.
     pub sid_levels: VecDeque<bool>,
+    /// Fallback asserted NMI request for `z80::Inputs` (pin Low if true).
+    pub nmi: bool,
+    /// Scripted asserted NMI requests, then `nmi` when empty.
+    pub nmi_levels: VecDeque<bool>,
+    /// Fallback asserted INT request for `z80::Inputs`, independent of
+    /// 8080 INT and 8085 INTR (pin Low if true).
+    pub int: bool,
+    /// Scripted asserted INT requests, then `int` when empty.
+    pub int_levels: VecDeque<bool>,
     /// Every call so far, oldest first.
     pub log: Vec<Event>,
 }
@@ -146,6 +161,10 @@ impl RecordingBus {
             intr_levels: VecDeque::new(),
             sid: false,
             sid_levels: VecDeque::new(),
+            nmi: false,
+            nmi_levels: VecDeque::new(),
+            int: false,
+            int_levels: VecDeque::new(),
             log: Vec::new(),
         }
     }
@@ -284,6 +303,21 @@ impl x80_core::i8085::Inputs for RecordingBus {
 
     fn sod_changed(&mut self, level: bool) {
         self.log.push(Event::SodChanged(level));
+    }
+}
+
+// Additive Z80 input support (decision-13 rule 7; decision-15 rule 1).
+impl x80_core::z80::Inputs for RecordingBus {
+    fn nmi(&mut self) -> bool {
+        let level = self.nmi_levels.pop_front().unwrap_or(self.nmi);
+        self.log.push(Event::NmiPoll(level));
+        level
+    }
+
+    fn int(&mut self) -> bool {
+        let level = self.int_levels.pop_front().unwrap_or(self.int);
+        self.log.push(Event::IntPoll(level));
+        level
     }
 }
 

@@ -76,7 +76,14 @@ pinned NEC manual, and its joint witnesses wait on x86jit's V20/V30 bead (C4).
 M4 source preparation (2026-11-13): the Z80 primary UM008011-0816 and four
 historical second witnesses are pinned fetch-only and cite-only, with verified
 page maps and the shared Zilog lineage caveat in PROVENANCE.md §1. M4 covers
-documented behaviour only; model implementation has not started. See
+documented behaviour only. The `z80` module now exposes `Z80`, `Registers`,
+`Flags`, `Latches`, `InterruptMode` and `Inputs` (decisions 13–15), with both
+register sets, pair accessors, the six-flag F/F' image and reset. Construction
+defaults, unused F bits 5/3 reading as zero, reset preservation and sampler
+bookkeeping are library choices. Literal witnesses cover these types and the
+recording bus's independent Z80 NMI/INT poll events (`tests/z80_model.rs`,
+`tests/z80_registers.rs`). Nothing executes in the Z80 model yet: opcode tables,
+the boundary loop, prefix dispatch and instruction groups remain pending. See
 [plan §5](plan.md#5-milestones).
 
 **M3: done (2026-11-13, epic `x80-4gk`).** The `i8085` model executes every

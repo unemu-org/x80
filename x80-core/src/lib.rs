@@ -4,7 +4,8 @@
 //! fact: the [`Bus`] with its [`MemoryAccess`] kinds, the host stop
 //! ([`Control`]), the run [`Budget`], the [`Report`] and the typed [`Exit`]
 //! with its [`Unsupported`] payload. Each CPU model is a concrete type in its
-//! own module (decision-6): [`i8080::I8080`] and [`i8085::I8085`].
+//! own module (decisions 6/13): [`i8080::I8080`], [`i8085::I8085`] and
+//! [`z80::Z80`].
 //!
 //! Model-specific execution, timing, interrupt and reset behavior is
 //! documented in the model module.
@@ -24,6 +25,10 @@
 //! use x80_core::i8085::{I8085, Registers, Latches, Flags, Inputs};
 //! ```
 //!
+//! ```
+//! use x80_core::z80::{Z80, Registers, Latches, Flags, Inputs, InterruptMode};
+//! ```
+//!
 //! The crate root keeps the model-neutral boundary (decision-6):
 //!
 //! ```compile_fail,E0432
@@ -32,6 +37,14 @@
 //!
 //! ```compile_fail,E0432
 //! use x80_core::I8085;
+//! ```
+//!
+//! ```compile_fail,E0432
+//! use x80_core::Z80;
+//! ```
+//!
+//! ```compile_fail,E0432
+//! use x80_core::InterruptMode;
 //! ```
 //!
 //! ```compile_fail,E0432
@@ -64,6 +77,7 @@ mod exit;
 pub mod i8080;
 pub mod i8085;
 mod progress;
+pub mod z80;
 
 pub use budget::{Budget, Report};
 pub use bus::{Bus, MemoryAccess};

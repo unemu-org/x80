@@ -4,6 +4,8 @@ The design sketch is [plan §2](plan.md#2-architecture-sketch). The `i8080` and
 `i8085` models execute every documented instruction through `step` and budgeted
 `run`, with their own interrupt paths (decisions 5/10/12;
 `tests/i8080_coverage.rs`, `tests/i8085_coverage.rs`; [status](status.md)).
+The `z80` module has model-owned state, flag images, inputs and reset, with
+execution still pending (decisions 13–15).
 
 ```text
 x80-core/
@@ -43,9 +45,16 @@ x80-core/
   src/i8085/rim_sim.rs          RIM/SIM encodings and executor (pp. 5-17/5-18; decision-12 rule 8)
   src/i8085/vectored.rs         TRAP and RST 5.5/6.5/7.5 acceptance (decision-12 rule 4)
   src/i8085/acknowledge.rs      INTR RST/CALL acceptance (decision-12 rule 5)
+  src/z80/mod.rs                the Z80 model module and its re-exports (decisions 13–15)
+  src/z80/state.rs              main/alternate Registers, pair accessors, InterruptMode and Latches
+  src/z80/flags.rs              six flags and the decision-14 library F/F' image
+  src/z80/interrupt.rs          Inputs: asserted-true NMI and INT requests
+  src/z80/cpu.rs                Z80: state ownership and reset; no execution yet
   tests/boundary.rs             zero-dependency and model-neutral root tripwires
   tests/root_contract.rs        full-width port defaults/overrides and preceding-byte diagnostics
   tests/support/                recording test bus, sample state, unsupported check
+  tests/z80_model.rs            ownership, construction, reset, input defaults and recording polls
+  tests/z80_registers.rs        main/alternate register pairs and F/F' image witnesses
   tests/i8080_run.rs            budget, boundary sequence, exit precedence, step, determinism
   tests/i8080_<group>.rs        one witness file per instruction group
   tests/i8080_daa.rs            decimal-adjust witnesses
