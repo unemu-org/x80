@@ -1,3 +1,7 @@
+//! Decision-20 §4 replaces zero Y/X and former unknown preservation here.
+//! H class rules: Young v0.91 §§4.1–4.3 pp. 15–17 / §§8.1–8.11 pp. 26–35;
+//! Rak z80test v1.2a corresponding load/ALU/BIT/block-I/O groups, pinned in
+//! PROVENANCE §1. SCF/CCF stay interim L until §6; parity-window rules stay L.
 //! INT acceptance witnesses: decision-15 rules 1–3, 6–7, 9–10, 13.
 //!
 //! Primary: UM008011-0816 rev. 11 (August 2016), printed pp. 3, 6,
@@ -786,7 +790,7 @@ fn ld_a_i_then_int_clears_pv_but_an_intervening_nop_expires_the_note() {
             *cpu.registers(),
             Registers {
                 a: 0xF8,
-                flags: Flags::from_byte(0x85),
+                flags: Flags::from_byte(0xAD),
                 pc: 0x2347,
                 r: 0x81,
                 ..registers()
@@ -815,7 +819,7 @@ fn ld_a_i_then_int_clears_pv_but_an_intervening_nop_expires_the_note() {
                 *cpu.registers(),
                 Registers {
                     a: 0xF8,
-                    flags: Flags::from_byte(0x85),
+                    flags: Flags::from_byte(0xAD),
                     pc: 0x2348,
                     r: 0x82,
                     ..registers()
@@ -831,9 +835,9 @@ fn ld_a_i_then_int_clears_pv_but_an_intervening_nop_expires_the_note() {
                     read(0x2347, OP, 0),
                 ]
             );
-            (0x2348, 0x48, 0x83, 0x85)
+            (0x2348, 0x48, 0x83, 0xAD)
         } else {
-            (0x2347, 0x47, 0x82, 0x81)
+            (0x2347, 0x47, 0x82, 0xA9)
         };
         bus.int = true;
         bus.stop = true;

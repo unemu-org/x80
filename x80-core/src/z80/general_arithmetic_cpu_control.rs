@@ -73,6 +73,8 @@ pub(super) fn execute<S: Bus>(
         (Table::Main, 0x2F) => {
             let registers = cpu.registers_mut();
             registers.a = !registers.a;
+            // H: decision-20 §4; Young v0.91 §8.5 p. 30; Rak .cpl.
+            registers.flags.set_yx(registers.a);
             registers.flags.half_carry = true;
             registers.flags.subtract = true;
         }
@@ -87,14 +89,22 @@ pub(super) fn execute<S: Bus>(
         // H unknown. Existing PROVENANCE §1 H-definedness row and
         // decision-14 rule 6 follow the primary, including H in witnesses.
         (Table::Main, 0x3F) => {
-            let flags = &mut cpu.registers_mut().flags;
+            // Interim L: decision-20 §4; Young v0.91 §8.5 p. 30.
+            // Unconditional A until §6 Q (x80-mn3.16), not the final Q rule.
+            let registers = cpu.registers_mut();
+            registers.flags.set_yx(registers.a);
+            let flags = &mut registers.flags;
             flags.half_carry = flags.carry;
             flags.carry = !flags.carry;
             flags.subtract = false;
         }
         // UM SCF p. 179: C=1, H=N=0, S/Z/P-V unchanged.
         (Table::Main, 0x37) => {
-            let flags = &mut cpu.registers_mut().flags;
+            // Interim L: decision-20 §4; Young v0.91 §8.5 p. 30.
+            // Unconditional A until §6 Q (x80-mn3.16), not the final Q rule.
+            let registers = cpu.registers_mut();
+            registers.flags.set_yx(registers.a);
+            let flags = &mut registers.flags;
             flags.carry = true;
             flags.half_carry = false;
             flags.subtract = false;
@@ -163,6 +173,8 @@ fn decimal_adjust(cpu: &mut Z80) {
     flags.parity_overflow = value.count_ones() & 1 == 0;
     flags.subtract = previous.subtract;
     flags.carry = carry;
+    // H Y/X only: decision-20 §4; Young v0.91 §4.7 p. 18 / §8.5 p. 30;
+    // Rak .daa. The accepted correction and H rules above are unchanged.
     registers.a = value;
     registers.flags = flags;
 }

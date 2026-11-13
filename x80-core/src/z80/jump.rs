@@ -144,7 +144,7 @@ pub(super) fn execute<S: Bus>(
 
 /// JP cc's field meanings: UM pp. 263–264; TM Table 7.0-9 p. 52.
 /// This model-owned predicate is private to this instruction group
-/// (decision-13 rule 7); all six flags remain unchanged.
+/// (decision-13 rule 7); all eight flag bits remain unchanged (decision-20 §4).
 fn condition(flags: Flags, code: u8) -> bool {
     match code {
         0 => !flags.zero,

@@ -5,8 +5,8 @@
 //! Expectations are literal transcriptions/derivations, never executor helpers.
 //! Every retiring witness fails before implementation with Unsupported, zero
 //! steps/cycles and no Data accesses (LANDED=false at base b11628b).
-//! No primary flags in this group are unknown; all six are compared. F bits
-//! 5/3 are separately checked as zero under decision-14 rule 5.
+//! Decision-20 §4 H Y/X: Young v0.91 §8.7 p. 32 / Rak rotate/shift,
+//! .rld/.rrd groups; all eight flag bits are compared.
 
 mod support;
 
@@ -24,6 +24,8 @@ fn literal_flags(byte: u8) -> Flags {
     Flags {
         sign: byte & 0x80 != 0,
         zero: byte & 0x40 != 0,
+        y: byte & 0x20 != 0,
+        x: byte & 0x08 != 0,
         half_carry: byte & 0x10 != 0,
         parity_overflow: byte & 0x04 != 0,
         subtract: byte & 0x02 != 0,
@@ -103,7 +105,7 @@ fn completed(cpu: &Z80, report: Report, expected: Registers, cycles: u64) {
         }
     );
     assert_eq!(*cpu.registers(), expected);
-    assert_eq!(cpu.registers().flags.to_byte() & 0x28, 0);
+    // Decision-20 §4 H full-byte comparison is included in Registers above.
     assert_eq!(
         *cpu.latches(),
         Latches {
@@ -141,7 +143,7 @@ fn accumulator(opcode: u8, cases: &[(u8, bool, u8, bool)]) {
                 initial.flags = literal_flags(preserved | hn | u8::from(carry));
                 let mut expected = initial;
                 expected.a = result;
-                expected.flags = literal_flags(preserved | u8::from(next_carry));
+                expected.flags = literal_flags(preserved | u8::from(next_carry) | (result & 0x28));
                 // Derived 16-bit PC wrap; R's low seven bits wrap, bit 7 stays
                 // set (decision-15 rules 5–6; UM Registers p. 3).
                 expected.pc = 0;
@@ -290,7 +292,7 @@ fn cb(base: u8, cases: &[Case]) {
                 if code != 6 {
                     put(&mut expected, code, result);
                 }
-                expected.flags = literal_flags(flags);
+                expected.flags = literal_flags(flags | (result & 0x28));
                 expected.pc = 1; // Derived: FFFF + 2 wraps.
                 expected.r = 0x81; // Two M1 reads, decision-15 rules 5–6.
                 let mut cpu = Z80::new(initial, latches());
@@ -380,7 +382,7 @@ fn indexed_cb_all_operations_both_indexes_signed_displacement_and_wraps() {
                             initial.iy = index;
                         }
                         let mut expected = initial;
-                        expected.flags = literal_flags(flags);
+                        expected.flags = literal_flags(flags | (result & 0x28));
                         expected.pc = 3; // Derived: FFFF + 4 wraps.
                         expected.r = 0x81; // d/op aren't M1: decision-15 rules 5–6.
                         let mut cpu = Z80::new(initial, latches());
@@ -419,7 +421,7 @@ fn nibble(opcode: u8, cases: &[(u8, u8, u8, u8, u8)]) {
                 initial.flags = literal_flags(old_flags | u8::from(carry));
                 let mut expected = initial;
                 expected.a = next_a;
-                expected.flags = literal_flags(flags | u8::from(carry));
+                expected.flags = literal_flags(flags | u8::from(carry) | (next_a & 0x28));
                 expected.pc = 1;
                 expected.r = 0x81;
                 let mut cpu = Z80::new(initial, latches());

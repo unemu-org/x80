@@ -9,10 +9,9 @@
 //! MEASURED on base b11628b before implementation: all 12 tests failed with
 //! Unsupported and zero steps/cycles; afterwards all 5,632 cases passed.
 //! Expectations are literal arithmetic/flag transcriptions, independent of ALU
-//! helpers and opcode tables. All six flags are compared: H is defined by the
+//! helpers and opcode tables. All eight flag bits are compared (decision-20 §4): H is defined by the
 //! primary even though TM prints unknown (PROVENANCE §1; decision-14 rule 6).
-//! There are no primary-entry unknown flags to mask in this group. Bits 5/3
-//! stay zero under decision-14 rule 5, a library image rather than silicon fact.
+//! H Y/X: Young v0.91 §8.6 p. 31 / Rak pair-arithmetic groups.
 //! Every case checks the entire register/latch state, unchanged memory, whole
 //! bus trace, PC, R and Report. PC/pair wraps are derived from 16-bit widths
 //! (UM CPU Register / Registers pp. 2–3); poll/fetch/R mapping is decision-15.
@@ -28,6 +27,8 @@ fn flags(byte: u8) -> Flags {
     Flags {
         sign: byte & 0x80 != 0,
         zero: byte & 0x40 != 0,
+        y: byte & 0x20 != 0,
+        x: byte & 0x08 != 0,
         half_carry: byte & 0x10 != 0,
         parity_overflow: byte & 0x04 != 0,
         subtract: byte & 0x02 != 0,
@@ -36,7 +37,7 @@ fn flags(byte: u8) -> Flags {
 }
 
 fn flag_images() -> impl Iterator<Item = u8> {
-    (0..=0xFF).filter(|byte| byte & 0x28 == 0)
+    0..=0xFF
 }
 
 fn sample(f: u8) -> Registers {
@@ -145,6 +146,19 @@ fn witness(code: &[u8], before: Registers, mut expected: Registers, f: u8, cycle
     };
     expected.pc = pc;
     expected.r = r;
+    // Decision-20 §4 H: Young §8.6 p. 31 / Rak pair arithmetic groups.
+    // Pair INC/DEC preserve every bit; arithmetic uses high result byte.
+    let arithmetic = code.last().is_some_and(|op| op & 7 == 1 || op & 7 == 2);
+    let high = match code[0] {
+        0xDD => (expected.ix >> 8) as u8,
+        0xFD => (expected.iy >> 8) as u8,
+        _ => expected.h,
+    };
+    let f = if arithmetic {
+        (f & 0xD7) | (high & 0x28)
+    } else {
+        f
+    };
     expected.flags = flags(f);
     assert_eq!(
         cpu.step(&mut bus),
@@ -395,7 +409,7 @@ fn unchanged_flags(code: &[u8], pair: Pair, cases: &[(u16, u16)], cycles: u64) {
 #[test]
 fn inc_ss_all_fields_preserve_every_flag_and_wrap() {
     // UM p. 198; TM p. 49. Includes byte carry, sign boundary and derived
-    // 16-bit wrap; all six flags stay unchanged, including H/N/C.
+    // 16-bit wrap; all eight flag bits stay unchanged, including H/N/C.
     for (opcode, pair) in [
         (0x03, Pair::Bc),
         (0x13, Pair::De),

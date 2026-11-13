@@ -6,7 +6,7 @@
 //! (PDF = printed + 6). Whole-instruction lengths and T-state totals include
 //! every prefix, operand and displacement (decision-13 rules 3–5).
 //! ADD preserves S/Z/P-V, replaces H/C and clears N; ADC/SBC replace all
-//! six flags through the model-owned ALU. UM defines H despite TM's unknown
+//! eight flag bits through the model-owned ALU. UM defines H despite TM's unknown
 //! marks (PROVENANCE §1; decision-14 rule 6). INC/DEC preserve every flag.
 //! Register-only operations make no bus calls after dispatch's opcode fetches
 //! (decision-15 rule 5). Pair wraps are derived from the 16-bit register

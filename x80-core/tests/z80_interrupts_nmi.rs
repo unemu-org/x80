@@ -1,3 +1,7 @@
+//! Decision-20 §4 replaces zero Y/X and former unknown preservation here.
+//! H class rules: Young v0.91 §§4.1–4.3 pp. 15–17 / §§8.1–8.11 pp. 26–35;
+//! Rak z80test v1.2a corresponding load/ALU/BIT/block-I/O groups, pinned in
+//! PROVENANCE §1. SCF/CCF stay interim L until §6; parity-window rules stay L.
 //! NMI acceptance witnesses (decision-15 rules 2, 3, 6–8, 10).
 //!
 //! Primary: UM008011-0816 rev. 11 (August 2016), printed pp. 3, 6,
@@ -842,7 +846,7 @@ fn ld_a_i_or_r_then_nmi_clears_only_pending_parity_across_budget_and_stop() {
             *cpu.registers(),
             Registers {
                 a,
-                flags: Flags::from_byte(0x85),
+                flags: Flags::from_byte(0x85 | (a & 0x28)),
                 pc: 0x2347,
                 r: 0x81,
                 ..registers()
@@ -883,7 +887,7 @@ fn ld_a_i_or_r_then_nmi_clears_only_pending_parity_across_budget_and_stop() {
             *cpu.registers(),
             Registers {
                 a,
-                flags: Flags::from_byte(0x81),
+                flags: Flags::from_byte(0x81 | (a & 0x28)),
                 pc: 0x0066,
                 sp: 0x80FE,
                 r: 0x82,

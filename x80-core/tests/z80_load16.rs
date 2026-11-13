@@ -21,9 +21,11 @@ const ARG: MemoryAccess = MemoryAccess::OperandFetch;
 const DATA: MemoryAccess = MemoryAccess::Data;
 const STACK: MemoryAccess = MemoryAccess::Stack;
 
-// Independently enumerate all six documented flag positions; no F helpers.
+// Decision-20 §4: independently enumerate all eight stored bits; no F helpers.
 fn flags(n: u8) -> Flags {
     Flags {
+        y: n & 64 != 0,
+        x: n & 128 != 0,
         carry: n & 1 != 0,
         subtract: n & 2 != 0,
         parity_overflow: n & 4 != 0,
@@ -160,7 +162,7 @@ fn ld_dd_nn_low_operand_first_with_derived_pc_wrap() {
         (0x21, Pair::Hl),
         (0x31, Pair::Sp),
     ] {
-        for n in 0..64 {
+        for n in 0..=255 {
             let before = Registers {
                 pc: 0xFFFE,
                 ..registers(n)
@@ -189,7 +191,7 @@ fn ld_dd_nn_low_operand_first_with_derived_pc_wrap() {
 fn ld_ix_iy_nn_two_m1s_and_derived_pc_wrap() {
     // UM pp. 100–101: DD/FD 21, 14 states, no flags; TM p. 45.
     for (prefix, pair) in [(0xDD, Pair::Ix), (0xFD, Pair::Iy)] {
-        for n in 0..64 {
+        for n in 0..=255 {
             let before = Registers {
                 pc: 0xFFFE,
                 ..registers(n)
@@ -229,7 +231,7 @@ fn ld_pairs_from_memory_including_ed_6b_with_derived_address_wrap() {
         (&[0xFD, 0x2A][..], Pair::Iy, 0x2002, 0x2004, 0x81, 20),
     ] {
         for (address, lo, hi, high_at) in [(0x4567, 0x67, 0x45, 0x4568), (0xFFFF, 0xFF, 0xFF, 0)] {
-            for n in 0..64 {
+            for n in 0..=255 {
                 let before = registers(n);
                 let mut expected = Registers {
                     pc: next_pc,
@@ -273,7 +275,7 @@ fn ld_memory_from_pairs_including_ed_63_with_derived_address_wrap() {
         (&[0xFD, 0x22][..], 0xA3, 0x92, 0x2002, 0x2004, 0x81, 20),
     ] {
         for (address, lo, hi, high_at) in [(0x4567, 0x67, 0x45, 0x4568), (0xFFFF, 0xFF, 0xFF, 0)] {
-            for n in 0..64 {
+            for n in 0..=255 {
                 let before = registers(n);
                 let expected = Registers {
                     pc: next_pc,
@@ -311,7 +313,7 @@ fn ld_sp_hl_ix_iy_changes_only_sp_and_fetch_bookkeeping() {
         (&[0xDD, 0xF9][..], 0x8091, 0x2002, 0x81, 10),
         (&[0xFD, 0xF9][..], 0x92A3, 0x2002, 0x81, 10),
     ] {
-        for n in 0..64 {
+        for n in 0..=255 {
             let before = registers(n);
             let expected = Registers {
                 sp,
@@ -348,7 +350,7 @@ fn push_pairs_high_then_low_with_derived_sp_wrap() {
             (0, 0xFFFF, 0xFFFE),
             (1, 0, 0xFFFF),
         ] {
-            for n in 0..64 {
+            for n in 0..=255 {
                 let before = Registers { sp, ..registers(n) };
                 let expected = Registers {
                     sp: low_at,
@@ -391,7 +393,7 @@ fn pop_pairs_low_then_high_including_iy_operation_line_resolution() {
             (0xFFFF, 0, 1),
             (0xFFFE, 0xFFFF, 0),
         ] {
-            for n in 0..64 {
+            for n in 0..=255 {
                 let before = Registers { sp, ..registers(n) };
                 let mut expected = Registers {
                     sp: next_sp,
@@ -417,17 +419,15 @@ fn pop_pairs_low_then_high_including_iy_operation_line_resolution() {
 }
 
 #[test]
-fn pop_and_push_af_pin_six_flags_and_zero_unused_bits_library_choice() {
-    // UM POP qq pp. 119–120, PUSH qq pp. 115–116; TM p. 45 names AF.
-    // UM Tables 21/22 pp. 65–66 place the six flags and call bits 5/3 unused.
-    // F is the low byte, A the high byte. Decision-14 rule 5 fixes F bits
-    // 5/3 at zero; this UNMASKED witness is a library contract, not silicon.
-    // Try every input image and its complement as the initial flags, so
-    // each of the six flags is witnessed both loaded and cleared.
+fn pop_and_push_af_pin_all_eight_bits_decision_20() {
+    // Decision-20 §4 H: Young §§8.2–8.3 pp. 28–29 / Rak .poppush_af
+    // 1218–1223. Library representation stores all eight independent bits.
     for image in 0u8..=255 {
         let expected_flags = Flags {
             sign: image & 0x80 != 0,
             zero: image & 0x40 != 0,
+            y: image & 0x20 != 0,
+            x: image & 0x08 != 0,
             half_carry: image & 0x10 != 0,
             parity_overflow: image & 4 != 0,
             subtract: image & 2 != 0,
@@ -437,6 +437,8 @@ fn pop_and_push_af_pin_six_flags_and_zero_unused_bits_library_choice() {
             flags: Flags {
                 sign: !expected_flags.sign,
                 zero: !expected_flags.zero,
+                y: !expected_flags.y,
+                x: !expected_flags.x,
                 half_carry: !expected_flags.half_carry,
                 parity_overflow: !expected_flags.parity_overflow,
                 subtract: !expected_flags.subtract,
@@ -464,14 +466,14 @@ fn pop_and_push_af_pin_six_flags_and_zero_unused_bits_library_choice() {
         complete(&cpu, report, expected, 10);
         assert_eq!(bus.memory, memory);
         assert_eq!(bus.take_log(), trace);
-        assert_eq!(cpu.registers().flags.to_byte(), image & 0xD7);
+        assert_eq!(cpu.registers().flags.to_byte(), image);
 
         expected.pc = 0x2002;
         expected.r = 0x81;
         expected.sp = 0xFFFF;
-        memory[0xFFFF] = image & 0xD7;
+        memory[0xFFFF] = image;
         let mut trace = fetch(0x2001, &[0xF5]);
-        trace.extend([write(0, STACK, 0xD2), write(0xFFFF, STACK, image & 0xD7)]);
+        trace.extend([write(0, STACK, 0xD2), write(0xFFFF, STACK, image)]);
         let report = cpu.step(&mut bus);
         complete(&cpu, report, expected, 11);
         assert_eq!(bus.memory, memory);

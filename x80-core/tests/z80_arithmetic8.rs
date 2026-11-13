@@ -5,8 +5,8 @@
 //! p. 47. PDF = printed + 14 / + 6 respectively. Source hashes match
 //! PROVENANCE.md §1; values read on rendered 150-dpi images.
 //! Expectations below are literal transcriptions/derivations of the entries,
-//! never calls to the production ALU. All six flags are defined here.
-//! Full F comparisons additionally pin decision-14's zero unused-bit image.
+//! never calls to the production ALU. All eight flag bits are compared (decision-20 §4).
+//! H Y/X: Young v0.91 §§8.4–8.5 p. 30 / Rak ALU and INC/DEC groups.
 //!
 //! Every test fails before landing: the base's disabled arithmetic8 group
 //! returns Unsupported with zero steps/cycles at the first instruction.
@@ -155,6 +155,8 @@ type Binary = (u8, u8, u8, u8, u8);
 
 fn binary(base: u8, immediate: u8, form: Operand, row: Binary) {
     let (a, source, carry, result, flags) = row;
+    // Decision-20 §4 H: Young §8.4 p. 30 / Rak .alo_a_* and .cp_n.
+    let flags = flags | (if base == 0xB8 { source } else { result } & 0x28);
     // Flip every incoming non-C flag: each instruction must replace all of them.
     for initial in [carry, carry | 0xD6] {
         let mut cpu = cpu_at(0xFFFF, a, initial);
@@ -417,6 +419,8 @@ type Unary = (u8, u8, u8);
 
 fn unary(decrement: bool, form: Operand, row: Unary) {
     let (value, result, flags) = row;
+    // Decision-20 §4 H: Young §§8.4–8.5 p. 30 / Rak .inc_*/.dec_*.
+    let flags = flags | (result & 0x28);
     for initial in [0, 1, 0xD6, 0xD7] {
         let mut cpu = cpu_at(0xFFFF, 0xA1, initial);
         let mut bus = RecordingBus::new();

@@ -1,3 +1,7 @@
+//! Decision-20 §4 replaces zero Y/X and former unknown preservation here.
+//! H class rules: Young v0.91 §§4.1–4.3 pp. 15–17 / §§8.1–8.11 pp. 26–35;
+//! Rak z80test v1.2a corresponding load/ALU/BIT/block-I/O groups, pinned in
+//! PROVENANCE §1. SCF/CCF stay interim L until §6; parity-window rules stay L.
 //! Decision-20 §2 witnesses, independent of private maps/helpers.
 //!
 //! H: Young, The Undocumented Z80 Documented v0.91 (2005-09-18),
@@ -8,7 +12,7 @@
 //! arbitrary chains, access/boundary mapping (Young §§3.2/3.7 pp. 11–14,
 //! §6.1 p. 23; no independent timing/chain/interrupt acquisition).
 //! Source hashes and specimen limits remain in PROVENANCE §1 / decision-20.
-//! Six defined flag bits are asserted here; Y/X await decision-20 §4.
+//! Decision-20 §4 now supplies full-byte flags, including class-selected Y/X.
 
 mod support;
 
@@ -294,7 +298,20 @@ fn index_half_inc_dec_and_all_alu_operations_have_literal_results_and_flags() {
                     cpu.registers().a,
                     cpu.registers().flags.to_byte()
                 ),
-                (word, a, flags),
+                // Decision-20 §4 H: Young §§8.4–8.5 p. 30 / Rak
+                // .inc_x/.dec_x/.alo_a_x/.alo_a_y; CP uses source half.
+                (
+                    word,
+                    a,
+                    flags
+                        | (match op {
+                            0x24 | 0x25 => (word >> 8) as u8,
+                            0x2C | 0x2D => word as u8,
+                            0xBC => 0x7F,
+                            0xBD => 0x80,
+                            _ => a,
+                        } & 0x28)
+                ),
                 "{prefix:02X} {op:02X}"
             );
             assert_eq!(cpu.registers().hl(), 0x1234);
@@ -344,7 +361,7 @@ fn last_selector_ed_cancellation_indexed_cb_halt_and_selection_expiry() {
             cpu.registers().pc,
             cpu.registers().r
         ),
-        (0xBF, 0x93, 0x1004, 4)
+        (0xBF, 0xBB, 0x1004, 4)
     );
     assert_eq!((cpu.registers().ix, cpu.registers().iy), (0x3000, 0x4567));
     // All 256 ED operations cancel selection, including HL operations and

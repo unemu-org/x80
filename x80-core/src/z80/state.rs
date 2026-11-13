@@ -17,7 +17,7 @@ use super::Flags;
 pub struct Registers {
     /// Accumulator A.
     pub a: u8,
-    /// F, stored as six flags (decision-14 rule 5).
+    /// F, stored as eight independent bits (decision-20 §4, library choice).
     pub flags: Flags,
     /// High byte of BC.
     pub b: u8,
@@ -94,14 +94,12 @@ impl Registers {
         [self.h, self.l] = value.to_be_bytes();
     }
 
-    /// AF, with A high and the F image low. Bits 5/3 of F are zero by
-    /// library choice (decision-14 rule 5; UM Tables 21/22 pp. 65–66).
+    /// AF, with A high and all eight F bits low (decision-20 §4).
     pub const fn af(&self) -> u16 {
         u16::from_be_bytes([self.a, self.flags.to_byte()])
     }
 
-    /// Sets A high and the six flags from the low byte, ignoring bits 5/3
-    /// by library choice (decision-14 rule 5).
+    /// Sets A high and all eight independent F bits low (decision-20 §4).
     pub fn set_af(&mut self, value: u16) {
         let [a, flags] = value.to_be_bytes();
         self.a = a;
@@ -138,14 +136,12 @@ impl Registers {
         [self.h_alternate, self.l_alternate] = value.to_be_bytes();
     }
 
-    /// AF', with A' high and the F' image low. F' uses the same library
-    /// image as F (decision-14 rule 5; UM Tables 21/22 pp. 65–66).
+    /// AF', with A' high and all eight F' bits low (decision-20 §4).
     pub const fn af_alternate(&self) -> u16 {
         u16::from_be_bytes([self.a_alternate, self.flags_alternate.to_byte()])
     }
 
-    /// Sets A' high and the six alternate flags from the low byte,
-    /// ignoring bits 5/3 by library choice (decision-14 rule 5).
+    /// Sets A' high and all eight independent F' bits low (decision-20 §4).
     pub fn set_af_alternate(&mut self, value: u16) {
         let [a, flags] = value.to_be_bytes();
         self.a_alternate = a;

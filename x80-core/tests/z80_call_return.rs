@@ -7,8 +7,9 @@
 //! (PDF 29). All encoded facts were read on rendered page images.
 //!
 //! Polls, access kinds and R accounting follow decision-15 rules 1/5/6.
-//! Every entry preserves all six flags: compare the entire register file,
-//! including the decision-14 rule 5 zero unused bits. No unknown flags occur.
+//! Every entry preserves all eight flag bits: compare the entire register file,
+//! including Y/X (decision-20 §4 H: Young §8.10 p. 34 / Rak flow groups;
+//! RST universal preservation is L). No unknown flags occur.
 //! Fail-before: every test below returns Unsupported, zero steps/cycles, on
 //! the unlanded group; only opcode fetches occur, with boundary state restored.
 
@@ -61,7 +62,7 @@ fn cpu_at(pc: u16, sp: u16, flags: u8) -> Z80 {
 }
 
 fn flag_images() -> impl Iterator<Item = u8> {
-    (0..=255).filter(|bits| bits & 0x28 == 0)
+    0..=255
 }
 
 fn read(address: u16, kind: MemoryAccess, value: u8) -> Event {

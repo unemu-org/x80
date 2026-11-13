@@ -10,9 +10,10 @@
 //! Poll/access kinds are API choices (decision-15 rules 1/5). R accounting:
 //! rule 6, UM Registers p. 3; TM §2 p. 4 and §3 p. 7. PC wraps are derived
 //! from its 16-bit width (UM p. 2), B wrap from its 8-bit width (UM pp. 2–3).
-//! All six flags are unaffected, so no unknown flags need masking. Every
+//! All eight flag bits are unaffected, so no unknown flags need masking. Every
 //! test varies all 64 stored flag images and checks the complete CPU state,
-//! memory and ordered bus trace. F bits 5/3 stay zero (decision-14 rule 5).
+//! memory and ordered bus trace. Decision-20 §4 H preservation: Young
+//! §§8.9–8.10 pp. 33–34 / Rak flow groups; RST universal extension is L.
 //!
 //! Fail-before: with jump::LANDED false on the supplied base, all nine
 //! witnesses report Unsupported, retire zero steps/cycles and stop before
@@ -28,7 +29,7 @@ const OP: MemoryAccess = MemoryAccess::OpcodeFetch;
 const ARG: MemoryAccess = MemoryAccess::OperandFetch;
 
 fn flag_images() -> impl Iterator<Item = u8> {
-    (0..=0xD7).filter(|image| image & 0x28 == 0)
+    0..=255
 }
 
 fn registers(pc: u16, image: u8) -> Registers {
@@ -109,7 +110,7 @@ fn check(
     assert_eq!(
         cpu.registers().flags.to_byte(),
         initial.flags.to_byte(),
-        "all six flags unaffected; unused bits zero"
+        "all eight flag bits unaffected (decision-20 §4)"
     );
     assert_eq!(
         *cpu.latches(),

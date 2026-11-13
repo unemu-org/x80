@@ -11,16 +11,15 @@
 //! Z80-CPU / Z80A-CPU Technical Manual 03-0029-01, 1977 (printed + 6 = PDF).
 //! The other pinned second witnesses and their shared Zilog documentation
 //! lineage are recorded in PROVENANCE.md §1; agreement is not a hardware
-//! measurement. One model for NMOS and CMOS parts is an unverified assumption
-//! and library scope choice, not a claim of silicon equivalence (decision-13
-//! rule 6).
+//! measurement. Decision-20 §7 selects Zilog NMOS; other silicon variants
+//! need a separate decision-6 scope decision.
 //!
 //! [`Z80`] owns its [`Registers`] and [`Latches`]; the embedder supplies
 //! [`Inputs`]. Construction defaults are library values, not a power-up claim.
-//! The six flags occupy F/F' bits 7, 6, 4, 2, 1 and 0 (UM Tables 21/22,
-//! pp. 65–66). Bits 5 and 3 are unused there; reading them as zero and
-//! ignoring their input values is a library choice (decision-14 rule 5).
-//! Hardware comparisons use mask D7h.
+//! F/F' store all eight bits independently, including Y5 and X3
+//! (decision-20 §4, library representation). H transfer rules: Young v0.91
+//! §2.3 p. 8 / §§8.2–8.3 pp. 28–29; Rak v1.2a .selftest/.poppush_af/
+//! .ex_af_af. Hardware comparisons for admitted flags use the full byte.
 //!
 //! ```
 //! use x80_core::z80::{Z80, Latches, Registers};

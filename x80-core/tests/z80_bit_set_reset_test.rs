@@ -4,8 +4,9 @@
 //! and Test Group pp. 243–260 (PDF = printed + 14). Second transcription:
 //! 03-0029-01 (1977), Table 7.0-8 p. 51 (PDF 57). Source hashes match
 //! PROVENANCE.md §1; values read on 150 dpi rendered page images.
-//! BIT uses hardware mask 53h; S/P/V preservation is a separate library
-//! assertion (decision-14 rule 6), not a claim about unknown silicon flags.
+//! Decision-20 §4 replaces the former 53h BIT mask and S/PV preservation;
+//! all eight bits are compared. H S/PV: Young §4.1 p. 15 / Rak .bit_n_*;
+//! register Y/X is L, with an explicit written-key gap.
 //! Existing PROVENANCE BIT H/N label-slip resolution applies to pp. 246/250.
 //! Fail-before: all twelve witnesses return Unsupported with zero retirement
 //! on base 5f5f6e8, because this group's LANDED switch is false.
@@ -126,6 +127,8 @@ fn flags(byte: u8) -> Flags {
     Flags {
         sign: byte >= 0x80,
         zero: !(byte / 0x40).is_multiple_of(2),
+        y: false,
+        x: false,
         half_carry: !(byte / 0x10).is_multiple_of(2),
         parity_overflow: !(byte / 4).is_multiple_of(2),
         subtract: !(byte / 2).is_multiple_of(2),
@@ -217,13 +220,18 @@ fn result(operation: Operation, input: u8, row: (bool, u8, u8)) -> u8 {
     }
 }
 
-fn expected(mut before: Z80, operation: Operation, zero: bool, pc: u16) -> Z80 {
+fn expected(mut before: Z80, operation: Operation, zero: bool, sign: bool, yx: u8, pc: u16) -> Z80 {
     before.registers_mut().pc = pc;
     // Two M1 increments FF -> 80 -> 81, retaining bit 7 (decision-15
     // rules 5–6; UM Registers p. 3; TM §§2/3 pp. 4/7). Indexed fourth
     // byte as OperandFetch is the explicitly unverified rule-5 reading.
     before.registers_mut().r = 0x81;
     if operation == Operation::Bit {
+        // Decision-20 §4 H: Young §4.1 p. 15 / Rak .bit_n_*.
+        before.registers_mut().flags.sign = sign;
+        before.registers_mut().flags.parity_overflow = zero;
+        before.registers_mut().flags.y = yx & 0x20 != 0;
+        before.registers_mut().flags.x = yx & 8 != 0;
         before.registers_mut().flags.zero = zero;
         before.registers_mut().flags.half_carry = true;
         before.registers_mut().flags.subtract = false;
@@ -234,7 +242,7 @@ fn expected(mut before: Z80, operation: Operation, zero: bool, pc: u16) -> Z80 {
     before
 }
 
-fn check(cpu: &Z80, expected: Z80, report: Report, cycles: u64, operation: Operation, zero: bool) {
+fn check(cpu: &Z80, expected: Z80, report: Report, cycles: u64) {
     assert_eq!(
         report,
         Report {
@@ -243,19 +251,9 @@ fn check(cpu: &Z80, expected: Z80, report: Report, cycles: u64, operation: Opera
             exit: Exit::Budget
         }
     );
-    if operation == Operation::Bit {
-        // Hardware claim only: Z=~bit, H=1, N=0, C unchanged.
-        let known = if zero { 0x50 } else { 0x10 } + u8::from(expected.registers().flags.carry);
-        assert_eq!(cpu.registers().flags.to_byte() & 0x53, known);
-        // Separate deterministic library claim from both independent S/P/V
-        // polarities; do not treat either unknown flag as a hardware result.
-        assert_eq!(cpu.registers().flags.sign, expected.registers().flags.sign);
-        assert_eq!(
-            cpu.registers().flags.parity_overflow,
-            expected.registers().flags.parity_overflow
-        );
-    }
-    assert_eq!(cpu.registers().flags.to_byte() & 0x28, 0);
+    // Decision-20 §4: compare every admitted bit; Registers includes F/F'.
+    // L register Y/X written-key gap; interim L (HL) old Y/X / indexed EA
+    // until x80-mn3.11 WZ. Sources and limits: z80_undocumented_flags.rs.
     assert_eq!(*cpu, expected);
 }
 
@@ -270,14 +268,21 @@ fn registers(operation: Operation) {
                     let opcode = row.register[column(operation)] + code;
                     bus.load(0xFFFF, &[0xCB, opcode]);
                     let memory = bus.memory.clone();
-                    let mut want = expected(cpu.clone(), operation, outcome.0, 1);
+                    let mut want = expected(
+                        cpu.clone(),
+                        operation,
+                        outcome.0,
+                        opcode & 0x38 == 0x38 && !outcome.0,
+                        input,
+                        1,
+                    );
                     put(
                         want.registers_mut(),
                         code,
                         result(operation, input, outcome),
                     );
                     let report = cpu.step(&mut bus);
-                    check(&cpu, want, report, 8, operation, outcome.0);
+                    check(&cpu, want, report, 8);
                     assert_eq!(bus.memory, memory);
                     let mut trace = polls();
                     trace.extend([read(0xFFFF, OP, 0xCB), read(0, OP, opcode)]);
@@ -342,7 +347,18 @@ fn memory(operation: Operation, prefix: Option<u8>) {
                     };
                     bus.memory[usize::from(address)] = input;
                     let mut want_memory = bus.memory.clone();
-                    let want = expected(cpu.clone(), operation, outcome.0, next_pc);
+                    let want = expected(
+                        cpu.clone(),
+                        operation,
+                        outcome.0,
+                        opcode & 0x38 == 0x38 && !outcome.0,
+                        if prefix.is_some() {
+                            (address >> 8) as u8
+                        } else {
+                            old & 0x28
+                        },
+                        next_pc,
+                    );
                     let value = result(operation, input, outcome);
                     trace.push(read(address, DATA, input));
                     if operation != Operation::Bit {
@@ -354,7 +370,7 @@ fn memory(operation: Operation, prefix: Option<u8>) {
                         });
                     }
                     let report = cpu.step(&mut bus);
-                    check(&cpu, want, report, cycles, operation, outcome.0);
+                    check(&cpu, want, report, cycles);
                     assert_eq!(bus.memory, want_memory);
                     assert_eq!(bus.take_log(), trace);
                 }

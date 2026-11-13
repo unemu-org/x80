@@ -7,7 +7,7 @@
 //! PROVENANCE §1. These related manuals are not hardware measurements.
 //! Design: decision-13 rules 2–5, decision-14 rules 5–6, decision-15
 //! rules 1/5/6/11. No flags in this group are printed unknown; compare
-//! all six flags (D7h), and separately pin the library's zero unused bits.
+//! all eight bits (decision-20 §4 H: Young §4.2 p. 16 / Rak block groups).
 //! UM LDDR p. 137 omits C; its preservation is explicit in TM p. 46.
 //! Transfer P/V follows the decremented count on every iteration: stated
 //! for LDIR (UM p. 133), derived for intermediate LDDR iterations from
@@ -45,6 +45,8 @@ fn flags(image: u8) -> Flags {
     Flags {
         sign: image & 0x80 != 0,
         zero: image & 0x40 != 0,
+        y: image & 0x20 != 0,
+        x: image & 0x08 != 0,
         half_carry: image & 0x10 != 0,
         parity_overflow: image & 0x04 != 0,
         subtract: image & 0x02 != 0,
@@ -152,8 +154,7 @@ fn witness(
     assert_eq!(cpu.step(&mut bus), report(1, cycles), "{fetches:02X?}");
     assert_eq!(*cpu.registers(), after, "{fetches:02X?}");
     assert_eq!(*cpu.latches(), latches());
-    assert_eq!(cpu.registers().flags.to_byte() & 0x28, 0);
-    assert_eq!(cpu.registers().flags_alternate.to_byte() & 0x28, 0);
+    // Decision-20 §4: full F/F' compared with Registers above.
     assert_eq!(bus.memory, memory, "unexpected memory effect");
     assert_eq!(bus.take_log(), trace(fetches, accesses));
 }
@@ -365,7 +366,7 @@ fn single_transfer(opcode: u8, next_e: u8, next_l: u8) {
             after.c = next_c;
             after.e = next_e;
             after.l = next_l;
-            after.flags = flags(output);
+            after.flags = flags(output | 8); // §4 H: 90h+88h=18h, X=1.
             after.pc = 0x2002;
             after.r = 0x81;
             witness(
@@ -416,7 +417,11 @@ fn searches(opcode: u8, next_l: u8, repeating: bool) {
             after.b = next_b;
             after.c = next_c;
             after.l = next_l;
-            after.flags = flags(output);
+            // Decision-20 §4 H: Young §4.2 p. 16 / Rak .cpi… .cpdr.
+            let t = a
+                .wrapping_sub(value)
+                .wrapping_sub(u8::from(output & 0x10 != 0));
+            after.flags = flags(output | ((t & 2) << 4) | (t & 8));
             let repeats = repeating && repeats;
             after.pc = if repeats { 0x2000 } else { 0x2002 };
             after.r = 0x81;
@@ -517,9 +522,9 @@ fn repeating_transfer(opcode: u8, next_e: u8, next_l: u8) {
             after.e = next_e;
             after.l = next_l;
             after.flags = flags(if count == 1 {
-                final_output
+                final_output | 8
             } else {
-                repeating_output
+                repeating_output | 8
             });
             after.pc = pc;
             after.r = 0x81;
@@ -555,13 +560,13 @@ fn repeating_transfer(opcode: u8, next_e: u8, next_l: u8) {
     };
     for (count, e, l, image, pc, r, cycles, source, destination, value) in [
         (
-            1, next_e, next_l, 0xC5, 0x2000, 0x81, 21, 0x9ABC, 0x5678, 0x88,
+            1, next_e, next_l, 0xCD, 0x2000, 0x81, 21, 0x9ABC, 0x5678, 0x88,
         ),
         (
             0,
             final_e,
             final_l,
-            0xC1,
+            0xE1,
             0x2002,
             0x83,
             16,
@@ -668,7 +673,7 @@ fn every_repeating_form_resumes_after_a_mid_block_step_budget() {
         if transfer {
             [middle.d, middle.e] = destination3.to_be_bytes();
         }
-        middle.flags = flags(if transfer { 0xC5 } else { 0x17 });
+        middle.flags = flags(if transfer { 0xE5 } else { 0x3F }); // §4 H t-bit rule.
         middle.r = 0x83;
         assert_eq!(*cpu.registers(), middle);
         assert_eq!(*cpu.latches(), latches());
@@ -726,7 +731,7 @@ fn repeating_transfers_wrap_pointers_and_rewind_pc_across_zero() {
         after.c = 1;
         [after.h, after.l] = next.to_be_bytes();
         [after.d, after.e] = next.to_be_bytes();
-        after.flags = flags(0xC5);
+        after.flags = flags(0xCD); // Decision-20 §4: t=7D/48, X set.
         after.r = 0x81;
         witness(
             before,
@@ -762,7 +767,7 @@ fn all_search_forms_wrap_hl_and_pc() {
         after.h = next_h;
         after.l = next_l;
         // 00-ED = 13h; 00-A9 = 57h; 00-B9 = 47h: H,PV,N,C set.
-        after.flags = flags(0x17);
+        after.flags = flags(0x37); // Decision-20 §4: t=12/56/46, Y set.
         after.pc = pc;
         after.r = 0x81;
         witness(

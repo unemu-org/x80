@@ -5,8 +5,9 @@
 //! Independent cross-read: 03-0029-01 (1977), Table 7.0-2, p. 45
 //! (PDF = printed + 6). Whole-instruction lengths and T-state totals include
 //! every prefix, operand and displacement (decision-13 rules 3–5).
-//! All loads and PUSH preserve flags; POP AF loads the six stored flags.
-//! AF uses decision-14 rule 5's library image, with unused F bits 5/3 zero.
+//! All loads and PUSH preserve flags; POP AF loads all eight stored bits.
+//! H transfers / library storage: decision-20 §4; Young v0.91 §§8.2–8.3
+//! pp. 28–29; Rak v1.2a .poppush_af 1218–1223.
 //! Access kinds and operand fetching follow decision-15 rule 5. Address,
 //! PC and SP wraps are derived from 16-bit widths (UM CPU Register p. 2).
 
@@ -158,7 +159,7 @@ impl Pair {
             Self::De => registers.de(),
             Self::Hl => registers.hl(),
             Self::Sp => registers.sp,
-            // Library image (decision-14 rule 5), not physical unused bits.
+            // Decision-20 §4 H transfers, library eight-bit storage (header).
             Self::Af => registers.af(),
             Self::Ix => registers.ix,
             Self::Iy => registers.iy,

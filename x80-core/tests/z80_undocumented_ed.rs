@@ -74,9 +74,9 @@ fn retire(cpu: &mut Z80, bus: &mut RecordingBus, cycles: u64) {
 }
 
 #[test]
-fn ed70_discards_input_uses_full_bc_and_sets_six_stored_flags() {
+fn ed70_discards_input_uses_full_bc_and_sets_eight_stored_flags() {
     // A/H decision-20 §1; TM p. 54, UM pp. 296–297; Rak .in_c.
-    // Bits 5/3 await §4 / x80-mn3.15; current flag storage is retained.
+    // Decision-20 §4 H: Young §8.11 p. 35 / Rak .in_c, full Y/X.
     for (value, base_flags) in [
         (0x00, 0x44),
         (0x80, 0x80),
@@ -92,7 +92,7 @@ fn ed70_discards_input_uses_full_bc_and_sets_six_stored_flags() {
             let mut expected = cpu.clone();
             expected.registers_mut().pc = 1;
             expected.registers_mut().r = 0x81;
-            expected.registers_mut().flags = Flags::from_byte(base_flags | carry);
+            expected.registers_mut().flags = Flags::from_byte(base_flags | carry | (value & 0x28));
             let mut bus = RecordingBus::new();
             bus.load(0xFFFF, &[0xED, 0x70]);
             bus.inputs.push_back(value);
@@ -144,7 +144,7 @@ fn every_neg_encoding_has_literal_results_flags_and_alias_cost() {
             cpu.registers_mut().a = a;
             let mut expected = cpu.clone();
             expected.registers_mut().a = result;
-            expected.registers_mut().flags = Flags::from_byte(f);
+            expected.registers_mut().flags = Flags::from_byte(f | (result & 0x28));
             expected.registers_mut().pc = 0x1236;
             expected.registers_mut().r = 0x81;
             let mut bus = RecordingBus::new();

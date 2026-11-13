@@ -103,6 +103,9 @@ pub(super) fn execute<S: Bus>(
                 let iff2 = cpu.latches().iff2;
                 let registers = cpu.registers_mut();
                 registers.a = value;
+                // H: decision-20 §4; Young v0.91 §8.1 p. 27;
+                // Rak .ld_a_i/.ld_a_r 1436–1448, not the P/V window.
+                registers.flags.set_yx(value);
                 registers.flags.sign = value & 0x80 != 0;
                 registers.flags.zero = value == 0;
                 registers.flags.half_carry = false;

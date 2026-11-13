@@ -6,8 +6,10 @@
 //! (PDF = printed + 6). Whole-instruction lengths and T-state totals include
 //! every prefix, operand and displacement (decision-13 rules 3–5).
 //! Execution witnesses: tests/z80_rotate_shift.rs. Access kinds and refresh
-//! follow decision-20 §§2–3 (L mapping). Only six flags are stored; bits 5/3
-//! await decision-20 §4 / x80-mn3.15, retaining current flag storage.
+//! follow decision-20 §§2–3 (L mapping). H Y/X follow decision-20 §4:
+//! Young v0.91 §8.7 p. 32; Rak v1.2a .rlca/.rrca/.rla/.rra,
+//! .rlc_*… .srl_*, .sro_xyd*, .rld/.rrd. Use shifted byte for CB,
+//! new A for accumulator and nibble rotates (not the memory result).
 
 use super::cpu::{Decoded, IndexRegister, Table};
 use super::opcodes::{Encoding, Instruction, States};
@@ -96,6 +98,7 @@ pub(super) fn execute<S: Bus>(
             // TM Table 7.0-7 p. 50: S/Z/P-V unaffected, H=N=0.
             let (value, carry) = rotate_shift(decoded.opcode, registers.a, registers.flags.carry);
             registers.a = value;
+            registers.flags.set_yx(value);
             registers.flags.half_carry = false;
             registers.flags.subtract = false;
             registers.flags.carry = carry;
@@ -209,6 +212,8 @@ fn result_flags(value: u8, carry: bool) -> Flags {
     Flags {
         sign: value & 0x80 != 0,
         zero: value == 0,
+        y: value & 0x20 != 0,
+        x: value & 0x08 != 0,
         half_carry: false,
         parity_overflow: value.count_ones() & 1 == 0,
         subtract: false,

@@ -7,8 +7,9 @@
 //! .bit_n_xyd_ 833–838, .set_n_xyd_/.res_n_xyd_ 903–908.
 //! L new costs/access/ROM copy: same Young sections and §6.1 p. 23;
 //! no independent timing or write-ignoring-device capture. Pins/limits:
-//! PROVENANCE §1 and decision-20 §3. Bits 5/3 await §4 / x80-mn3.15;
-//! retain current six-bit storage and BIT S/PV preservation.
+//! PROVENANCE §1 and decision-20 §§3–4. H shifted-byte Y/X and BIT S/PV:
+//! Young §4.1 p. 15 / §8.7 p. 32; Rak .sro_xyd*, .bit_n_*. L register
+//! BIT written-key gap; interim L (HL) old Y/X / indexed direct EA until §5.
 
 #![forbid(unsafe_code)]
 mod support;
@@ -91,7 +92,8 @@ const SHIFT_81: [(u8, u8); 8] = [
 ];
 const RESET_81: [u8; 8] = [0x80, 0x81, 0x81, 0x81, 0x81, 0x81, 0x81, 0x01];
 const SET_81: [u8; 8] = [0x81, 0x83, 0x85, 0x89, 0x91, 0xA1, 0xC1, 0x81];
-const BIT_81: [u8; 8] = [0x95, 0xD5, 0xD5, 0xD5, 0xD5, 0xD5, 0xD5, 0x95];
+// Decision-20 §4 H S/PV; L register Y/X; interim L (HL) preserves Y/X.
+const BIT_81: [u8; 8] = [0x11, 0x55, 0x55, 0x55, 0x55, 0x55, 0x55, 0x91];
 
 #[test]
 fn all_256_cb_terminals_have_literal_results_flags_access_refresh_and_costs() {
@@ -149,8 +151,8 @@ fn sll_every_register_and_hl_literal_carry_sign_zero_and_parity() {
         (0x00, 0x01, 0x00),
         (0x80, 0x01, 0x01),
         (0x40, 0x81, 0x84),
-        (0x7F, 0xFF, 0x84),
-        (0xFF, 0xFF, 0x85),
+        (0x7F, 0xFF, 0xAC),
+        (0xFF, 0xFF, 0xAD),
         (0x01, 0x03, 0x04),
     ] {
         for code in 0..8 {
@@ -193,7 +195,7 @@ fn all_256_ddcb_and_fdcb_terminals_copy_ordinary_registers_or_alias_bit() {
             let bit = usize::from((opcode >> 3) & 7);
             let (value, flags) = match opcode >> 6 {
                 0 => SHIFT_81[bit],
-                1 => (0x81, BIT_81[bit]),
+                1 => (0x81, BIT_81[bit] | 0x20), // §4: EA high=20/30, Y set.
                 2 => (RESET_81[bit], 0xD7),
                 _ => (SET_81[bit], 0xD7),
             };

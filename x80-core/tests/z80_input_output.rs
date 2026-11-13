@@ -1,3 +1,7 @@
+//! Decision-20 §4 replaces zero Y/X and former unknown preservation here.
+//! H class rules: Young v0.91 §§4.1–4.3 pp. 15–17 / §§8.1–8.11 pp. 26–35;
+//! Rak z80test v1.2a corresponding load/ALU/BIT/block-I/O groups, pinned in
+//! PROVENANCE §1. SCF/CCF stay interim L until §6; parity-window rules stay L.
 //! Documented Z80 I/O witnesses: decisions 13–15.
 //!
 //! Primary: UM008011-0816, rev. 11 (August 2016), Input and Output Group,
@@ -5,9 +9,8 @@
 //! Table 7.0-11 p. 54 (PDF 60); IN H reset also 03-0002-01 (January 1978),
 //! p. 255 (PDF 265). Values read from rendered page images, not OCR.
 //! Polls, access kinds, R increments and iteration retirement follow
-//! decision-15 rules 1, 4–6, 11. Block hardware flags use mask 43h;
-//! unknown-flag preservation and zero unused bits are library choices
-//! (decision-14 rules 5–6), checked separately below.
+//! decision-15 rules 1, 4–6, 11. Decision-20 §4 block flags are compared
+//! as full bytes; source and evidence limits are given above.
 //! Fail-before: all positive witnesses return Unsupported on base 5f5f6e8,
 //! before any operand, Data or port access. Decision-20 §1 ED70/71
 //! admission is witnessed separately in z80_undocumented_ed.rs.
@@ -210,7 +213,7 @@ fn every_register_input_samples_old_bc_and_sets_sz_parity_clearing_hn() {
                 let mut expected = Registers {
                     pc: 0x2002,
                     r: 0x81,
-                    flags: Flags::from_byte(result_flags | carry),
+                    flags: Flags::from_byte(result_flags | carry | (value & 0x28)),
                     ..before
                 };
                 match opcode {
@@ -307,16 +310,15 @@ fn block_io_hardware_results_ports_order_wraps_and_both_repeat_paths() {
     // (decision-15 rule 4; each UM entry cited above). B=0 -> FF and HL
     // FFFF -> 0000 / 0000 -> FFFF are derived from 8-/16-bit widths and
     // the entry's decrement/increment, not additional silicon claims.
-    // Existing PROVENANCE C-definedness row: compare C under mask 43h,
-    // following the primary; TM prints it unknown. Unknown S/H/P/V are
-    // deliberately excluded here and have their own library witness.
+    // Decision-20 §4 H: Young §4.3 pp. 16–17 / Rak block-I/O groups;
+    // full-byte flags replace the former 43h mask and preservation.
     for (opcode, input, decrement, repeat) in BLOCKS {
-        for (b, next_b, input_port, output_port, flags, repeat_pc, repeat_cycles) in [
-            (2, 1, 0x02C3, 0x01C3, 0x02, 0x2000, 21),
-            (1, 0, 0x01C3, 0x00C3, 0x42, 0x2002, 16),
-            (0, 0xFF, 0x00C3, 0xFFC3, 0x02, 0x2000, 21),
+        for (b, next_b, input_port, output_port, repeat_pc, repeat_cycles) in [
+            (2, 1, 0x02C3, 0x01C3, 0x2000, 21),
+            (1, 0, 0x01C3, 0x00C3, 0x2002, 16),
+            (0, 0xFF, 0x00C3, 0xFFC3, 0x2000, 21),
         ] {
-            for (initial_flags, carry) in [(0x00, 0), (0xD7, 1)] {
+            for initial_flags in [0x00, 0xFF] {
                 let (h, l, at, next_h, next_l) = if decrement {
                     (0, 0, 0, 0xFF, 0xFF)
                 } else {
@@ -341,8 +343,22 @@ fn block_io_hardware_results_ports_order_wraps_and_both_repeat_paths() {
                     memory[usize::from(at)] = 0xA5;
                 }
                 let report = cpu.step(&mut bus);
-                assert_eq!(cpu.registers().flags.to_byte() & 0x43, flags | carry);
-                // Whole register state with only unknown flags excluded.
+                // Literal §4 results for input A5+C2/C4 or output 69+FF/00.
+                let image = match (input, decrement, b) {
+                    (true, false, 2) => 0x17,
+                    (true, false, 1) => 0x53,
+                    (true, false, _) => 0xBB,
+                    (true, true, 2) => 0x17,
+                    (true, true, 1) => 0x53,
+                    (true, true, _) => 0xBB,
+                    (false, false, 2) => 0x04,
+                    (false, false, 1) => 0x40,
+                    (false, false, _) => 0xA8,
+                    (false, true, 2) => 0x11,
+                    (false, true, 1) => 0x55,
+                    (false, true, _) => 0xBD,
+                };
+                assert_eq!(cpu.registers().flags.to_byte(), image);
                 complete(
                     &cpu,
                     report,
@@ -352,7 +368,7 @@ fn block_io_hardware_results_ports_order_wraps_and_both_repeat_paths() {
                         l: next_l,
                         pc: if repeat { repeat_pc } else { 0x2002 },
                         r: 0x81,
-                        flags: cpu.registers().flags,
+                        flags: Flags::from_byte(image),
                         ..before
                     },
                     if repeat { repeat_cycles } else { 16 },
@@ -384,11 +400,11 @@ fn block_io_hardware_results_ports_order_wraps_and_both_repeat_paths() {
 }
 
 #[test]
-fn block_io_preserves_each_unknown_flag_and_zero_unused_bits_by_library_policy() {
-    // decision-14 rules 5–6: S/H/P/V unchanged independently, F5/F3 zero.
-    // These are software image guarantees, not hardware flag claims.
-    for (opcode, input, _, _) in BLOCKS {
-        for initial_flags in [0x00, 0x04, 0x10, 0x14, 0x80, 0x84, 0x90, 0x94] {
+fn block_io_replaces_former_unknown_flags_independently_of_initial_image() {
+    // Decision-20 §4 H: Young §4.3 pp. 16–17 / Rak block-I/O groups.
+    // b=0, input=80, C=C3: k=144/142; output=80+08/06=88/86.
+    for (opcode, input, down, _) in BLOCKS {
+        for initial_flags in [0x00, 0x04, 0x10, 0x14, 0x80, 0x84, 0x90, 0x94, 0xFF] {
             let before = Registers {
                 b: 1,
                 flags: Flags::from_byte(initial_flags),
@@ -399,10 +415,17 @@ fn block_io_preserves_each_unknown_flag_and_zero_unused_bits_by_library_policy()
             bus.load(0x2000, &[0xED, opcode]);
             if input {
                 bus.inputs.push_back(0x80);
+            } else {
+                bus.memory[usize::from(before.hl())] = 0x80;
             }
             assert_eq!(cpu.step(&mut bus), retired(1, 16));
-            assert_eq!(cpu.registers().flags.to_byte() & 0x94, initial_flags);
-            assert_eq!(cpu.registers().flags.to_byte() & 0x28, 0);
+            let expected = match (input, down) {
+                (true, false) => 0x53,
+                (true, true) => 0x53,
+                (false, false) => 0x46,
+                (false, true) => 0x46,
+            };
+            assert_eq!(cpu.registers().flags.to_byte(), expected);
         }
     }
 }
@@ -514,7 +537,12 @@ fn all_repeating_forms_resume_after_a_cycle_budget_splits_the_block() {
                 h: h2,
                 l: l2,
                 r: 0x83,
-                flags: Flags::from_byte(0x97),
+                flags: Flags::from_byte(match opcode {
+                    0xB2 => 0x06,
+                    0xBA => 0x06,
+                    0xB3 => 0x02,
+                    _ => 0x17,
+                }), // §4 ordinary flags until §6.
                 ..before
             }
         );
@@ -549,6 +577,12 @@ fn all_repeating_forms_resume_after_a_cycle_budget_splits_the_block() {
                 l: l3,
                 pc: 1,
                 r: 0x85,
+                flags: Flags::from_byte(match opcode {
+                    0xB2 => 0x44,
+                    0xBA => 0x40,
+                    0xB3 => 0x44,
+                    _ => 0x55,
+                }), // Decision-20 §4.
                 ..before
             }
         );

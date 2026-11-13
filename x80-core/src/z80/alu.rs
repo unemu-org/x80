@@ -17,8 +17,11 @@
 //! TM Table 7.0-6 p. 49 marks pair H unknown. The primary's explicit
 //! bit-11 carry / bit-12 borrow rules prevail (existing PROVENANCE §1 row;
 //! decision-14 rule 6). No flags here are unknown under the primary.
-//! Flags stores only the six documented flags; zero F bits 5/3 are a
-//! library choice, not a hardware claim (decision-14 rule 5).
+//! H Y/X rules: decision-20 §4; Young v0.91 §2.3 p. 8 / §§8.4–8.6
+//! pp. 30–31; Rak z80test v1.2a .add_a_n… .or_n, .alo_a_*,
+//! .inc_*/.dec_*, .neg and .add_hl_rr/.add_ix_rr/.add_iy_rr/.adc_hl_rr/
+//! .sbc_hl_rr. Byte results supply Y/X except CP, which uses its operand;
+//! pair operations use the high result byte.
 
 use super::Flags;
 
@@ -34,6 +37,8 @@ fn flags8(
     Flags {
         sign: value & 0x80 != 0,
         zero: value == 0,
+        y: value & 0x20 != 0,
+        x: value & 0x08 != 0,
         half_carry,
         parity_overflow,
         subtract,
@@ -77,7 +82,9 @@ pub(super) fn subtract(left: u8, right: u8, borrow: bool) -> (u8, Flags) {
 /// CP supplies subtraction's flags without returning a replacement A.
 /// UM CP p. 164; TM Table 7.0-4 p. 47 (A-s, no assignment to A).
 pub(super) fn compare(left: u8, right: u8) -> Flags {
-    subtract(left, right, false).1
+    let mut flags = subtract(left, right, false).1;
+    flags.set_yx(right);
+    flags
 }
 
 /// Logical results have even parity, N=C=0; H differs for AND.
@@ -128,46 +135,53 @@ pub(super) fn decrement(value: u8, carry: bool) -> (u8, Flags) {
 /// (H disagreement: module docs). Incoming C does not enter the sum.
 pub(super) fn add16(left: u16, right: u16, previous: Flags) -> (u16, Flags) {
     let (value, carry) = left.overflowing_add(right);
-    let flags = Flags {
+    let mut flags = Flags {
         half_carry: (left ^ right ^ value) & 0x1000 != 0,
         subtract: false,
         carry,
         ..previous
     };
+    flags.set_yx((value >> 8) as u8);
     (value, flags)
 }
 
-/// ADC HL: all six flags from the 16-bit operation, P/V is signed
+/// ADC HL: all eight flags from the 16-bit operation, P/V is signed
 /// overflow, H carries from bit 11, C from bit 15, N=0.
 /// UM pp. 190–191; TM §6 p. 39, Table 7.0-6 p. 49 (H: module docs).
 pub(super) fn adc16(left: u16, right: u16, carry: bool) -> (u16, Flags) {
     let (partial, first_carry) = left.overflowing_add(right);
     let (value, second_carry) = partial.overflowing_add(u16::from(carry));
-    let flags = Flags {
+    let mut flags = Flags {
         sign: value & 0x8000 != 0,
         zero: value == 0,
+        y: false,
+        x: false,
         half_carry: (left ^ right ^ value) & 0x1000 != 0,
         parity_overflow: (!(left ^ right) & (left ^ value)) & 0x8000 != 0,
         subtract: false,
         carry: first_carry || second_carry,
     };
+    flags.set_yx((value >> 8) as u8);
     (value, flags)
 }
 
-/// SBC HL: all six flags from the 16-bit operation, P/V is signed
+/// SBC HL: all eight flags from the 16-bit operation, P/V is signed
 /// overflow, H is BORROW FROM bit 12, C is borrow, N=1.
 /// UM pp. 192–193; TM §6 p. 39, Table 7.0-6 p. 49 (H: module docs).
 pub(super) fn sbc16(left: u16, right: u16, borrow: bool) -> (u16, Flags) {
     let (partial, first_borrow) = left.overflowing_sub(right);
     let (value, second_borrow) = partial.overflowing_sub(u16::from(borrow));
-    let flags = Flags {
+    let mut flags = Flags {
         sign: value & 0x8000 != 0,
         zero: value == 0,
+        y: false,
+        x: false,
         half_carry: (left ^ right ^ value) & 0x1000 != 0,
         parity_overflow: ((left ^ right) & (left ^ value)) & 0x8000 != 0,
         subtract: true,
         carry: first_borrow || second_borrow,
     };
+    flags.set_yx((value >> 8) as u8);
     (value, flags)
 }
 

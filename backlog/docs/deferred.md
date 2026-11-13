@@ -4,7 +4,7 @@ Do not implement these unprompted. Open work is tracked in beads.
 
 Undocumented-family work is tracked under epic `x80-mn3`, always on with no
 embedder profile. All ten 8085 extensions now execute; no fetched 8085 byte
-is refused. Zilog NMOS Z80 decision-20 §§1–3 ED, index-prefix and CB behavior now executes;
+is refused. Zilog NMOS Z80 decision-20 §§1–4 ED, index-prefix, CB and full flag behavior now executes;
 undocumented 8080 research is `x80-mn3.4`.
 The maintainer's 2026-11-13 evidence rule is recorded in [decision-17](<../decisions/decision-17 - Two-key-evidence-rule-for-undocumented-behaviour.md>).
 Source pins, two-key evidence and later per-model records precede implementation;
@@ -16,7 +16,13 @@ A/H/L limits preserved. Section 2 adds H register-only index halves, A/H
 ordinary-H/L indexed-memory exceptions and L ignored/repeated prefixes,
 including unbounded chains with no intermediate boundary. Section 3 adds H SLL, indexed-CB copies and BIT aliases, with L costs/access
 and computed-result copies even when a device ignores the write. No normally
-fetched Z80 encoding refuses; bits 5/3 await §4.
+fetched Z80 encoding refuses. Section 4 implements all eight F/F' bits,
+ordinary Y/X classes, BIT S/PV and block-I/O formulas. BIT-register Y/X stays
+L (independent written key missing). Interim L until `x80-mn3.11` (§5):
+BIT (HL) preserves old Y/X and indexed BIT uses the effective address directly.
+Interim L until `x80-mn3.16` (§6): SCF/CCF uses unconditional yx(A), and every
+continuing block iteration keeps ordinary §4 flags until boundary overrides
+are implemented. Terminating repeats already use the complete §4 rules.
 Beads `x80-mn3.9` to `x80-mn3.17` carry the implementation track.
 
 The accepted 8085 contract is [decision-18](<../decisions/decision-18 - 8085-undocumented-instructions-and-V-K-flags.md>)

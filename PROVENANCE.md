@@ -100,15 +100,15 @@ below and in a bead.
 | Z80 DAA outside UM p. 173's table | UM008011-0816 DAA p. 173/PDF 187 gives thirteen rows covering 684/2048 A/N/H/C inputs, retaining the printed upper ranges 9–0 (inclusive endpoints) and 6–7; 03-0029-01 DAA entry in Table 7.0-5 p. 48/PDF 54 describes BCD correction without specifying the missing inputs | Library extension accepted by the maintainer (2026-11-13), proposed by the supervisor; the sources do not document these inputs. Table cases pinned literally. Rule: outside the table choose 06h if the input low digit exceeds 9 or H is set, and 60h if input A exceeds 99h or C is set; add/subtract according to N, C records selection of 60h, and H is the adjustment's bit-4 carry/borrow. Separate literal extension examples in `tests/z80_daa.rs` are library witnesses, not hardware claims |
 | Z80 DAA H-after wording | UM008011-0816 DAA p. 174/PDF 188 refers H to p. 173/PDF 187, whose table lists H-before but no H-after column; 03-0029-01 Table 7.0-5 p. 48/PDF 54 marks H result-dependent, and section 6 p. 39/PDF 45 defines H as low-four-bit carry/borrow | Derived reading accepted by the maintainer (2026-11-13; x80-bi2.15): derive H-after from the adjustment's bit-4 carry/borrow for table cases too. The DAA entry does not state that equation explicitly; code and witnesses label the wording gap and the library rule |
 | Z80 H definedness in CCF and pair arithmetic | 03-0029-01 Tables 7.0-5/6 pp. 48–49 print H unknown for CCF, ADD HL/IX/IY, ADC HL and SBC HL. UM008011-0816 entries pp. 178, 188, 190, 192, 194, 196 give explicit H rules | Stated disagreement; decision-14 rule 6 follows the primary's definedness: these forms do not invoke unknown-flag preservation and H remains in the hardware comparison mask. Arithmetic equations require their own group witnesses; this row does not settle them |
-| Z80 C definedness in block I/O | 03-0029-01 Table 7.0-11 p. 54 prints C unknown for INI/INIR/IND/INDR/OUTI/OTIR/OUTD/OTDR; UM008011-0816 entries pp. 298, 301, 302, 305, 309, 312, 313, 316 explicitly say C is not affected | Stated disagreement; decision-14 rule 6 follows the primary: preserve C as a hardware claim and compare it under 43h; S/H/P/V remain unknown, rather than also masking C under 42h |
+| Z80 C definedness in block I/O | 03-0029-01 Table 7.0-11 p. 54 prints C unknown for INI/INIR/IND/INDR/OUTI/OTIR/OUTD/OTDR; UM008011-0816 entries pp. 298, 301, 302, 305, 309, 312, 313, 316 explicitly say C is not affected | Historical decision-14 rule 6 preserved C under 43h, following the primary. Superseded by decision-20 §4: H observed block flags / L unexercised extension, Young v0.91 §4.3 pp. 16–17 plus Rak block-I/O groups; H=C=(k>FFh). Retain this disagreement; the admitted silicon observations take precedence |
 | Z80 IN r,(C) H notation | 03-0029-01 Table 7.0-11 p. 54/PDF 60 marks H affected according to the result, without an equation; UM008011-0816 IN r,(C) p. 297/PDF 311 explicitly resets H. 03-0002-01 p. 255/PDF 265 also says H reset | Source-notation discrepancy re-read at 200 dpi with crops of both conflicting flag lists (x80-bi2.21). Follow the primary's explicit H=0, independently confirmed by the programming manual; no alternative H equation is inferred from the older table's symbol. Pinned by `every_register_input_samples_old_bc_and_sets_sz_parity_clearing_hn` |
-| Z80 BIT flag-list H/N label slips | UM008011-0816 BIT (HL)/(IY+d) pp. 246, 250 each print H set and then H reset. Adjacent BIT entries pp. 244, 248 and 03-0029-01 Table 7.0-8 p. 51 agree on H set, N reset | Derived resolution, decision-14 rule 6: the second H is a label slip for N; it is not another unknown flag. S and P/V remain the unknown flags for all four BIT forms |
+| Z80 BIT flag-list H/N label slips | UM008011-0816 BIT (HL)/(IY+d) pp. 246, 250 each print H set and then H reset. Adjacent BIT entries pp. 244, 248 and 03-0029-01 Table 7.0-8 p. 51 agree on H set, N reset | Derived resolution, decision-14 rule 6: the second H is a label slip for N; it is not another unknown flag. Decision-20 §4 now supplies S/PV for every BIT form (Young v0.91 §4.1 p. 15 / Rak `.bit_n_*`, H) |
 | Z80 SBC A P/V wording | UM008011-0816 SBC A,s p. 156 (PDF 170) prints "P/V is reset if overflow; otherwise, it is reset"; the flag definitions p. 67 (PDF 81) set the Overflow flag on an overflowing subtraction; 03-0029-01 Table 7.0-4 p. 47 (PDF 53) marks SBC V (V = 1 means overflow) and §6 p. 39 sets overflow when the signed range is exceeded | Derived resolution (x80-bi2.10, confirmed by an independent review on 200-dpi images): P/V is the overflow of the subtraction; the entry's first "reset" ("reset if overflow") is a misprint for "set". Pinned in tests/z80_arithmetic_reference |
 | Z80 AND/OR P/V wording | UM008011-0816 AND s p. 158 (PDF 172) prints "P/V is reset if overflow; otherwise, it is reset" and OR s p. 160 (PDF 174) "P/V is set if overflow; otherwise, it is reset"; the flag definitions p. 67 give even parity (P = 1) for logical operations; 03-0029-01 Table 7.0-4 p. 47 marks AND/OR P and §6 p. 39 defines parity for AND, OR and XOR | Derived resolution (x80-bi2.10, confirmed by an independent review): P/V is the parity of the result for AND and OR, as for XOR; the entries' overflow wording is a misprint. Pinned in tests/z80_arithmetic_reference |
 | Z80 ADD IX/IY example values | UM008011-0816 ADD IX,pp p. 195 and ADD IY,rr p. 197 (PDF 209/211) give operand 333h, BC 5555h and result 8888h; their operation lines pp. 194/196 and 03-0029-01 Table 7.0-6 p. 49 give IX/IY plus the pair, and 0333h + 5555h = 5888h | Derived resolution (x80-bi2.10, confirmed by an independent review): the operation lines prevail; the examples' operand should read 3333h. Pinned in tests/z80_arithmetic_reference |
 | Z80 JR NC example displacement | UM008011-0816 JR NC,e example p. 270 (PDF 284) repeats the jump with bytes 30 00 at 0480h; the same entry p. 269 (PDF 283) and 03-0029-01 Table 7.0-9 p. 52 (PDF 58) apply e to the PC already advanced by two, so 30 00 reaches 0482h and a self-repeat needs 30 FE | Derived resolution (x80-bi2.19, confirmed by an independent review on 200-dpi images): the operation text prevails; the example's displacement byte is a misprint. Pinned in tests/z80_jump.rs |
-| Z80 unused F bits 5 and 3 | UM008011-0816 Tables 21/22 pp. 65–66 place the six flags at bits 7,6,4,2,1,0 and state bits 3 and 5 are not used; no zero value is stated | Library choice, decision-14 rule 5 (x80-bi2.3): F/F' images set bits 5/3 to zero and ignore those input bits; store six flags. Hardware comparisons default to D7h; separate library witnesses pin the zero image. No physical zero-bit behaviour is claimed |
-| Z80 instruction flags printed unknown | UM008011-0816 BIT entries pp. 243–250: S/P/V unknown; INI/INIR/IND/INDR/OUTI/OTIR/OUTD/OTDR entries pp. 298, 301, 302, 305, 309, 312, 313, 316: S/H/P/V unknown. Historical definedness disagreements are recorded above | Library choice, decision-14 rule 6 (x80-bi2.3): leave each primary-entry unknown flag unchanged. Hardware witnesses mask BIT under 53h and block I/O under 43h; separate library witnesses check preservation from both initial values. These deterministic values are not hardware claims |
+| Z80 unused F bits 5 and 3 | UM008011-0816 Tables 21/22 pp. 65–66 place the six flags at bits 7,6,4,2,1,0 and state bits 3 and 5 are not used; no zero value is stated | Historical decision-14 rule 5 zero images are superseded by decision-20 §4: store all eight F/F' bits independently (library representation), with H POP/PUSH/exchange transfers from Young v0.91 §2.3 p. 8 / §§8.2–8.3 pp. 28–29 and Rak `.selftest`/`.poppush_af`/`.ex_af_af`. Admitted-flag witnesses compare full bytes; source-masked campaigns remain labelled diagnostics |
+| Z80 instruction flags printed unknown | UM008011-0816 BIT entries pp. 243–250: S/P/V unknown; INI/INIR/IND/INDR/OUTI/OTIR/OUTD/OTDR entries pp. 298, 301, 302, 305, 309, 312, 313, 316: S/H/P/V unknown. Historical definedness disagreements are recorded above | Historical decision-14 rule 6 preservation and 53h/43h masks are superseded by decision-20 §4: BIT S/PV and complete block-I/O formulas (Young v0.91 §§4.1/4.3 pp. 15–17 / Rak corresponding groups, H over observed vectors; unexercised extensions L). Full-byte witnesses replace preservation assertions. §6 continuing-step overrides remain separate |
 | Z80 poll polarity and deterministic call order | UM008011-0816 Pin Functions p. 6 (PDF 20), Interrupt Request/Acknowledge pp. 12–14 (PDF 26–28); 03-0029-01 §3 p. 8 (PDF 14), §4 pp. 16, 18 (PDF 22, 24) | decision-15 rule 1: stated API choice, not hardware call timing. After budget, poll stop, NMI, INT once each in that order, including while halted/disabled; record calls and levels in the trace. NMI and INT methods return true while the request is asserted (active-low pin Low), false by default, matching i8080/i8085 (maintainer, 2026-11-13) |
 | Z80 NMI edge sampler and restoration | UM008011-0816 Pin Functions p. 6 (PDF 20); 03-0029-01 §3 p. 8 (PDF 14): negative-edge NMI | decision-15 rule 2: stated API sampler detects a not-asserted sample followed by an asserted one (pin High then Low); history starts/resets not asserted by library choice. Pulses wholly between polls are missed. Stop/Unsupported restore pre-sampling state as decision-12 rule 2; Halt retains samples; Budget does not sample. This does not model within-instruction edge capture |
 | Z80 boundary priority and step accounting | UM008011-0816 Pin Functions p. 6, HALT Exit p. 14, EI p. 183 (PDF 20, 28, 197); 03-0029-01 §3 p. 8, §4 p. 18, §8 p. 55 (PDF 14, 24, 61) | decision-15 rule 3: stated API sequence budget, polls/stop, NMI, eligible INT, halt, fetch/execute. NMI priority and IFF-independent eligibility are stated hardware rules; host precedence and one step per acceptance are API choices |
@@ -559,7 +559,8 @@ positions under both selectors, literal half results/flags, memory exceptions,
 ED cancellation, last selector, HALT, indexed-CB, no mid-chain polls, long
 PC/R wrapping and block refetch. Section 3 removes the former fetched-refusal
 fixture; interrupt payload/rollback remains independently witnessed. This introduces no
-new hardware claim. Bits 5/3 and later decision-20 sections remain deferred.
+new hardware claim. Section 4 now supplies full flags as described below;
+WZ/Q and continuing-step overrides remain deferred.
 
 Decision-20 §3 implementation (`x80-mn3.10`): SLL operations/flags and
 indexed-CB computed memory/register results and BIT aliases retain the H labels
@@ -570,8 +571,81 @@ traces for all 256 CB and all 256 terminals of each indexed-CB selector, every
 SLL destination, ordinary H/L, SET/RES F preservation, canonical BIT aliases,
 a write-ignoring device and a repeated-selector chain. All 1780 logical terminals
 now execute; only IM0 non-RST and odd-IM2 acknowledge restrictions retain
-Unsupported/rollback. Current six-bit flag storage remains until §4; this
-implementation introduces no new hardware claim.
+Unsupported/rollback. Section 4 now supplies full flag storage and BIT
+S/PV; this earlier implementation introduces no new hardware claim.
+
+
+### Decision-20 §4 implementation — x80-mn3.15
+
+Full F/F' storage is now implemented in the Z80 model. The public boolean
+representation adds independent `y` (bit 5) and `x` (bit 3); input, POP, PUSH
+and EX AF,AF' retain every bit. Default clears F/F'; reset preserves both by
+**L library policy**. **H** transfers, result/operand-selected Y/X, BIT S/PV,
+and ordinary block formulas retain the per-vector qualifications in the
+“Z80 undocumented rulings” table above. **A** documented flags and input-old-B /
+output-new-B ordering remain except for the explicitly superseded block flags.
+BIT-register Y/X remains **L**: Rak discriminates original-register selection,
+but Young §4.1's contrary masked-operand statement leaves the written key missing.
+DAA changes only Y/X from adjusted A; accepted correction/H rules are retained.
+All admitted flag witnesses compare eight bits. Source-defined ZEXDOC and
+z80test documented-mask projections remain distinct diagnostic campaigns;
+the oracle harness needed no six-bit fixture or mask changes.
+
+**Interim L rules:** until §5 (`x80-mn3.11`), BIT (HL) preserves old Y/X
+instead of reading nonexistent retained WZ; indexed BIT uses the effective
+address high byte directly. Until §6 (`x80-mn3.16`), SCF/CCF uses unconditional
+yx(A), and continuing blocks apply ordinary §4 flags without repeat-boundary
+overrides. Terminating repeats implement §4 completely. Comments and dedicated
+witness names identify these staging rules; they are not final hardware claims.
+
+Independent literal eight-bit witnesses live in
+`x80-core/tests/z80_undocumented_flags.rs`; existing instruction-family witnesses
+also compare full flags. Their comments retain the decision-20 §4 and
+primary-source/independent Rak locators, with the H/L qualifications above.
+
+#### Measured campaigns, 2026-11-13
+
+Commands used offline/locked release builds with `-j 4`, the task's separate
+target directory, empty RUSTC_WRAPPER and SDK sysroot RUSTFLAGS/RUSTDOCFLAGS.
+Every Cargo command was invoked through `nice -n 20`; the sandbox reported
+`setpriority: Operation not permitted`, so lowered priority could not be enforced.
+Heavy campaigns were serialized. No network, source audit expansion or oracle
+source implementation was used.
+
+Local verification, **MEASURED**: `cargo fmt --all --check` PASS;
+`cargo clippy --workspace --all-targets --all-features --offline --locked -j 4
+-- -D warnings` PASS; `cargo test --workspace --all-features --offline --locked
+-j 4` PASS (1,213 unit/integration tests across 68 targets, plus 15 doctests);
+separate `cargo test --workspace --doc --all-features --offline --locked -j 4`
+PASS (15 doctests). The zero-dependency boundary test passes. These are local
+worker checks; supervisor review and landing remain separate.
+
+| Campaign | MEASURED result | Steps | Cycles |
+| --- | --- | ---: | ---: |
+| Z80 prelim | PASS | 899 | 8,714 |
+| ZEXDOC, cap 10^12 | PASS, 58/58 judged; 9 historical excluded groups not run | 4,432,085,110 | 35,946,551,658 |
+| 8080PRE, 8080 | PASS | 1,060 | 7,804 |
+| 8080EXM, cap 10^11 | PASS, 25/25 judged | 2,919,050,421 | 23,803,378,398 |
+| 8080PRE, 8085 | PASS | 1,061 | 7,750 |
+| 8085EXM, cap 10^11 | PASS, 24/24 judged; third ALU group reported PASS CRC=0cfd75b5, not judged | 2,919,050,719 | 23,955,340,446 |
+| z80test z80full | Non-final: judged OK=148, FAILED=8 | 204,226,187 | 1,229,822,827 |
+| z80test z80doc | Non-final: judged OK=156, FAILED=0 | 189,077,297 | 1,139,700,409 |
+| z80test z80flags | Non-final: judged OK=148, FAILED=8 | 88,382,941 | 604,706,518 |
+| z80test z80docflags | Non-final: judged OK=156, FAILED=0 | 81,680,617 | 559,087,557 |
+
+All four z80test variants completed 160/160 groups with zero `.incheck` failures;
+each has 156 judged and 4 diagnostic groups. `z80doc`/`z80docflags` skip all
+four diagnostics; full/flags execute them (2 diagnostic FAILED, 2 OK).
+Full/flags first judged failures: **001 SCF, 002 CCF**; all remaining judged
+failures: **071 BIT N,(HL), 072 BIT N,[R,(HL)], 089 LDIR->NOP', 090 LDDR->NOP',
+102 INIR->NOP', 103 INDR->NOP'**. These are consistent with the staged
+WZ/Q/continuing-step limits, not evidence licensing a rule change. ST groups
+005/006 also fail, explicitly diagnostic. No variant is claimed final conformance.
+Host RET overhead remains included: full 3,268 steps/32,680 cycles; doc
+2,910/29,100; flags 3,269/32,690; docflags 2,916/29,160. Input reads 5,661
+each, port writes 12,705 for full/flags and 12,701 for doc/docflags.
+ZEXALL was **not run**: the CP/M host accepts only audited prelim/ZEXDOC
+digests; its independent artifact/host audit remains `x80-mn3.13`.
 
 ### Discovery inventory
 
@@ -687,7 +761,8 @@ Maintainer decision, 2026-11-13 (x80-bi2.5): M4 covers documented Z80 behavior
 only. That historical refusal policy is superseded by decision-20 §§1–3:
 all ED terminals, index halves, ignored/repeated DD/FD, SLL and indexed-CB
 copies/BIT aliases now execute with the A/H/L limits in §1. No normally fetched
-Z80 encoding refuses; bits 5/3 and WZ/MEMPTR await later sections. The two programs
+Z80 encoding refuses; §4 now implements full flags. WZ/MEMPTR, Q and
+continuing-step overrides await §§5–6. The two programs
 below are falsifying oracles, never sources of semantics. GPL files, including
 sources and COPYING, are fetched locally and never committed. Pins and fetch
 entries occupy separate Z80 exerciser blocks in the shared stash.
@@ -1278,11 +1353,11 @@ library contract from a stated hardware fact.
 - Derived arithmetic bit-diagram resolution: DD 8E d and FD B6 d follow hex annotations and both tables; §1 (UM pp. 50, 151, 159; TM p. 47), `opcodes/tests.rs::arithmetic_entry_bit_diagrams_use_the_agreeing_hex_and_table_readings`.
 - Derived rotate bit-diagram resolution: FD CB d 0E for RRC and CB 00011rrr for RR follow agreeing hex/compact/second-table readings; §1 (UM pp. 54, 225, 228; TM p. 50), `opcodes/tests.rs::rotate_entry_bit_diagrams_use_the_agreeing_hex_and_table_readings`.
 - Derived RRCA example resolution: 11h rotates to 88h, C=1, rather than the example's 98h; §1 (UM pp. 209–210; TM p. 50), `z80_rotate_shift.rs::rrca_preserves_szpv_despite_worked_example_bit_four`.
-- Decision-20 §1 ED admission replaces the old refusals: **A/H** ED70 flags-only input (TM Table 7.0-11 p. 54; UM pp. 296–297; Rak `.in_c`), **H** NEG/return operations and ED71 CPU preservation, **L** ED71 emitted zero, alias costs/IM assignments and 178 NOP holes (Young v0.91 §3.4 pp. 12–13 / §§8.5/8.10/8.11 pp. 30/34/35). `opcodes/tests.rs`, `z80_coverage.rs`, `z80_undocumented_ed.rs`; bits 5/3 await §4.
-- Decision-20 §3 completes fetched admission: **H** SLL operation/flags, indexed-CB copies to ordinary registers and BIT aliases (Young v0.91 §§3.1/3.5–3.6 pp. 11/13–14 / §§8.7–8.8 pp. 32–33; Rak v1.2a `.slia_a`/`.slia_r`, `.sro_xyd_r`, `.bit_n_xyd_`, `.set_n_xyd_`/`.res_n_xyd_`); **L** new 8/15/20/23-state totals, §2 access/R mapping, no Bus write for BIT and computed-result copies despite ignored writes. `z80_undocumented_cb.rs`, `opcodes/tests.rs`, `z80_coverage.rs`, `z80_timing.rs`; six-bit storage and existing BIT S/PV preservation await §4.
-- Library F/F' image: six flags only, bits 5/3 read zero and are ignored on input, including AF/AF' loads; this is not a physical zero-bit claim; decision-14 rule 5 (UM pp. 65–66), `flags.rs`, `state.rs`, `z80_registers.rs`, `z80_load16.rs`.
-- Library unknown-flag values / derived masks: preserve primary-entry unknown flags; hardware comparisons use D7h normally, 53h for BIT and 43h for block I/O, with separate unmasked preservation witnesses; decision-14 rules 5–6 (UM pp. 243–250, 298, 301–302, 305, 309, 312–313, 316), `bit_set_reset_test.rs`, `input_output.rs` and their witnesses.
-- Library source precedence for definedness: follow primary H rules for CCF/pair arithmetic and unaffected C for block I/O over TM unknown marks; IN r,(C) clears H, also explicit in ALPM; §1 / decision-14 rule 6 (UM pp. 178, 188, 190, 192, 194, 196, 297–298, 301–302, 305, 309, 312–313, 316; TM pp. 48–49, 54; ALPM p. 255), `z80_general_control.rs`, `z80_arithmetic16.rs`, `z80_input_output.rs`.
+- Decision-20 §1 ED admission replaces the old refusals: **A/H** ED70 flags-only input (TM Table 7.0-11 p. 54; UM pp. 296–297; Rak `.in_c`), **H** NEG/return operations and ED71 CPU preservation, **L** ED71 emitted zero, alias costs/IM assignments and 178 NOP holes (Young v0.91 §3.4 pp. 12–13 / §§8.5/8.10/8.11 pp. 30/34/35). `opcodes/tests.rs`, `z80_coverage.rs`, `z80_undocumented_ed.rs`; §4 now supplies full-byte flags.
+- Decision-20 §3 completes fetched admission: **H** SLL operation/flags, indexed-CB copies to ordinary registers and BIT aliases (Young v0.91 §§3.1/3.5–3.6 pp. 11/13–14 / §§8.7–8.8 pp. 32–33; Rak v1.2a `.slia_a`/`.slia_r`, `.sro_xyd_r`, `.bit_n_xyd_`, `.set_n_xyd_`/`.res_n_xyd_`); **L** new 8/15/20/23-state totals, §2 access/R mapping, no Bus write for BIT and computed-result copies despite ignored writes. `z80_undocumented_cb.rs`, `opcodes/tests.rs`, `z80_coverage.rs`, `z80_timing.rs`; §4 now replaces six-bit storage and BIT S/PV preservation.
+- Decision-20 §4 full F/F' image: eight independent stored bits, unmasked input/POP/PUSH/EX transfers; **H** transfers (Young v0.91 §2.3 p. 8 / §§8.2–8.3 pp. 28–29; Rak `.selftest`/`.poppush_af`/`.ex_af_af`), **L** public `Flags.y`/`Flags.x` representation, Default=0 and reset preservation. `z80_undocumented_flags.rs`, `z80_registers.rs`, `z80_load16.rs`.
+- Decision-20 §4 replaces former unknown preservation/masks with **H** BIT S/PV and block-I/O flag equations (Young v0.91 §§4.1/4.3 pp. 15–17; Rak corresponding groups). Unexercised input-domain extension remains **L**. All admitted bits compare unmasked. Interim **L** rules: BIT (HL) preserves Y/X until §5 retained WZ, indexed BIT uses effective address directly until §5, SCF/CCF uses unconditional A until §6 Q; continuing blocks expose ordinary §4 flags until §6 overrides. These interim results are not final conformance claims.
+- Library source precedence for definedness: follow primary H rules for CCF/pair arithmetic over TM unknown marks; decision-20 §4 supersedes the former unaffected-C block-I/O rule; IN r,(C) clears H, also explicit in ALPM; §1 / decision-14 rule 6 (UM pp. 178, 188, 190, 192, 194, 196, 297–298, 301–302, 305, 309, 312–313, 316; TM pp. 48–49, 54; ALPM p. 255), `z80_general_control.rs`, `z80_arithmetic16.rs`, `z80_input_output.rs`.
 - Derived BIT H/N label resolution: the second H in two flag lists means N reset; §1 / decision-14 rule 6 (UM pp. 244, 246, 248, 250; TM p. 51), `z80_bit_set_reset_test.rs`.
 - Derived SBC overflow wording resolution: P/V sets on subtraction overflow; AND/OR use result parity, following the general definitions and second table over entry slips; §1 (UM pp. 67, 156, 158, 160; TM §6 p. 39, Table 7.0-4 p. 47), `alu.rs`, `z80_arithmetic_reference/`.
 - Derived ADD IX/IY example resolution: operation lines prevail over the examples' 333h operand (0333h + 5555h = 5888h); §1 (UM pp. 194–197; TM p. 49), `z80_arithmetic_reference/`.

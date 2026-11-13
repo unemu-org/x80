@@ -120,6 +120,9 @@ fn check(a: u8, before_f: u8, result: u8, result_f: u8) {
             parity_note_pending: true,
         },
     );
+    // Decision-20 §4 H: Young §4.7 p. 18 / §8.5 p. 30; Rak .daa.
+    // Only Y/X change; retain the accepted correction and H expectations.
+    let result_f = result_f | (result & 0x28);
     let mut after = cpu.clone();
     after.registers_mut().a = result;
     after.registers_mut().flags = Flags::from_byte(result_f);
@@ -141,9 +144,8 @@ fn check(a: u8, before_f: u8, result: u8, result_f: u8) {
         }
     );
     assert_eq!(cpu, after, "A={a:02X}, F={before_f:02X}");
-    assert_eq!(cpu.registers().flags.to_byte() & 0xD7, result_f);
-    // Separate library image claim (decision-14 rule 5).
-    assert_eq!(cpu.registers().flags.to_byte() & 0x28, 0);
+    assert_eq!(cpu.registers().flags.to_byte(), result_f);
+
     assert_eq!(bus.memory, memory);
     assert_eq!(
         bus.take_log(),
@@ -190,7 +192,7 @@ fn exhaustive_input_domain_against_literal_manual_rows() {
 #[test]
 fn literal_table_anchors_and_manual_example() {
     // One literal result per row, plus UM p. 174's 3C -> 42 example.
-    // H uses the labelled derived reading. Flags are full literal D7h images.
+    // H uses the labelled derived reading. Documented flags are literal; decision-20 §4 adds adjusted-A Y/X.
     for (a, before, result, flags) in [
         (0x00, 0x00, 0x00, 0x44),
         (0x0A, 0x00, 0x10, 0x10),

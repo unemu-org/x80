@@ -13,8 +13,8 @@
 //! the existing PROVENANCE §1 resolution, not TM's completed-result zero.
 //! Poll order, one iteration/step, access kinds and prompt Halt are API
 //! choices; indexed-CB fourth-byte OperandFetch remains unverified (rule 5).
-//! No instruction here has primary-entry unknown flags. F bits 5/3 being
-//! zero is a library choice (decision-14). MEASURED on base 50af936: all
+//! Decision-20 §4 now supplies full flags; this sequence retains its
+//! literal boundary states. MEASURED historically on base 50af936: all
 //! three tests pass before staging removal. These are regression witnesses.
 
 mod support;
@@ -293,6 +293,8 @@ fn assert_completed(result: &Session) {
             flags: Flags {
                 sign: true,
                 zero: false,
+                y: false,
+                x: false,
                 half_carry: false,
                 parity_overflow: true,
                 subtract: false,

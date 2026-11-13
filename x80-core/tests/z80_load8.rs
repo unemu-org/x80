@@ -1,3 +1,7 @@
+//! Decision-20 §4 replaces zero Y/X and former unknown preservation here.
+//! H class rules: Young v0.91 §§4.1–4.3 pp. 15–17 / §§8.1–8.11 pp. 26–35;
+//! Rak z80test v1.2a corresponding load/ALU/BIT/block-I/O groups, pinned in
+//! PROVENANCE §1. SCF/CCF stay interim L until §6; parity-window rules stay L.
 //! 8-bit load witnesses, decisions 13–15. Primary: Zilog UM008011-0816,
 //! rev. 11 (August 2016), 8-Bit Load Group pp. 70–97 (PDF = printed + 14).
 //! Second cross-read: 03-0029-01 (1977), Table 7.0-1 p. 44 (PDF 50).
@@ -467,6 +471,8 @@ fn ld_a_i_flags_take_iff2_instead_of_value_parity_or_iff1() {
                 expected.registers_mut().flags = Flags {
                     sign: sz == 0x80,
                     zero: sz == 0x40,
+                    y: value & 0x20 != 0,
+                    x: value & 8 != 0,
                     half_carry: false,
                     parity_overflow: pv == 4,
                     subtract: false,
@@ -511,6 +517,8 @@ fn ld_a_r_observes_own_two_fetch_increments_with_bit_seven_retained() {
                 expected.registers_mut().flags = Flags {
                     sign: sz == 0x80,
                     zero: sz == 0x40,
+                    y: value & 0x20 != 0,
+                    x: value & 8 != 0,
                     half_carry: false,
                     parity_overflow: pv == 4,
                     subtract: false,
@@ -576,6 +584,8 @@ fn parity_note_is_set_after_step_and_cleared_before_next_ordinary_instruction() 
         expected.registers_mut().flags = Flags {
             sign: opcode == 0x5F,
             zero: false,
+            y: opcode == 0x57,
+            x: opcode == 0x57,
             half_carry: false,
             parity_overflow: true,
             subtract: false,

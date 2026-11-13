@@ -1,3 +1,7 @@
+//! Decision-20 §4 replaces zero Y/X and former unknown preservation here.
+//! H class rules: Young v0.91 §§4.1–4.3 pp. 15–17 / §§8.1–8.11 pp. 26–35;
+//! Rak z80test v1.2a corresponding load/ALU/BIT/block-I/O groups, pinned in
+//! PROVENANCE §1. SCF/CCF stay interim L until §6; parity-window rules stay L.
 //! General arithmetic witnesses: decisions 13–15. Zilog UM008011-0816,
 //! rev. 11 (August 2016), CPL p. 175, NEG pp. 176–177, CCF p. 178,
 //! SCF p. 179 (PDF = printed + 14); 03-0029-01 (1977), Table 7.0-5
@@ -52,6 +56,9 @@ fn cpu_at(a: u8, flags: u8) -> Z80 {
 
 fn check(bytes: &[u8], a: u8, flags: u8, result: u8, result_flags: u8) {
     let mut cpu = cpu_at(a, flags);
+    // Decision-20 §4: H new-A Y/X (Young §8.5 p. 30 / Rak .cpl/.neg);
+    // SCF/CCF are interim L unconditional A until §6 Q (x80-mn3.16).
+    let result_flags = result_flags | (result & 0x28);
     let mut expected = cpu.clone();
     // DERIVED PC wrap from its 16-bit width (UM p. 3). One/two M1s
     // preserve R bit 7 and wrap its low seven bits (decision-15 rules 5–6).
@@ -91,9 +98,8 @@ fn check(bytes: &[u8], a: u8, flags: u8, result: u8, result_flags: u8) {
         }
     );
     assert_eq!(cpu, expected, "{bytes:02X?}, A={a:02X}, F={flags:02X}");
-    assert_eq!(cpu.registers().flags.to_byte() & 0xD7, result_flags);
-    // Separate library claim: F bits 5/3 are zero (decision-14 rule 5).
-    assert_eq!(cpu.registers().flags.to_byte() & 0x28, 0);
+    assert_eq!(cpu.registers().flags.to_byte(), result_flags);
+
     assert_eq!(bus.memory, memory);
     assert_eq!(bus.take_log(), trace);
 }
@@ -113,7 +119,7 @@ fn cpl_sets_h_and_n_preserving_s_z_pv_c() {
 fn ccf_copies_previous_carry_to_h_despite_secondary_unknown_cell() {
     // UM p. 178 explicitly copies old C to H; TM Table 7.0-5 p. 48
     // prints H=X. Reuse PROVENANCE §1's H-definedness resolution;
-    // decision-14 rule 6 keeps H in the D7h comparison mask.
+    // decision-14 rule 6 keeps H defined; decision-20 §4 compares all bits.
     for (before, after) in [
         (0x00, 0x01),
         (0x12, 0x01),

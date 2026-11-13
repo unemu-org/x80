@@ -105,7 +105,8 @@ pub(super) fn execute<S: Bus>(
         // (TM marks H affected: PROVENANCE §1, IN H notation).
         // A/H: decision-20 §1; TM p. 54 flag-only r=110; Young
         // v0.91 §3.4 pp. 12–13; Rak v1.2a .in_c lines 1000–1006.
-        // Bits 5/3 await §4 (x80-mn3.15); retain current flag storage.
+        // H Y/X: decision-20 §4; Young v0.91 §8.11 p. 35;
+        // Rak .in_r_c/.in_c at BFh; arbitrary input follows written rule.
         0x40 | 0x48 | 0x50 | 0x58 | 0x60 | 0x68 | 0x70 | 0x78 => {
             let registers = cpu.registers_mut();
             let value = system.input16(registers.bc());
@@ -119,6 +120,7 @@ pub(super) fn execute<S: Bus>(
                 0x70 => {}
                 _ => registers.a = value,
             }
+            registers.flags.set_yx(value);
             registers.flags.sign = value & 0x80 != 0;
             registers.flags.zero = value == 0;
             registers.flags.half_carry = false;
@@ -152,15 +154,17 @@ pub(super) fn execute<S: Bus>(
         0xA2 | 0xB2 | 0xAA | 0xBA | 0xA3 | 0xB3 | 0xAB | 0xBB => {
             let registers = cpu.registers_mut();
             let address = registers.hl();
-            if opcode & 1 == 0 {
+            let data = if opcode & 1 == 0 {
                 let value = system.input16(registers.bc());
                 system.write(address, value, MemoryAccess::Data);
                 registers.b = registers.b.wrapping_sub(1);
+                value
             } else {
                 let value = system.read(address, MemoryAccess::Data);
                 registers.b = registers.b.wrapping_sub(1);
                 system.output16(registers.bc(), value);
-            }
+                value
+            };
             // Wrapping is derived from 8-bit B / 16-bit HL and PC
             // (UM Registers p. 3) and the cited entry equations.
             registers.set_hl(if opcode & 0x08 == 0 {
@@ -168,11 +172,27 @@ pub(super) fn execute<S: Bus>(
             } else {
                 address.wrapping_sub(1)
             });
+            // H observable flags, L unexercised extension: decision-20 §4;
+            // Young v0.91 §4.3 pp. 16–17 / §8.11 p. 35; Rak .ini/.ind/
+            // .outi/.outd/.inir/.indr/.otir/.otdr (input restricted to BFh).
+            // Supersedes UM's N=1/C-unaffected and unknown S/H/PV entries.
+            // §6 continuing-step overrides remain x80-mn3.16.
+            let offset = if opcode & 1 == 0 {
+                registers
+                    .c
+                    .wrapping_add(if opcode & 8 == 0 { 1 } else { 0xFF })
+            } else {
+                registers.l
+            };
+            let k = u16::from(data) + u16::from(offset);
+            registers.flags.set_yx(registers.b);
+            registers.flags.sign = registers.b & 0x80 != 0;
             registers.flags.zero = registers.b == 0;
-            registers.flags.subtract = true;
-            // C is explicitly unaffected in each primary entry, despite
-            // TM's unknown marking (existing PROVENANCE row). Unknown
-            // S/H/P/V stay unchanged by decision-14 rule 6, mask 43h.
+            registers.flags.subtract = data & 0x80 != 0;
+            registers.flags.half_carry = k > 0xFF;
+            registers.flags.carry = k > 0xFF;
+            registers.flags.parity_overflow =
+                ((k as u8 & 7) ^ registers.b).count_ones().is_multiple_of(2);
             // Repeating descriptions explicitly rewind PC by two while
             // B != 0. One iteration per step is decision-15 rule 11;
             // Taken selects 21 states, termination selects 16.

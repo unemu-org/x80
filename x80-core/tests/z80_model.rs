@@ -1,3 +1,4 @@
+//! Decision-20 §4: library Default clears all eight bits; reset preserves F/F'.
 //! Ownership, construction, reset and input witnesses (decision-15 rules 1/12).
 //!
 //! Zilog UM008011-0816 (revision 11, August 2016), RESET p. 6 and Table 1
@@ -15,6 +16,8 @@ use x80_core::Control;
 const NO_FLAGS: Flags = Flags {
     sign: false,
     zero: false,
+    y: false,
+    x: false,
     half_carry: false,
     parity_overflow: false,
     subtract: false,
@@ -23,6 +26,8 @@ const NO_FLAGS: Flags = Flags {
 const ALL_FLAGS: Flags = Flags {
     sign: true,
     zero: true,
+    y: true,
+    x: true,
     half_carry: true,
     parity_overflow: true,
     subtract: true,

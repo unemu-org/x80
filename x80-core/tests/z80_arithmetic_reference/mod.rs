@@ -11,7 +11,8 @@
 //! Reference arithmetic uses widened signed arithmetic, range checks and
 //! low-digit comparisons; logical operations use a per-bit truth table.
 //! Expected F is packed independently, without Flags or production helpers.
-//! Hardware comparisons use D7h; a separate library witness checks bits 5/3.
+//! Decision-20 §4 H: Young v0.91 §§8.4–8.6 pp. 30–31 / Rak ALU groups.
+//! All eight flag bits are compared, including CP source-operand Y/X.
 //! Included from the private ALU, like i8085_arithmetic_reference: no Cargo
 //! integration target or public ALU API is needed.
 //!
@@ -23,8 +24,6 @@
 
 use super::{adc16, add, add16, and, compare, decrement, increment, or, sbc16, subtract, xor};
 use crate::z80::Flags;
-
-const MASK: u8 = 0xD7;
 
 /// Signed interpretation without a narrowing cast or sign-bit XOR formula.
 fn signed(value: u16, width: u32) -> i64 {
@@ -40,7 +39,12 @@ fn signed(value: u16, width: u32) -> i64 {
 /// UM pp. 67–69 and TM §6 p. 39: S is the high bit, Z tests the
 /// whole result, P/V is supplied by the operation, and H/N/C are independent.
 fn pack(value: u16, width: u32, half: bool, pv: bool, subtract: bool, carry: bool) -> u8 {
-    let mut image = 0;
+    // Decision-20 §4 H: Young §§8.4–8.6 pp. 30–31 / Rak ALU groups.
+    let mut image = if width == 8 {
+        value as u8 & 0x28
+    } else {
+        (value >> 8) as u8 & 0x28
+    };
     for (condition, bit) in [
         (value >= (1 << (width - 1)), 7),
         (value == 0, 6),
@@ -122,16 +126,16 @@ fn logical(left: u8, right: u8, operation: u8) -> (u8, u8) {
 
 fn check8(actual: (u8, Flags), expected: (u16, u8), context: (u8, u8, bool)) {
     assert_eq!(
-        (u16::from(actual.0), actual.1.to_byte() & MASK),
-        expected,
+        (u16::from(actual.0), actual.1.to_byte()),
+        (expected.0, expected.1 | (expected.0 as u8 & 0x28)),
         "{context:?}"
     );
 }
 
 fn check16(actual: (u16, Flags), expected: (u16, u8), context: (u16, u16, bool)) {
     assert_eq!(
-        (actual.0, actual.1.to_byte() & MASK),
-        expected,
+        (actual.0, actual.1.to_byte()),
+        (expected.0, expected.1 | ((expected.0 >> 8) as u8 & 0x28)),
         "{context:?}"
     );
 }
@@ -174,9 +178,10 @@ fn sub_sbc_exhaustive() {
 fn cp_exhaustive_returns_only_flags() {
     for left in 0..=u8::MAX {
         for right in 0..=u8::MAX {
-            let expected = arithmetic(left.into(), right.into(), false, true, 8).1;
+            let expected =
+                (arithmetic(left.into(), right.into(), false, true, 8).1 & 0xD7) | (right & 0x28);
             assert_eq!(
-                compare(left, right).to_byte() & MASK,
+                compare(left, right).to_byte(),
                 expected,
                 "{left:02X} {right:02X}"
             );
@@ -203,7 +208,7 @@ macro_rules! logical_witness {
 }
 
 // UM pp. 158/160/162 (P/V text slips reconciled with p. 67);
-// TM Table 7.0-4 p. 47. Each test checks every byte pair and all six flags.
+// TM Table 7.0-4 p. 47. Each test checks every byte pair and all eight flag bits.
 logical_witness!(and_exhaustive, and, 0);
 logical_witness!(or_exhaustive, or, 1);
 logical_witness!(xor_exhaustive, xor, 2);
@@ -236,7 +241,7 @@ const EDGES: [u16; 20] = [
 
 fn expected_add16(left: u16, right: u16, old: u8) -> (u16, u8) {
     let (value, flags) = arithmetic(left, right, false, false, 16);
-    (value, (flags & 0x11) | (old & 0xC4))
+    (value, (flags & 0x39) | (old & 0xC4))
 }
 
 // UM ADD HL/IX/IY pp. 188–189/194–197: preserve S/Z/P-V independently
@@ -247,14 +252,12 @@ fn add16_edges_preserve_szpv_for_every_initial_flag_state() {
     for left in EDGES {
         for right in EDGES {
             for image in 0..=u8::MAX {
-                // Exactly the 64 distinct six-flag images.
-                if image & !MASK == 0 {
-                    check16(
-                        add16(left, right, Flags::from_byte(image)),
-                        expected_add16(left, right, image),
-                        (left, right, false),
-                    );
-                }
+                // Decision-20 §4: all 256 initial full-byte images.
+                check16(
+                    add16(left, right, Flags::from_byte(image)),
+                    expected_add16(left, right, image),
+                    (left, right, false),
+                );
             }
         }
     }
@@ -332,7 +335,7 @@ fn manual_byte_arithmetic_examples() {
     // UM p. 156: SBC A,(HL), A=16h, operand=05h, C=1 -> 10h.
     check8(subtract(0x16, 0x05, true), (0x10, 0x02), (0x16, 0x05, true));
     // UM p. 164: CP (HL), A=63h, operand=60h, P/V reset.
-    assert_eq!(compare(0x63, 0x60).to_byte() & MASK, 0x02);
+    assert_eq!(compare(0x63, 0x60).to_byte(), 0x22);
 }
 
 #[test]
@@ -425,7 +428,7 @@ fn index_add_examples_follow_the_printed_operands() {
 
 // Existing PROVENANCE §1 disagreement: TM Table 7.0-6 p. 49 marks H
 // unknown; UM pp. 188/190/192/194/196 explicitly define it. H stays in
-// D7h. These derived edges distinguish bit 11 from byte/nibble boundaries,
+// the full comparison. These derived edges distinguish bit 11 from byte/nibble boundaries,
 // set and clear H, and distinguish carry from borrow for subtraction.
 #[test]
 fn pair_h_definedness_follows_primary_entries() {
@@ -459,23 +462,22 @@ fn overflow_definition_examples_are_distinct_from_carry_and_parity() {
     );
 }
 
-// Decision-14 rule 5: deterministic library image, not hardware behaviour.
+// Decision-20 §4 H: Young §§8.4–8.6 pp. 30–31 / Rak ALU groups.
 #[test]
-fn library_flag_images_omit_unused_bits() {
-    let outputs = [
-        add(0x7F, 0, true).1,
-        subtract(0, 1, true).1,
-        compare(0, 1),
-        and(0, 0).1,
-        or(0, 0).1,
-        xor(0, 0).1,
-        increment(0x7F, true).1,
-        decrement(0x80, true).1,
-        add16(0xFFFF, 1, Flags::from_byte(0xFF)).1,
-        adc16(0x7FFF, 0, true).1,
-        sbc16(0, 0, true).1,
-    ];
-    for flags in outputs {
-        assert_eq!(flags.to_byte() & 0x28, 0);
+fn full_flag_images_include_class_selected_yx() {
+    for (flags, expected) in [
+        (add(0x7F, 0, true).1, 0x94),
+        (subtract(0, 1, true).1, 0xBB),
+        (compare(0, 1), 0x93),
+        (and(0, 0).1, 0x54),
+        (or(0, 0).1, 0x44),
+        (xor(0, 0).1, 0x44),
+        (increment(0x7F, true).1, 0x95),
+        (decrement(0x80, true).1, 0x3F),
+        (add16(0xFFFF, 1, Flags::from_byte(0xFF)).1, 0xD5),
+        (adc16(0x7FFF, 0, true).1, 0x94),
+        (sbc16(0, 0, true).1, 0xBB),
+    ] {
+        assert_eq!(flags.to_byte(), expected);
     }
 }

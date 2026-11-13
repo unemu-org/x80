@@ -92,7 +92,8 @@ RETI signature without a callback. The Z80 CP/M host uses a private
 `OUT FFh; RET` boundary stop, adding one step / 11 states per BDOS call and
 preserving Data reads of the stack word. The nine historically excluded ZEXDOC
 groups are now runnable under §§2–3; the existing host still judges its audited
-58-group subset. Bits 5/3 await §4; current six-flag storage is retained. ED63/6B remain four-byte pair loads. Decision-20 §2 now executes
+58-group subset. Section 4 now stores full F/F' images and implements the
+class rules below. ED63/6B remain four-byte pair loads. Decision-20 §2 now executes
 register-only index halves (**H** operation/flags, **L** costs), retains
 ordinary H/L beside indexed memory (**A/H**), and admits ignored/repeated
 DD/FD (**L**). Chains use the last selector, ED cancels it, CB selects indexed-CB,
@@ -106,6 +107,19 @@ normally fetched encoding refuses. `tests/z80_undocumented_index.rs` pins the
 full main map, half flags, exceptions, chains, interrupts and long/wrapping traces;
 `tests/z80_undocumented_cb.rs` pins all CB/DDCB/FDCB terminals, flags, copies,
 BIT aliases, device behavior, access/R/cost traces and a prefix chain.
+
+Decision-20 §4 now implements full F/F' input/packing/exchange and all ordinary
+Y/X class rules, BIT S/PV and complete block-I/O flags. Transfer and class
+rules retain their **H** observed-vector limits; BIT-register Y/X remains
+**L** with an explicit written-key gap. DAA's accepted correction is unchanged.
+`tests/z80_undocumented_flags.rs` supplies independent literal full-byte
+witnesses; existing six-bit/unknown-preservation assertions are replaced.
+The changed-assertion inventory and measured campaigns are in PROVENANCE §1,
+“Decision-20 §4 implementation”. **Interim L:** BIT (HL) preserves old Y/X
+until §5 retained WZ (`x80-mn3.11`); indexed BIT uses effective address directly;
+SCF/CCF uses unconditional A until §6 Q (`x80-mn3.16`). Continuing repeats use
+ordinary §4 flags until §6's boundary overrides; terminating iterations use
+§4 in full. These staged results do not claim final Z80 conformance.
 
 `tests/z80_coverage.rs` independently enumerates literal admitted and empty
 refused key sets for every table, distinguishing dispatch slots. Every admitted
@@ -132,9 +146,8 @@ memory, bus traces, poll sequences and actual progress totals.
 
 The model exposes `Z80`, `Registers`, `Flags`, `Latches`, `InterruptMode` and
 `Inputs`, with both register sets, pair accessors and reset. Construction
-values, unused F bits 5/3 reading as zero, preservation of primary-entry
-unknown flags, reset preservation and sampler bookkeeping remain library
-choices. Source pins, page maps, reconciliations and the shared Zilog lineage
+values, independent eight-bit F/F' representation (`Flags.y`/`Flags.x`),
+reset preservation and sampler bookkeeping remain library choices. Source pins, page maps, reconciliations and the shared Zilog lineage
 caveat remain in PROVENANCE.md §1. INDEX_CB's fourth-byte access kind, EI-delay
 edge cases and parity-note boundary timing retain decision-15's unverified
 qualifications; per-M1 R counting is derived. The complete residual list is in

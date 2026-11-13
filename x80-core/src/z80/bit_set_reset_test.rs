@@ -5,8 +5,8 @@
 //! Independent cross-read: 03-0029-01 (1977), Table 7.0-8, p. 51
 //! (PDF = printed + 6). Whole-instruction lengths and T-state totals include
 //! every prefix, operand and displacement (decision-13 rules 3–5).
-//! Execution witnesses: tests/z80_bit_set_reset_test.rs. BIT unknown flags
-//! follow decision-14 rule 6; bus kinds follow decision-15 rule 5.
+//! Execution witnesses: tests/z80_bit_set_reset_test.rs. BIT flags
+//! follow decision-20 §4; bus kinds follow decision-15 rule 5.
 
 use super::cpu::{Decoded, IndexRegister, Table};
 use super::opcodes::{Encoding, Instruction, States};
@@ -93,16 +93,30 @@ pub(super) fn execute<S: Bus>(
     };
     let bit = 1u8 << ((decoded.opcode >> 3) & 7);
     let value = match decoded.opcode >> 6 {
-        // UM BIT pp. 243–250; TM p. 51: Z is the complement of bit b,
-        // H set, N reset, C unaffected. S/P/V are unknown: preserve by
-        // library choice, compare hardware under 53h (decision-14 rule 6).
-        // PROVENANCE §1 resolves pp. 246/250's second H label as N.
+        // H S/Z/PV/H/N/C: decision-20 §4; Young v0.91 §4.1 p. 15;
+        // Rak z80test v1.2a .bit_n_* (replaces decision-14 unknowns).
         1 => {
             registers.flags.zero = operand & bit == 0;
+            registers.flags.sign = bit == 0x80 && operand & bit != 0;
+            registers.flags.parity_overflow = registers.flags.zero;
             registers.flags.half_carry = true;
             registers.flags.subtract = false;
             // L no Bus write or register copy: decision-20 §3 API mapping.
-            // Bits 5/3 and later BIT flags await §4; retain current storage.
+            if decoded.table == Table::IndexCb {
+                // H address-vs-data selection: decision-20 §4; Young §4.1
+                // p. 15 / MEMPTR (2006) indexed-address entry; Rak .bit_n_xyd*.
+                // Interim L: use effective address directly until §5 WZ
+                // (x80-mn3.11); no exact latch claim.
+                registers.flags.set_yx((address >> 8) as u8);
+            } else if code != 6 {
+                // L written-key gap: decision-20 §4; Young §4.1 p. 15
+                // instead says masked operand; Rak .bit_n_a/.bit_n_r
+                // lines 805–824 discriminate original-register Y/X.
+                registers.flags.set_yx(operand);
+            }
+            // Interim L for BIT (HL): preserve old Y/X until §5 retained
+            // WZ (x80-mn3.11). Young §4.1 p. 15 / MEMPTR opening;
+            // Rak .bit_n_hl observes WZ bits13/11, not memory or HL.
             return Path::Untaken;
         }
         // UM RES pp. 259–260 and SET pp. 251–258; TM p. 51:

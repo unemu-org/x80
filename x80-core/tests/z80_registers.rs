@@ -4,15 +4,16 @@
 //! pp. 2–3 (PDF 16–17); 03-0029-01 (1977) §2.1 pp. 3–5, Fig. 2.0-2 p. 4
 //! (PDF 9–11): main/alternate pairs and byte order. The UM Fig. 2 repeats B'
 //! in C's alternate column; its p. 3 pair text and TM diagram identify BC'.
-//! UM Tables 21/22 pp. 65–66 (PDF 79–80): S Z X H X P/V N C. Hardware
-//! comparisons use D7h; zero filler bits are a library choice (decision-14
-//! rule 5). All cited values checked on rendered page images.
+//! Decision-20 §4 H transfers: Young v0.91 §§8.2–8.3 pp. 28–29 / Rak
+//! .poppush_af/.ex_af_af. Library representation stores all eight bits.
 
 use x80_core::z80::{Flags, Registers};
 
 const NO_FLAGS: Flags = Flags {
     sign: false,
     zero: false,
+    y: false,
+    x: false,
     half_carry: false,
     parity_overflow: false,
     subtract: false,
@@ -21,6 +22,8 @@ const NO_FLAGS: Flags = Flags {
 const ALL_FLAGS: Flags = Flags {
     sign: true,
     zero: true,
+    y: true,
+    x: true,
     half_carry: true,
     parity_overflow: true,
     subtract: true,
@@ -111,9 +114,9 @@ pair_witness!(
 );
 
 #[test]
-fn af_byte_order_and_setter_isolation_under_d7h() {
+fn af_byte_order_and_setter_isolation() {
     let mut registers = sample();
-    assert_eq!(registers.af() & 0xFFD7, 0xA1D7);
+    assert_eq!(registers.af(), 0xA1FF);
     registers.set_af(0x12FF);
     assert_eq!(
         registers,
@@ -128,16 +131,20 @@ fn af_byte_order_and_setter_isolation_under_d7h() {
         registers,
         Registers {
             a: 0x34,
-            flags: NO_FLAGS,
+            flags: Flags {
+                y: true,
+                x: true,
+                ..NO_FLAGS
+            },
             ..sample()
         }
     );
 }
 
 #[test]
-fn af_alternate_byte_order_and_setter_isolation_under_d7h() {
+fn af_alternate_byte_order_and_setter_isolation() {
     let mut registers = sample();
-    assert_eq!(registers.af_alternate() & 0xFFD7, 0x1800);
+    assert_eq!(registers.af_alternate(), 0x1800);
     registers.set_af_alternate(0x56FF);
     assert_eq!(
         registers,
@@ -152,14 +159,18 @@ fn af_alternate_byte_order_and_setter_isolation_under_d7h() {
         registers,
         Registers {
             a_alternate: 0x78,
-            flags_alternate: NO_FLAGS,
+            flags_alternate: Flags {
+                y: true,
+                x: true,
+                ..NO_FLAGS
+            },
             ..sample()
         }
     );
 }
 
 #[test]
-fn each_flag_has_its_table21_bit_under_d7h() {
+fn each_flag_has_its_full_f_bit() {
     for (flags, expected) in [
         (NO_FLAGS, 0x00),
         (
@@ -204,14 +215,28 @@ fn each_flag_has_its_table21_bit_under_d7h() {
             },
             0x01,
         ),
-        (ALL_FLAGS, 0xD7),
+        (
+            Flags {
+                y: true,
+                ..NO_FLAGS
+            },
+            0x20,
+        ),
+        (
+            Flags {
+                x: true,
+                ..NO_FLAGS
+            },
+            8,
+        ),
+        (ALL_FLAGS, 0xFF),
     ] {
-        assert_eq!(flags.to_byte() & 0xD7, expected);
+        assert_eq!(flags.to_byte(), expected);
     }
 }
 
 #[test]
-fn from_byte_reads_the_six_table21_flags() {
+fn from_byte_reads_all_eight_flags() {
     for (byte, expected) in [
         (0x00, NO_FLAGS),
         (
@@ -256,6 +281,20 @@ fn from_byte_reads_the_six_table21_flags() {
                 ..NO_FLAGS
             },
         ),
+        (
+            0x20,
+            Flags {
+                y: true,
+                ..NO_FLAGS
+            },
+        ),
+        (
+            8,
+            Flags {
+                x: true,
+                ..NO_FLAGS
+            },
+        ),
         (0xFF, ALL_FLAGS),
     ] {
         assert_eq!(Flags::from_byte(byte), expected);
@@ -263,15 +302,22 @@ fn from_byte_reads_the_six_table21_flags() {
 }
 
 #[test]
-fn library_choice_ignores_bits_5_3_and_reads_them_as_zero() {
-    // UM p. 66 says unused, not zero: these full images pin only the API.
+fn library_representation_preserves_all_eight_bits() {
+    // Decision-20 §4: library representation, H transfer keys above.
     const ALL_IMAGE: u8 = Flags::from_byte(0xFF).to_byte();
-    assert_eq!(ALL_IMAGE, 0xD7);
-    assert_eq!(Flags::from_byte(0x28), NO_FLAGS);
-    assert_eq!(Flags::from_byte(0x28).to_byte(), 0x00);
+    assert_eq!(ALL_IMAGE, 0xFF);
+    assert_eq!(
+        Flags::from_byte(0x28),
+        Flags {
+            y: true,
+            x: true,
+            ..NO_FLAGS
+        }
+    );
+    assert_eq!(Flags::from_byte(0x28).to_byte(), 0x28);
     let mut registers = sample();
     registers.set_af(0xFFFF);
     registers.set_af_alternate(0xABFF);
-    assert_eq!(registers.af(), 0xFFD7);
-    assert_eq!(registers.af_alternate(), 0xABD7);
+    assert_eq!(registers.af(), 0xFFFF);
+    assert_eq!(registers.af_alternate(), 0xABFF);
 }

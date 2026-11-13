@@ -198,6 +198,17 @@ fn block<S: Bus>(cpu: &mut Z80, system: &mut S, opcode: u8) -> Path {
         r.flags.parity_overflow = count != 0;
         r.flags.subtract = false;
     }
+    // H ordinary Y/X: decision-20 §4; Young v0.91 §4.2 p. 16;
+    // Rak .ldi… .lddr 912–938 / .cpi… .cpdr 954–980. §6 continuing
+    // PC-derived overrides remain x80-mn3.16; use ordinary flags here.
+    let t = if compare {
+        r.a.wrapping_sub(value)
+            .wrapping_sub(u8::from(r.flags.half_carry))
+    } else {
+        r.a.wrapping_add(value)
+    };
+    r.flags.y = t & 0x02 != 0;
+    r.flags.x = t & 0x08 != 0;
     // Decision-15 rule 11: CPIR/CPDR stop on count zero OR match. UM
     // pp. 139/142 termination sentences and TM p. 46 agree. PROVENANCE §1
     // records the UM timing-heading AND and CPDR repeat-sentence equality
