@@ -62,7 +62,7 @@ pub struct Registers {
 }
 
 // Pair layout: UM pp. 2–3; 03-0029-01 §2.1, Fig. 2.0-2 p. 4.
-// Model-owned packing, including the decision-14 rule 5 F/F' library image.
+// Model-owned packing, including the decision-20 §4 full F/F' library image.
 impl Registers {
     /// BC, with B high and C low.
     pub const fn bc(&self) -> u16 {

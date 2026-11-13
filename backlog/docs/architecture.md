@@ -57,7 +57,7 @@ x80-core/
   src/i8085/vectored.rs         TRAP and RST 5.5/6.5/7.5 acceptance (decision-12 rule 4)
   src/i8085/acknowledge.rs      INTR RST/CALL acceptance (decision-12 rule 5)
   src/z80/mod.rs                the Z80 model module and its re-exports (decisions 13–15)
-  src/z80/state.rs              main/alternate Registers, pair accessors, InterruptMode and Latches (including public WZ)
+  src/z80/state.rs              main/alternate Registers, pair accessors, InterruptMode and Latches (including public WZ/Q)
   src/z80/flags.rs              eight independent flags and the decision-20 §4 F/F' image
   src/z80/alu.rs                model-owned arithmetic primitives and flag rules
   src/z80/interrupt.rs          Inputs: asserted-true NMI and INT requests
@@ -89,6 +89,7 @@ x80-core/
   tests/z80_timing.rs           independent whole-set/path and interrupt T-state witnesses
   tests/z80_arithmetic_reference/ independent byte/pair ALU and flag witnesses
   tests/z80_wz.rs               decision-20 §5 literal latch rows, state and BIT projection witnesses
+  tests/z80_q_repeat.rs         decision-20 §6 Q classes, repeat-boundary flags and retained interrupt rules
   tests/z80_model.rs            ownership, construction, reset, input defaults and recording polls
   tests/z80_registers.rs        main/alternate register pairs and F/F' image witnesses
   tests/i8080_run.rs            budget, boundary sequence, exit precedence, step, determinism
@@ -374,13 +375,13 @@ Unsupported restores pre-sampling latches, and Halt retains samples; the
 boundary and replay witnesses are `tests/i8085_run.rs` and
 `tests/i8085_determinism.rs`. Residual qualifications are in PROVENANCE.md §3.
 
-Z80 map data (decision-13 rules 2–5, amended by decision-20 §§1–2):
+Z80 map data (decision-13 rules 2–5, amended by decision-20 §§1–3):
 eleven group modules supply their applicable encoding slices to the unchanged
 `decode::build`. Z80-owned load/arithmetic groups extend the documented
-index map with 46 register-only half entries. The five stored counts are 252/248/256/85/31;
+index map with 46 register-only half entries. The five stored counts are 252/256/256/85/256;
 INDEX and INDEX_CB serve both IX and IY. Ignored index forms dispatch through
-MAIN rather than duplicating entries. Thus 988 effective logical entries plus
-334 ignored MAIN fallbacks cover 1322 terminal encodings; prefix dispatch
+MAIN rather than duplicating entries. Thus 1446 effective logical entries plus
+334 ignored MAIN fallbacks cover 1780 terminal encodings; prefix dispatch
 slots are excluded. Terminal lengths and both cost slots include the effective
 prefixes only. Repeating blocks store terminating/repeating totals as
 untaken/taken (decision-15 rule 11). Literal maps/costs are pinned in
@@ -395,13 +396,10 @@ NMI; selects a fresh NMI edge before eligible INT; checks halt; fetches and
 executes. Stop precedes sampling. A refusal restores the complete CPU state
 saved after polling and before sampling, including R and sampler history;
 Halt retains samples. Interrupt retirement uses the same counters as ordinary
-instructions. Every documented encoding dispatches directly to its group.
-Only CB SLL and undocumented indexed-CB terminals still return fetched-byte
-Unsupported; interrupt API restrictions remain. Decision-20 §2's L diagnostic
-convention retains the instruction-start PC and final decode context:
-`[last DD/FD, CB, d]` for indexed-CB refusals, `[CB]` for ordinary SLL.
-Earlier selectors are omitted. Single-prefix payloads are unchanged, all
-consumed fetches remain observable and nothing after the refused key is read.
+instructions. Every normally fetched encoding dispatches directly to its group;
+only IM0 non-RST and odd-IM2 acknowledges retain Unsupported. Those refusals
+carry the boundary PC, acknowledge byte and no preceding bytes; consumed
+acknowledge reads remain observable despite CPU rollback (decision-20 §7).
 `tests/z80_run.rs` pins boundary and refusal traces;
 `tests/z80_coverage.rs` checks every literal documented/undocumented key.
 `tests/z80_determinism.rs` checks complete state, bus trace and poll-sequence
@@ -499,6 +497,16 @@ The 21 independent witnesses in `tests/z80_wz.rs` cover every table row,
 16-bit and low-byte-only wrapping, preservation, state restoration and
 cross-instruction BIT probes; existing trace witnesses retain their bus calls.
 
+Decision-20 §6 adds public `Latches.q`, recording instruction class even when F
+is numerically unchanged. SCF/CCF use specimen-qualified pattern A (**B8039/H**);
+universal classification, DD/FD clearing without a boundary, Default/reset/
+interrupt-entry clearing and snapshot/rollback are **L**. Continuing blocks
+apply PC-derived Y/X and I/O PV/H before each boundary; termination retains
+ordinary flags. `tests/z80_q_repeat.rs` pins these rules and the retained **L**
+LD A,I/R parity window and EI/NMI mapping. Full F/F' images, WZ and Q are
+model-owned; [PROVENANCE §3](../../PROVENANCE.md#residual-facts-at-the-z80-undocumented-closure-2026-11-13)
+collects their evidence limits.
+
 An integration test that needs a bus includes `tests/support` with
 `mod support;`. Its `RecordingBus` logs every access and input poll for trace
 witnesses. Witness expectations are literals derived from the cited pages,
@@ -507,25 +515,25 @@ never crate helpers.
 `x80-oracle/` is an unpublished workspace member with no dependencies beyond
 `x80-core`: a CP/M-style host that runs the pinned exercisers on the
 selected 8080/8085/Z80 model and gives a verdict only for the pinned SHA-256 digests
-(commands.md, "Oracle runs"; PROVENANCE.md §2). Z80 prelim is judged and
-ZEXDOC runs the 58 audited documented groups; nine groups are not run under
-decision-14. Its private ED 70 BDOS rendezvous and digest-keyed in-memory table
-filtering belong to the host, outside core instruction semantics.
-For 8085 the host supplies `OUT FFh; RET` through instruction reads at 0005h,
+(commands.md, "Oracle runs"; PROVENANCE.md §2). Z80 prelim is judged;
+ZEXDOC and independently audited ZEXALL each run all 67 original descriptors,
+without table filtering or byte patches (decision-20 §7).
+For 8085 and Z80 the host supplies `OUT FFh; RET` through instruction reads at 0005h,
 preserving Data reads of the stack word at 0006h. Only that stub's port write
 requests the boundary stop for BDOS; servicing clears the request before RET.
-Each call adds one retired instruction / 10 cycles. The 8080 keeps its refused
-08h rendezvous. `x80-oracle/tests/cli.rs` pins the 8085 host contract across
+Each call adds one retired instruction / 10 cycles for 8085 or 11 for Z80.
+The 8080 keeps its refused 08h rendezvous. `x80-oracle/tests/cli.rs` pins the 8085 host contract across
 repeated calls, budget splits, preservation and failures; §2 records the release
 campaign in [PROVENANCE](../../PROVENANCE.md#2-oracles). None of these host
 responses changes core decoding.
 
-The next undocumented track, `x80-mn3.5`, targets Zilog NMOS Z80. It needs
-source pins and per-fact qualification under decisions 17/18, then a decision
-superseding decision-14's affected admission, flag-image and unknown-flag rules
-before implementation. Z80 facts remain model-owned; Intel `FlagRules` hooks
-do not authorize Z80 sharing. Undocumented 8080 research is `x80-mn3.4` and
-does not change decision-3 refusals or decision-9's V20 ED escape.
+The separate Spectrum-style `z80test` host audits the pinned ZIP/TAPs and runs
+all six decision-20 variants at their linked addresses. Fetch-only ROM-service
+RETs add one step / 10 cycles per call; full-width FEh I/O, prechecks, diagnostic
+skips and final counts remain explicit. Final release results are in PROVENANCE
+§2; CRCs license no new hardware facts. Z80 facts remain model-owned; Intel
+`FlagRules` hooks do not authorize Z80 sharing. Undocumented 8080 research
+remains `x80-mn3.4`, preserving decision-3 refusals and decision-9's V20 ED escape.
 
 Any future dependency-bearing oracle harness will also be separate and unpublished.
 The Z80 layout follows decision-13 (accepted): [Z80 model, prefix tables and sharing](<../decisions/decision-13 - z80-model-layout-prefix-tables-and-sharing.md>).

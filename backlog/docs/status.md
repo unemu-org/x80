@@ -74,81 +74,42 @@ all 25 groups, about 16 s for 2.9 billion instructions in a release build.
 M2 remains in progress: its x80-side work (beads `x80-pzp.1` to `.5`) runs from the
 pinned NEC manual, and its joint witnesses wait on x86jit's V20/V30 bead (C4).
 
-**M4: done (2026-11-13, epic `x80-bi2`).** The `z80` model executes every documented
-instruction through `run`/`step`, including all prefixed forms and repeating
-blocks (decisions 13–15). The eleven group executors dispatch directly; the
-temporary documented-but-unimplemented path and all group staging switches
-are removed. `tests/z80_timing.rs` independently checks every encoding and
-conditional/repeat path total, plus NMI and all interrupt modes. Documented
-totals use the primary and Mostek second witness; decision-20 §1 supplies the
-labelled L alias/hole and §3 CB totals. The five tables contain MAIN 252,
-CB 256, ED 256, INDEX 85 and INDEX_CB 256 effective entries. With ignored MAIN
-fallbacks, 1780 logical terminal encodings execute (dispatch slots excluded).
-Decision-20 §1 admits ED70 flags-only input (**A/H**), ED71 zero output
-(**L**, CPU preservation **H**), NEG/return aliases (**H**, alias costs **L**),
-IM aliases (**L**) and 178 two-byte, 8-state NOP holes (**L**). All ED returns,
-including RETI, copy IFF2 into IFF1 (**L**); ED4D alone retains the peripheral
-RETI signature without a callback. The Z80 CP/M host uses a private
-`OUT FFh; RET` boundary stop, adding one step / 11 states per BDOS call and
-preserving Data reads of the stack word. The nine historically excluded ZEXDOC
-groups are judged alongside the other 58 under decision-20 §7. Section 4 now
-stores full F/F' images and implements the class rules below. ED63/6B remain four-byte pair loads. Decision-20 §2 now executes
-register-only index halves (**H** operation/flags, **L** costs), retains
-ordinary H/L beside indexed memory (**A/H**), and admits ignored/repeated
-DD/FD (**L**). Chains use the last selector, ED cancels it, CB selects indexed-CB,
-and prefixed HALT has no displacement. Arbitrary chains have one boundary and
-retirement, wrapping PC/R and saturating u64 costs without a prefix buffer.
-Decision-20 §3 adds SLL (**H** operation/flags, **L** costs), indexed-CB
-rotate/shift/SET/RES register copies and BIT aliases (**H**), with **L**
-access/cost/no-write and computed-result copy rules. Ordinary H/L receive copies;
-a write-ignoring device still leaves the computed result in the register. No
-normally fetched encoding refuses. `tests/z80_undocumented_index.rs` pins the
-full main map, half flags, exceptions, chains, interrupts and long/wrapping traces;
-`tests/z80_undocumented_cb.rs` pins all CB/DDCB/FDCB terminals, flags, copies,
-BIT aliases, device behavior, access/R/cost traces and a prefix chain.
+**M4: done (2026-11-13, epic `x80-bi2`).** The `z80` model executes every
+documented instruction through `run`/`step` (decisions 13–15). The Zilog NMOS
+undocumented track is also done (2026-11-13, decision-20): every normally fetched
+encoding executes, with full eight-bit F/F', retained WZ and Q. The eleven group
+executors dispatch directly. Five stored maps contain MAIN 252, CB 256, ED 256,
+INDEX 85 and INDEX_CB 256 effective entries; with ignored MAIN fallbacks,
+1780 logical terminals execute (dispatch slots excluded).
 
-Decision-20 §4 now implements full F/F' input/packing/exchange and all ordinary
-Y/X class rules, BIT S/PV and complete block-I/O flags. Transfer and class
-rules retain their **H** observed-vector limits; BIT-register Y/X remains
-**L** with an explicit written-key gap. DAA's accepted correction is unchanged.
-`tests/z80_undocumented_flags.rs` supplies independent literal full-byte
-witnesses; existing six-bit/unknown-preservation assertions are replaced.
-Rulings, witness pointers and residual evidence gaps are in PROVENANCE §1. Decision-20 §5 now supplies public
-`Latches.wz`: Z80-owned 16-bit state, Default=0000h, preserved by reset,
-included in supplied/cloned boundary snapshots, deterministic continuation,
-Budget preservation and Stop/Unsupported rollback. Every exact update rule
-is **L**, including continuing INIR/INDR's accepted ED-address+1 replacement
-for the falsified BC rule. BIT (HL) observes retained WZ13/11; indexed BIT
-first sets WZ to its effective address. The projected observations retain
-their **H** vector limits; they do not establish whole-word hardware state.
-`tests/z80_wz.rs` has 21 literal row/state witnesses, with carry/no-carry,
-wrapping, both block paths, ignored prefixes and BIT projection probes.
-Existing full-state expectations now include WZ without added bus accesses.
-Decision-20 §6 now supplies `Latches.q` and SCF/CCF pattern A
-(**B8039/H**, with specimen limits; **L** classification, prefix clearing,
-interrupt/default/reset and snapshot bookkeeping). Continuing block iterations
-expose p-derived Y/X and I/O PV/H at every boundary, including self-overwrite
-and Budget/Stop: **H** discriminated LDxR/INxR observations; **L** arbitrary PC,
-CPxR/OTxR and the complete I/O formula domain. Terminating iterations retain
-ordinary §4 flags. `tests/z80_q_repeat.rs` supplies literal class, state,
-repeat and interrupt-quirk witnesses. Decision-15's **L** LD A,I/R pending-note
-window and NMI-during-EI mapping are retained; no new anomaly is admitted.
+Decision-20 admits ED70 (**A/H**), ED71 (CPU preservation **H**, emitted zero
+**L**), NEG/return aliases, index halves, SLL and indexed-CB copies/BIT aliases
+(**H** observed operations; new costs/access mappings **L**). General ED holes,
+IM aliases and ignored/repeated prefixes remain **L**. Chains use the last
+selector, one boundary/retirement, wrapping PC/R and saturating u64 costs
+outside terminal-table fields, without a prefix buffer. All ED returns,
+including RETI, copy IFF2 into IFF1 (**L**); ED4D retains its peripheral signature.
 
-`tests/z80_coverage.rs` independently enumerates literal admitted and empty
-refused key sets for every table, distinguishing dispatch slots. Every admitted
-encoding completes one step from neutral state. Interrupt API refusals retain
-zero contributed progress and full CPU restoration, including R, alternate
-registers, EI delay, parity-note, NMI history, WZ and Q. Per-group witnesses pin semantics,
-flags, timing and bus accesses with the A/H/L limits of the accepted contracts.
+Full F/F' transfers, ordinary Y/X classes, BIT S/PV and block-I/O flags have
+independent literal witnesses. BIT-register Y/X retains its **L** written-key
+gap. Exact WZ equations, Default=0 and reset preservation remain **L**; only
+discriminated BIT projections are **H**. Continuing INxR uses the accepted
+ED-address+1 replacement for the falsified BC rule. Q selects SCF/CCF pattern A
+(**B8039/H**, specimen-qualified), with **L** classification, prefix clearing,
+interrupt/default/reset and snapshot bookkeeping. Continuing blocks expose
+PC-derived Y/X and I/O PV/H at each boundary: **H** discriminated LDxR/INxR
+observations; **L** arbitrary PC, CPxR/OTxR and full I/O domain. Termination
+retains ordinary flags. DAA's accepted correction and the **L** LD A,I/R
+parity-note and EI/NMI mappings remain; no new anomaly is admitted.
 
-The §6 worker campaign is **MEASURED**, offline, 2026-11-13: fmt, clippy,
-workspace tests and separate doctests PASS; release prelim PASS, ZEXDOC
-58/58 judged PASS, 8080PRE/8080EXM/8085EXM PASS. All six z80test variants
-complete 160/160 groups, 156/156 judged OK, zero judged failures and zero
-input-check failures. NEC/ST diagnostics 003–006 are skipped in every variant;
-there are no remaining reported failures. Campaigns remain non-final until
-`x80-mn3.17`; no evidence label is upgraded by a CRC. Supervisor
-gates/review/landing remain separate.
+`tests/z80_undocumented_{ed,index,cb,flags}.rs`, `tests/z80_wz.rs` and
+`tests/z80_q_repeat.rs` pin literal maps, flags, latch rows, traces, long/wrapping
+chains, repeat boundaries, reset and complete snapshots. `tests/z80_coverage.rs`
+checks every logical terminal; `tests/z80_timing.rs` independently checks costs
+and conditional/repeat paths, NMI and interrupt modes. Interrupt refusals retain
+zero contributed progress and complete CPU restoration, including WZ/Q.
+The [closure residual inventory](../../PROVENANCE.md#residual-facts-at-the-z80-undocumented-closure-2026-11-13)
+collects every decision-20 label, witness pointer and remaining evidence gap.
 
 NMI and INT acceptance execute, including HALT wakeup, RETN/RETI, EI delay,
 IM 0's RST-only restriction, IM 1's fixed vector and IM 2's even-vector table
@@ -175,17 +136,22 @@ edge cases and parity-note boundary timing retain decision-15's unverified
 qualifications; per-M1 R counting is derived. The complete residual list is in
 [PROVENANCE.md §3](../../PROVENANCE.md#residual-unverified-or-derived-facts-at-the-m4-closure-2026-11-13).
 
-The decision-20 §7 CP/M host now judges all 67 ZEXDOC groups and accepts
-ZEXALL after its own COM/source, full-descriptor and host audit
-([PROVENANCE.md §2](../../PROVENANCE.md#2-oracles);
-[commands](commands.md#oracle-runs)). No descriptor table is filtered. The
-historical 58-group results remain in provenance. Worker release runs,
-**MEASURED 2026-11-13**: prelim PASS (899 steps / 8,714 cycles); ZEXDOC and
-ZEXALL each **67/67 judged OK**, normal exit, 5,764,169,747 steps /
-46,734,978,642 cycles. Fmt, clippy, workspace tests, doctests and the
-8080PRE/8080EXM/8085EXM release regressions pass. Supervisor review/gates/landing
-remain pending. Both suites' unnamed-real-Z80 CRCs are falsifiers only, never
-silicon confirmation or semantic authority.
+Final closure campaigns, **MEASURED 2026-11-13**, release on `44c81c5`:
+Z80 prelim PASS (899 steps / 8,714 cycles); ZEXDOC and independently audited
+ZEXALL each **67/67 judged OK**, 5,764,169,747 steps / 46,734,978,642 cycles.
+All six z80test variants complete **160/160 groups**, **156/156 judged OK**,
+four skipped NEC/ST diagnostics and zero input-check failures. The 8080PRE
+(on both Intel models), 8080EXM and 8085EXM regressions pass; 8085EXM's long
+ALU CRC remains reported, not judged. [PROVENANCE §2](../../PROVENANCE.md#final-z80-undocumented-closure-campaigns-2026-11-13)
+records counts, steps, cycles and host costs. No ZEX descriptor is filtered.
+The Z80 CP/M output/RET host adds one step / 11 cycles per BDOS call;
+z80test service RETs add one step / 10 cycles each. CRCs license no new
+hardware facts: unidentified ZEX CRCs only falsify, and z80test confirms only
+independently stated facts discriminated within its identified specimen scope.
+Fmt, clippy, 1,246 workspace tests and 15 doctests pass. The sandbox rejects
+`nice`'s priority change; commands still complete. Supervisor gates, review
+and landing remain separate.
+
 Closure duplication measurements retain decision-13's sharing boundary; see
 [architecture](architecture.md) and [plan §5](plan.md#5-milestones).
 
@@ -231,9 +197,7 @@ outside core semantics. The closure release reruns on `766906e` reproduce
 the §2 verdicts and totals. Intel specimen/revision confirmation, physical bus
 traces, exact POP loads and the L hidden-flag effects remain unverified.
 
-Next in the undocumented track is Zilog **NMOS Z80** (`x80-mn3.5`): pin sources
-and origins, qualify facts under decisions 17/18, and accept a record
-superseding the relevant parts of decision-14 before implementation.
+The Zilog NMOS Z80 track is complete under decision-20, as recorded above.
 Undocumented 8080 behavior remains research-only (`x80-mn3.4`), preserving
 decision-3's refusals and decision-9's V20 ED escape.
 

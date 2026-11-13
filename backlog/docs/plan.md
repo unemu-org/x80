@@ -259,9 +259,11 @@ After M4, epic `x80-mn3` extends undocumented behavior under accepted
 [decision-17](<../decisions/decision-17 - Two-key-evidence-rule-for-undocumented-behaviour.md>)
 as amended by decision-18, always on with no embedder profile. The 8085 now
 executes every byte and stores V/K under decisions 18/19, superseding decision-11
-in part with explicit S/D/L qualifications. Zilog NMOS Z80 is next (`x80-mn3.5`):
-source pins and a per-model record superseding decision-14 in part precede
-implementation. Undocumented 8080 remains research-only (`x80-mn3.4`);
+in part with explicit S/D/L qualifications. The Zilog NMOS Z80 undocumented
+track is done (2026-11-13, decision-20): every normally fetched encoding,
+full F/F', WZ/Q and final six-variant z80test / 67-group ZEXDOC/ZEXALL campaigns,
+with explicit **A**, **H**, **B8039/H** and **L** evidence limits and remaining gaps in PROVENANCE §3.
+Undocumented 8080 remains research-only (`x80-mn3.4`);
 decision-3 and decision-9's V20 ED escape stand.
 
 ## 6. Questions for the maintainer
@@ -324,21 +326,14 @@ Decided items cite their record; the rest stay open.
    [closure list](../../PROVENANCE.md#residual-facts-at-the-8085-undocumented-closure-2026-11-13)
    names every implemented rule's label and witness.
 
-   Next: Zilog **NMOS Z80**, `x80-mn3.5`, always on without a profile under
-   decisions 17/18. Carry forward revision/date/hash pins, exact locators,
-   origin accounting, independent silicon keys and witnesses, silicon-first
-   conflict rulings and explicit unverified/library limits. A qualifying
-   second-source manufacturer sheet may license its stated facts only under
-   decision-18's conditions, including independent die confirmation of each
-   encoding; CA80C85B facts do not license Z80 behavior. Pin the Z80 sources
-   and accept a decision superseding affected parts of decision-14 before
-   implementation: admitted encodings/refusals, F bits 5/3 and primary-unknown
-   flag preservation. Until then decision-14's documented-only contract stands;
-   CMOS and other parts require separate evidence and a scope decision.
-   Decision-15 still limits IM 0 to RST and refuses odd IM 2 vectors. Oracle
-   licences/pins and CRC qualifications remain in PROVENANCE.md §§2–3; M4
-   prelim and 58 judged ZEXDOC groups passed, with nine groups not run under
-   decision-14. A CRC alone cannot admit a fact.
+   The Zilog **NMOS Z80** track is complete under decision-20, always on
+   without a profile: every normally fetched encoding, full F/F', WZ/Q and
+   final six-variant z80test / 67-group ZEXDOC/ZEXALL campaigns. The
+   [Z80 closure inventory](../../PROVENANCE.md#residual-facts-at-the-z80-undocumented-closure-2026-11-13)
+   records each label, witness and remaining two-key gap. CMOS, other makers
+   and NMOS subvariants require independent evidence and a decision-6 scope
+   decision. IM0 non-RST and odd IM2 remain API refusals; a CRC alone cannot
+   admit a hardware fact.
 8. Decided in decision-4: keep no_std and no allocation; MSRV 1.95, tested by
    the `msrv` dev shell gate ([commands](commands.md#msrv)).
 9. Decided by the maintainer, recorded in decision-6: per-model types with a
