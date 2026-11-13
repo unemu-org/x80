@@ -1,4 +1,4 @@
-//! 8-Bit Arithmetic Group: encoding data only (decision-13 rule 2).
+//! 8-Bit Arithmetic Group (decision-13 rule 2).
 //!
 //! Primary: Zilog UM008011-0816, rev. 11 (August 2016), pp. 144–171.
 //! Entry citations below use printed pages; PDF = printed + 14.
@@ -6,11 +6,12 @@
 //! (PDF = printed + 6). Whole-instruction lengths and T-state totals include
 //! every prefix, operand and displacement (decision-13 rules 3–5).
 
-use super::cpu::Decoded;
+use super::alu;
+use super::cpu::{Decoded, IndexRegister, Table};
 use super::opcodes::{Encoding, Instruction, States};
-use super::Z80;
+use super::{Registers, Z80};
 use crate::decode::Path;
-use crate::Bus;
+use crate::{Bus, MemoryAccess};
 
 // Entry bit-diagram slips on pp. 151, 159: see PROVENANCE.md §1.
 
@@ -96,21 +97,109 @@ pub(super) const INDEX: &[Encoding] = &[
     Encoding::new(b"00110101", 3, States::single(23)),
 ];
 
-/// Flip only this group-owned switch when its executor is complete. Until
-/// then dispatch refuses before any operand/data/stack/port access
-/// (decision-5 item 7 staging; decision-14 rule 4).
-pub(super) const LANDED: bool = false;
+/// All documented encodings in this group's MAIN and INDEX lists execute.
+pub(super) const LANDED: bool = true;
 
-/// Final executor seam (decision-13 rule 4). PC is after prefix/key bytes;
-/// read remaining operands through Z80::fetch_operand. INDEX d is executor-
-/// owned; INDEX_CB d is in Decoded. Return the complete instruction's path.
-/// Repeating blocks rewind PC by two and return Path::Taken (rule 11).
+/// PC is after prefix/key bytes (decision-13 rule 4). All flag rules come
+/// from the model's landed ALU helpers; no flag equations are repeated here.
+/// UM pp. 145–171; 03-0029-01 Table 7.0-4 p. 47. Existing PROVENANCE §1
+/// rows resolve SBC's overflow and AND/OR's parity wording slips.
 pub(super) fn execute<S: Bus>(
-    _cpu: &mut Z80,
-    _system: &mut S,
+    cpu: &mut Z80,
+    system: &mut S,
     _instruction: &Instruction,
-    _decoded: &Decoded,
+    decoded: &Decoded,
 ) -> Path {
-    // Unreachable while LANDED is false; never a panic or a public stub.
+    // INDEX d belongs to the executor and precedes the data read (decision-15
+    // rule 5). UM pp. 149–150,168–171; TM p. 47: signed two's-complement
+    // displacement. The u16 address wrap is derived from index width.
+    let address = if decoded.table == Table::Index {
+        let displacement = i16::from(cpu.fetch_operand(system) as i8);
+        let base = match decoded.index {
+            Some(IndexRegister::Ix) => cpu.registers().ix,
+            Some(IndexRegister::Iy) => cpu.registers().iy,
+            None => cpu.registers().hl(),
+        };
+        base.wrapping_add_signed(displacement)
+    } else {
+        cpu.registers().hl()
+    };
+    let opcode = decoded.opcode;
+    let carry = cpu.registers().flags.carry;
+    if opcode & 0xC0 == 0 {
+        // INC/DEC r and memory: UM pp. 165–171; TM p. 47. Read before
+        // writing the same location, both as Data (decision-15 rule 5).
+        // Carry is preserved by the ALU and does not enter the byte result.
+        let code = (opcode >> 3) & 7;
+        let value = read_operand(cpu.registers(), system, code, address);
+        let (result, flags) = if opcode & 1 == 0 {
+            alu::increment(value, carry)
+        } else {
+            alu::decrement(value, carry)
+        };
+        write_operand(cpu.registers_mut(), system, code, address, result);
+        cpu.registers_mut().flags = flags;
+    } else {
+        // UM pp. 145–164; TM p. 47. Only n uses an immediate byte; r and
+        // memory share the low field. Capture A/source before replacement,
+        // including A as its own source. Only ADC/SBC consume incoming C.
+        let source = if opcode & 0xC0 == 0xC0 {
+            cpu.fetch_operand(system)
+        } else {
+            read_operand(cpu.registers(), system, opcode & 7, address)
+        };
+        let a = cpu.registers().a;
+        let (result, flags) = match (opcode >> 3) & 7 {
+            0 => alu::add(a, source, false),
+            1 => alu::add(a, source, carry),
+            2 => alu::subtract(a, source, false),
+            3 => alu::subtract(a, source, carry),
+            4 => alu::and(a, source),
+            5 => alu::xor(a, source),
+            6 => alu::or(a, source),
+            // CP supplies subtraction flags without replacing A (UM p. 164).
+            _ => (a, alu::compare(a, source)),
+        };
+        cpu.registers_mut().a = result;
+        cpu.registers_mut().flags = flags;
+    }
+    // Fixed whole-instruction costs, including prefixes, are retired by the
+    // dispatcher (decision-13 rules 4–5); there is no conditional path here.
     Path::Untaken
+}
+
+// Register fields: UM pp. 145,152,154,156,158,160,162,164–165,170;
+// TM Table 7.0-4 p. 47. Memory is 110; no index halves (decision-14 rule 1).
+fn read_operand<S: Bus>(registers: &Registers, system: &mut S, code: u8, address: u16) -> u8 {
+    match code {
+        0 => registers.b,
+        1 => registers.c,
+        2 => registers.d,
+        3 => registers.e,
+        4 => registers.h,
+        5 => registers.l,
+        6 => system.read(address, MemoryAccess::Data),
+        _ => registers.a,
+    }
+}
+
+// INC/DEC destinations, with memory address captured before the operation:
+// UM pp. 165–171; TM p. 47. Data kind is decision-15 rule 5's API mapping.
+fn write_operand<S: Bus>(
+    registers: &mut Registers,
+    system: &mut S,
+    code: u8,
+    address: u16,
+    value: u8,
+) {
+    match code {
+        0 => registers.b = value,
+        1 => registers.c = value,
+        2 => registers.d = value,
+        3 => registers.e = value,
+        4 => registers.h = value,
+        5 => registers.l = value,
+        6 => system.write(address, value, MemoryAccess::Data),
+        _ => registers.a = value,
+    }
 }
