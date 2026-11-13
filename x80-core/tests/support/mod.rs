@@ -43,6 +43,10 @@ pub enum Event {
     Input { port: u8, value: u8 },
     /// [`Bus::output`]: `value` is the byte written.
     Output { port: u8, value: u8 },
+    /// [`Bus::input16`]: full port address and the byte returned.
+    Input16 { port: u16, value: u8 },
+    /// [`Bus::output16`]: full port address and the byte written.
+    Output16 { port: u16, value: u8 },
     /// [`Control::stop_requested`], with the level returned.
     StopPoll(bool),
     /// [`Inputs::interrupt_requested`], with the level returned.
@@ -70,7 +74,8 @@ pub enum Event {
 /// - An acknowledge read returns the next byte of `acknowledges` and leaves
 ///   memory alone. It also lowers `interrupt` if `lower_interrupt_on_acknowledge`
 ///   is set.
-/// - [`Bus::input`] returns the next byte of `inputs`, whatever the port.
+/// - [`Bus::input`] and [`Bus::input16`] return the next byte of `inputs`,
+///   whatever the port. Full-width calls log distinct 16-bit port events.
 /// - Stop polls return `stop`. INT polls consume `interrupt_levels`, falling
 ///   back to `interrupt` when the script is empty.
 ///
@@ -78,7 +83,7 @@ pub enum Event {
 pub struct RecordingBus {
     /// The 65,536 bytes of memory, indexed by address.
     pub memory: Vec<u8>,
-    /// Bytes returned by successive [`Bus::input`] calls.
+    /// Bytes returned by successive [`Bus::input`] or [`Bus::input16`] calls.
     pub inputs: VecDeque<u8>,
     /// Bytes returned by successive interrupt-acknowledge reads.
     pub acknowledges: VecDeque<u8>,
@@ -207,6 +212,19 @@ impl Bus for RecordingBus {
 
     fn output(&mut self, port: u8, value: u8) {
         self.log.push(Event::Output { port, value });
+    }
+
+    fn input16(&mut self, port: u16) -> u8 {
+        let value = self
+            .inputs
+            .pop_front()
+            .unwrap_or_else(|| panic!("unscripted input from port {port:#06x}"));
+        self.log.push(Event::Input16 { port, value });
+        value
+    }
+
+    fn output16(&mut self, port: u16, value: u8) {
+        self.log.push(Event::Output16 { port, value });
     }
 }
 

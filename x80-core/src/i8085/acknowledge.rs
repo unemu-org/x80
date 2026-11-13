@@ -45,6 +45,8 @@ pub(super) fn accept<S: Bus>(cpu: &mut I8085, system: &mut S) -> Option<Result<u
                 pc,
                 opcode,
                 acknowledge: true,
+                preceding: [0; 3],
+                preceding_len: 0,
             }));
         }
     };

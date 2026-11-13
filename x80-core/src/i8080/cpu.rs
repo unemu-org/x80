@@ -215,6 +215,8 @@ impl I8080 {
                 pc,
                 opcode,
                 acknowledge: true,
+                preceding: [0; 3],
+                preceding_len: 0,
             });
         }
         branch::restart(self, system, opcode, pc);
@@ -240,6 +242,8 @@ impl I8080 {
             pc,
             opcode,
             acknowledge: false,
+            preceding: [0; 3],
+            preceding_len: 0,
         };
         // Not documented as an instruction by 98-153B (decision-3).
         let Some(instruction) = OPCODES[usize::from(opcode)] else {

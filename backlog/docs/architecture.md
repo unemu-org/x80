@@ -44,6 +44,7 @@ x80-core/
   src/i8085/vectored.rs         TRAP and RST 5.5/6.5/7.5 acceptance (decision-12 rule 4)
   src/i8085/acknowledge.rs      INTR RST/CALL acceptance (decision-12 rule 5)
   tests/boundary.rs             zero-dependency and model-neutral root tripwires
+  tests/root_contract.rs        full-width port defaults/overrides and preceding-byte diagnostics
   tests/support/                recording test bus, sample state, unsupported check
   tests/i8080_run.rs            budget, boundary sequence, exit precedence, step, determinism
   tests/i8080_<group>.rs        one witness file per instruction group
@@ -81,6 +82,21 @@ manuals. Each CPU model is its own module and type: `x80_core::i8080` and
 `x80_core::i8085`, each with its CPU, `Registers`, `Flags`, `Latches` and `Inputs`.
 Hardware facts live in the model and cite the pinned manuals by page. There is
 no family-wide CPU or register type and no model trait.
+
+Root-contract extensions (decision-14 rule 3; decision-15 rules 4/5/13):
+`Bus::input16` and `output16` accept the full A0-A15 port address, defaulting
+to the existing 8-bit methods with A0-A7. Only models whose decisions specify
+them call these methods; neither current model does, and the planned Z80 will.
+Models document which instruction bytes carry `MemoryAccess::OpcodeFetch`,
+potentially more than one per instruction; the 8080/8085 first-byte mapping
+is unchanged. `Unsupported` reports the refused byte in `opcode` and every
+instruction-stream byte read before it, in read order, in the used prefix of
+`preceding: [u8; 3]` with `preceding_len` in `0..=3` (displacement included,
+unused elements zero). Its `preceding()` accessor returns the used bytes and
+clamps invalid lengths to capacity. `pc` remains the first-byte or acknowledge
+address. Only the reads of the reported bytes have reached the bus; CPU state
+is restored and read-side device effects cannot be undone. Both current models
+report zero preceding bytes for fetched and acknowledge refusals.
 
 Private machinery is shared under decision-10: `decode.rs` matches bit patterns
 using model-supplied field restrictions and builds maps generic over the model's

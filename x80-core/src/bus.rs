@@ -13,7 +13,11 @@
 #[non_exhaustive]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum MemoryAccess {
-    /// Read of the first byte of an instruction.
+    /// Read of an instruction byte classified by the model as an opcode fetch.
+    ///
+    /// A model may document more than one such read per instruction
+    /// (decision-15 rule 5). The 8080 and 8085 use it only for the first byte
+    /// (decision-5 item 3, decision-12).
     OpcodeFetch,
     /// Read of a byte of an instruction after its first byte.
     ///
@@ -50,10 +54,30 @@ pub trait Bus {
 
     /// Reads a byte from the device numbered `port`.
     ///
-    /// The port number is 8 bits wide; its width is revisited when a later
-    /// model needs more (decision-5 item 3).
+    /// The port number is 8 bits wide (decision-5 item 3). Models requiring
+    /// the full port address use [`Bus::input16`] (decision-15 rule 4).
     fn input(&mut self, port: u8) -> u8;
 
     /// Writes `value` to the device numbered `port`.
     fn output(&mut self, port: u8, value: u8);
+
+    /// Reads a byte at the full 16-bit port address presented on A0-A15.
+    ///
+    /// Only models whose decision records specify it call this method.
+    /// No current model does; the planned z80 model will (decision-15 rule 4).
+    /// The default forwards A0-A7 to [`Bus::input`] so existing embedders keep
+    /// working. An embedder may override it to observe the full address.
+    fn input16(&mut self, port: u16) -> u8 {
+        self.input(port as u8)
+    }
+
+    /// Writes `value` at the full 16-bit port address presented on A0-A15.
+    ///
+    /// Only models whose decision records specify it call this method.
+    /// No current model does; the planned z80 model will (decision-15 rule 4).
+    /// The default forwards A0-A7 to [`Bus::output`] so existing embedders keep
+    /// working. An embedder may override it to observe the full address.
+    fn output16(&mut self, port: u16, value: u8) {
+        self.output(port as u8, value);
+    }
 }

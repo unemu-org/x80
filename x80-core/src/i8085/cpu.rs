@@ -246,6 +246,8 @@ impl I8085 {
             pc,
             opcode,
             acknowledge: false,
+            preceding: [0; 3],
+            preceding_len: 0,
         };
         let Some(instruction) = OPCODES[usize::from(opcode)] else {
             return Err(unsupported);
