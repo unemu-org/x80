@@ -97,6 +97,8 @@ pub mod i8080 {
    The port is the 8-bit device number (pp. 4-3, 4-14). `MemoryAccess` is
    non-exhaustive; M4 revisits the port width. decision-1's other choices
    stand; on acceptance, decision-1 gets a pointer to this record.
+   Z80 extensions for port width and `OpcodeFetch` wording: decision-15
+   rules 4–5; this item's 8080 contract is unchanged.
 4. **Input lines and acknowledge.** At each instruction boundary that
    passes the budget check, the core calls `stop_requested` and then
    `interrupt_requested`, exactly once each, whatever their results and the
@@ -148,6 +150,8 @@ pub mod i8080 {
    the attempt. Only the opcode or acknowledge read has reached the bus. With
    the same bus responses, a repeated call returns the same exit. The struct is
    non-exhaustive so that prefixed opcodes of a later model can be added.
+   Multi-byte payload and refusal-read wording: decision-14 and
+   decision-15 rule 13; this item's 8080 contract is unchanged.
 7. **Documented but not yet implemented (extends decision-3 for M1).** During
    M1, a documented opcode whose group has not landed returns `Unsupported`
    like an undocumented one. `status.md` lists the implemented groups.
