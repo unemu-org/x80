@@ -10,10 +10,10 @@ witness test with expected values derived from that citation.
 
 ### Pinned sources
 
-All are fetch-only and cite-only (© Intel, no redistribution grant). Their rows in
-`oracles/MANIFEST.md` carry the URL, page count and page-to-PDF map; fetch them with
-`./oracles/fetch-oracles.sh fetch` and check them with `verify`. All are scans with
-a noisy OCR text layer: check every cited value against the page image.
+All are fetch-only and cite-only (© Intel, Zilog or Mostek, no redistribution grant).
+Their entries in `oracles/MANIFEST.md` carry the URL, page count and page-to-PDF map; fetch them with
+`./oracles/fetch-oracles.sh fetch` and check them with `verify`. Historical sources are
+scans with a noisy OCR text layer: check every cited value against the page image.
 
 | Path in `oracles/` | Title | Order number, date | SHA-256 | Role |
 | --- | --- | --- | --- | --- |
@@ -106,6 +106,78 @@ Not stated in the manual, so not modelled as facts:
   8080 IN/OUT.
 - Misprints noticed: p. 12-176 "SP <- PS - 6"; p. 12-177 refers to BRKEM where RETEM is meant.
 
+### Z80 sources (M4: documented behaviour only)
+
+Accepted by the maintainer, 2026-11-13: UM008011-0816 is the primary; the four
+historical manuals below are second witnesses. All five are pinned fetch-only in
+the shared stash; the URLs and page counts are in `oracles/MANIFEST.md`.
+
+| Path in `oracles/` | Title | Document number, revision/printing, date; PDF pages read | SHA-256 | Role |
+| --- | --- | --- | --- | --- |
+| `zilog/z80-um.pdf` | Z80 CPU User Manual | UM008011-0816, revision 11, August 2016; title/copyright PDF 1–2, revision history iii/PDF 3; 332 PDF pages | `e3c83da5a5d8e372364c20fa53665e6fbb165ec6ac38c8c1eebc359603447b5e` | Primary: architecture, pin functions, timing, interrupt response, op-code tables, instruction entries with flags and states |
+| `zilog/z80-tm-1977.pdf` | Z80-CPU / Z80A-CPU Technical Manual | 03-0029-01, ©1977; no separate printing date found; cover/colophon PDF 1–2; 83 PDF pages | `9c7304b4842dac6d34c9cd1552f006c2f1b6fa9373f7e6d1b614956d91efc485` | Second witness: §3 pins, §4 CPU timing, §6 flags, §7 op codes and execution times, §8 interrupt response, §12 instruction summary |
+| `zilog/z80-alpm-1978.pdf` | Z80-Assembly Language Programming Manual | 03-0002-01 (back cover, PDF 315); January 1978 (contents, PDF 3); colophon PDF 2 marks “3.0 D.S.” and “REL. 2.1”, ©1977; cover PDF 1; 315 PDF pages | `d9d18bd2bc074d61faf6b46f985122e940925b04d37fa6480372b5c3794faa6c` | Second witness: §VI instruction encodings, descriptions, flags, machine cycles and T-states |
+| `zilog/z80-ps-1978.pdf` | Z80-CPU / Z80A-CPU Product Specification | 03-0027-02 (PDF 10), March 1978 (PDF 1), ©1977 (PDF 10); 10 PDF pages | `98ef3a633edf3b1c9350c2b123e12608133b83c0ffb40233e0a2771f5293aee9` | Second witness: instruction summary pp. 4–5, timing diagrams and characteristic tables |
+| `mostek/mk78515-z80-pm.pdf` | Z80 Programming Manual | MK78515, V2.0 (title PDF 3; cover PDF 1), printed October 1978, ©1978 (back cover PDF 312); 312 PDF pages | `1f5217c39e03aa2a55a087305649e2079f8b3d94a512a2e4d415d15b7dba43fd` | Second witness: §2 instruction entries with flags and states, Table 2-1 interrupt enable/disable, Appendix A opcode listing |
+
+READ, 2026-11-13: titles, colophons and the page-map checks below were read on
+page images rendered with `pdftoppm -r 150 -f N -l N -png`; OCR only located pages.
+Counts include covers and blank pages. Zilog and Mostek retain copyright; the
+scans and the vendor PDF grant no redistribution right. Cite them, never vendor them.
+
+MEASURED by the supervisor, 2026-11-13: the live vendor URL
+`https://www.zilog.com/docs/z80/um0080.pdf` answers 301 to a vendor landing page,
+not a PDF. The Wayback CDX index records at least two different PDF digests at
+that URL over 2020–2023. The pin is the vendor's own file archived at that vendor
+URL in capture `20231217134046`:
+`https://web.archive.org/web/20231217134046id_/https://www.zilog.com/docs/z80/um0080.pdf`.
+Local metadata confirms title “Z80 CPU User Manual”, created 2016-08-31 with
+Acrobat Distiller 9.0.0; local size is 1,587,333 bytes. The title page confirms
+UM008011-0816 and ©2016 Zilog. The hash selects the edition, not the live filename.
+The four historical scans use the same bitsavers mirror as the Intel and NEC pins;
+this local-only pass did not compare them with bitsavers.org itself.
+
+The user manual's revision history (iii/PDF 3) says revision 11 (August 2016)
+changes formatting on pp. 39–41. Revision 10 (August 2016) adds the instruction
+notation summary and corrects typos/errors; 09 (May 2016) and 08 (January 2016)
+also correct typos/errors. Earlier entries identify corrections to POP qq
+(2015, p. 119), the status-flags table bit 4 and EXX bit 0 (2014, pp. 65, 126),
+RLCA's hex code and illustration (2005, pp. 55, 205), and IM 0/1/2 bit patterns
+(2004, pp. 184–186). This history warrants the exact revision pin; it does not
+establish that all remaining text is correct.
+
+Page maps (printed → one-based PDF), checked on rendered images:
+
+| Document / parts to cite | Rule | Images checked (printed → PDF) |
+| --- | --- | --- |
+| UM008011-0816: architecture, pin functions, timing, interrupt response; op-code tables; instruction entries | PDF = n+14 | 1 → 15; 5 → 19; 7 → 21; 11 → 25; 42 → 56; 64 → 78; 72 → 86; 305 → 319; 316 → 330 |
+| 03-0029-01: §3 pin description, §4 timing, §7 instruction tables, §8 interrupt response, §12 summary | PDF = n+6 | 7 → 13; 11 → 17; 43 → 49; 53 → 59; 55 → 61; 57 → 63; 73 → 79; 75 → 81 |
+| 03-0027-02: instruction summary and characteristic tables | PDF = n (pp. 1–9; last sheet PDF 10 has no printed number) | 4 → 4; 6 → 6 |
+| MK78515: §2, including instruction entries 2-21–2-258 and Table 2-1 at 2-15 | printed 2-n = PDF 14+n | 2-15 → 29; 2-21 → 35; 2-258 → 272 |
+| MK78515: Appendix A opcode listing (listing's own page numbers, 1–15) | PDF = 274+n | listing 1 → 275; listing 15 → 289 |
+| MK78515: unnumbered Appendix D reference tables | Cite table number and PDF page | D-1/D-2 → 309; D-3/D-4/D-5 → 310 |
+
+03-0002-01 §VI and its instruction entries need a piecewise map because the scan
+includes unnumbered separator pages. Each range below was checked on two images:
+
+| Printed pages n | PDF rule | Images checked (printed → PDF) |
+| --- | --- | --- |
+| 24–25 (instruction-set introduction and contents) | n+3 | 24 → 27; 25 → 28 |
+| 26–98 | n+4 | 27 → 31; 98 → 102 |
+| 99–145 | n+5 | 99 → 104; 145 → 150 |
+| 146–162 | n+6 | 146 → 152; 162 → 168 |
+| 163–201 | n+7 | 163 → 170; 201 → 208 |
+| 202–218 | n+8 | 202 → 210; 218 → 226 |
+| 219–251 | n+9 | 219 → 228; 251 → 260 (also 250 → 259; OCR misreads its footer as 260) |
+| 252–274 | n+10 | 252 → 262; 274 → 284 |
+
+Lineage caveat: all four second witnesses share Zilog's documentation lineage,
+including Mostek's restatement. Agreement can catch retyping errors; it cannot
+independently establish the design or rule out a shared design error. None is a
+hardware measurement. Pinning these sources encodes no instruction behaviour.
+Record future disagreements and their primary citations in this file's §1 before
+resolving them; an oracle can falsify a reading but never license it.
+
 ### Discovery inventory
 
 The list below is **not a set of pinned sources**. Unknown metadata is marked
@@ -115,7 +187,6 @@ The list below is **not a set of pinned sources**. Unknown metadata is marked
 | --- | --- | --- | --- | --- |
 | MCS-80 User's Manual | 98-153D | 1977 | bitsavers mirror (not pinned) | Not pinned: a later edition that repeats the 98-153B CPU chapters; a possible check for corrections |
 | MCS-85 User's Manual | 9800366E | September 1978 | not on bitsavers (not pinned) | Not pinned: its 8085A chapters carry the same text as 205775-002, so not an independent witness |
-| Zilog Z80 CPU User Manual | source to find | source to find | source to find | Z80 state, instruction set, interrupts and timing |
 
 Sources live in the organisation's shared oracle stash, `unemu-org/oracles`, included here
 as x80's own `oracles/` submodule with its own pin (maintainer decision, 2026-11-11; x86jit

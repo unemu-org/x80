@@ -73,7 +73,11 @@ offline ([commands](commands.md)); on 2026-11-12 8080PRE passed and 8080EXM pass
 all 25 groups, about 16 s for 2.9 billion instructions in a release build.
 M2 remains in progress: its x80-side work (beads `x80-pzp.1` to `.5`) runs from the
 pinned NEC manual, and its joint witnesses wait on x86jit's V20/V30 bead (C4).
-M4 has not started. See [plan §5](plan.md#5-milestones).
+M4 source preparation (2026-11-13): the Z80 primary UM008011-0816 and four
+historical second witnesses are pinned fetch-only and cite-only, with verified
+page maps and the shared Zilog lineage caveat in PROVENANCE.md §1. M4 covers
+documented behaviour only; model implementation has not started. See
+[plan §5](plan.md#5-milestones).
 
 **M3: done (2026-11-13, epic `x80-4gk`).** The `i8085` model executes every
 documented instruction, including RIM/SIM, and all five interrupt sources with

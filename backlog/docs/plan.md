@@ -259,8 +259,13 @@ Decided items cite their record; the rest stay open.
 1. Decided for the 8080: 98-153B (primary) and 9800301-04 (second witness), pinned
    fetch-only in the shared `unemu-org/oracles` repository (PROVENANCE.md). Decided
    for the 8085 (2026-11-12): 205775-002 (primary) and the 8085AH data sheet
-   231718-001, with 9800301-04 as second witness for states. Z80 and NEC V20/V30
-   sources stay open until their milestones.
+   231718-001, with 9800301-04 as second witness for states. Decided for the Z80
+   (2026-11-13): M4 covers documented behaviour only; UM008011-0816 (August 2016)
+   is primary, with 03-0029-01 (1977), 03-0002-01 (January 1978 printing),
+   03-0027-02 (March 1978) and Mostek MK78515 (V2.0, October 1978) as second
+   witnesses. All five are pinned fetch-only and cite-only; page maps, the
+   archived vendor-file pin and the shared Zilog lineage caveat are in
+   PROVENANCE.md §1. The NEC V20/V30 source for M2 is also pinned there.
 2. Decided in decision-1: synchronous, infallible bus; no wait states;
    instruction-boundary timing for M1.
 3. Decided in decision-2: overshoot at completed instruction boundaries; prompt
