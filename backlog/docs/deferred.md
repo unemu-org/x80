@@ -8,11 +8,21 @@ is drafted in [decision-17](<../decisions/decision-17 - Two-key-evidence-rule-fo
 Source pins, two-key evidence and later per-model records precede implementation;
 those records will supersede decisions 11 and 14 in part.
 
+The 8085 proposal is [decision-18](<../decisions/decision-18 - 8085-undocumented-instructions-and-V-K-flags.md>)
+(Decider pending), revised for the maintainer's 2026-11-13 second-source
+manufacturer licence. It admits all ten instructions, their operations, lengths
+and path totals as **documented by second source (CA80C85B), unverified for
+Intel 8085**, with independent die confirmation of each encoding. Silicon's
+K=V XOR result sign wins; source defects receive explicit rulings. Physical bus
+order and unstated flag effects use labelled library rules, not silicon claims.
+
 | Item | Why deferred | Revisit |
 | --- | --- | --- |
 | NEC emulation-mode extensions | Shared mapping and handoff contract unverified | M2 with decision-23 and V20 bead (x86jit) |
 | Bus-cycle stepping, pin-level timing, READY and HOLD/HLDA behavior | Instruction T-state totals do not establish bus-cycle accuracy; includes the 8085's HOLD/HLDA and temporary halt leave during HOLD (decision-12 rule 11) | An explicit embedder requirement and cited timing contract |
 | Undocumented 8080 behavior | No qualifying source yet; decision-3 keeps typed Unsupported exits and decision-9's V20 ED escape working | Research finds evidence satisfying decision-17 and a later per-model record admits the behavior |
+| 8085 Intel silicon scope and physical bus traces | decision-18 admits all ten operations, lengths and timings under the second-source licence; Intel specimen/revision equivalence, exact temporal order/dummy activity for LHLX/SHLX/RSTV and JK/JNK operand-read traces remain unverified. Its API mappings and width/offset rules are explicitly labelled | Pinned named-Intel evidence; revise the labelled mappings if hardware differs, without treating licensed timings as blocked |
+| 8085 remaining hidden-flag hardware evidence | decision-18 chooses V/K effects, arbitrary POP loads, Default/reset and explicit preservation rules; single-origin die readings and unstated preservation remain labelled library rules. DSUB P/AC details and hidden-enable discrepancies are not fully confirmed | Independent evidence for exact updates/load/preservation, DSUB P/AC and non-BCD DAA, followed by unmasked witnesses; D5h-masked 8085EXM cannot settle these questions |
 | Z80 BUSREQ/BUSACK, external WAIT, pin timing and refresh addresses | decision-15 rule 14 omits these inputs/signals and their interrupt gating; automatic acknowledge waits remain in totals, external waits add no modelled time | An explicit embedder requirement and cited timing/arbitration contract |
 | Z80 CMOS and other-part undocumented behavior | Epic `x80-mn3` targets Zilog NMOS Z80; the earlier documented-model NMOS/CMOS equivalence remains unverified (decision-13 rule 6) | Pinned evidence of an observable part difference, a witness and maintainer variant decision |
 | Z80 IM 0 multi-byte/general injected instructions | decision-15 rule 9 accepts RST only; hardware's other documented instructions, including CALL, need an additional acknowledge/operand contract. Odd IM 2 vectors also remain refused without a hardware-outcome claim | An embedder requirement and an accepted extension with independent witnesses |

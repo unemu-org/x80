@@ -24,6 +24,8 @@ per-fact evidence before implementation.
 
 ## Choice
 
+Amendment: the maintainer's 2026-11-13 second-source manufacturer licence and its conditions are recorded in [decision-18, “Amendment to decision-17”](<decision-18 - 8085-undocumented-instructions-and-V-K-flags.md#amendment-to-decision-17>) (accepted 2026-11-13).
+
 - Documented behaviour keeps the existing rule: derive it only from cited primary
   sources (document/revision, section or table, and page), pin revision and SHA-256,
   and give every implemented fact an independent witness test.

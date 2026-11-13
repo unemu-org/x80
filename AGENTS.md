@@ -65,7 +65,7 @@ setup. Cross-repository identifiers carry a tag, e.g. `decision-23 (x86jit)`.
 - Derive documented behavior only from cited primary sources: document/revision,
   section/table and page. Pin every implemented fact with an independent witness.
   Undocumented facts need a revision/date-and-hash-pinned written A/B/C statement
-  plus independent silicon confirmation (B or A of different origin); see
+  plus independent silicon confirmation (B or A of different origin), subject to the [second-source manufacturer licence in decision-18](<backlog/decisions/decision-18 - 8085-undocumented-instructions-and-V-K-flags.md#amendment-to-decision-17>); see
   [decision-17](<backlog/decisions/decision-17 - Two-key-evidence-rule-for-undocumented-behaviour.md>).
   Oracles can falsify; alone they cannot license a fact. Never read another
   emulator's source or documentation. Unknown facts stay explicitly unverified.
