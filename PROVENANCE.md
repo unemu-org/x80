@@ -39,7 +39,7 @@ or erroneous document; record both readings and the ruling.
 
 Never read another emulator's source or documentation. HDL replicas and netlist
 simulators are implementations; only their die-derived data (schematics,
-netlists) is evidence. Source pins and per-model rulings follow in later beads;
+netlists) is evidence. Per-model rulings follow source pinning in later beads;
 decision-17 itself licenses no individual undocumented fact.
 
 ### Pinned sources
@@ -264,6 +264,61 @@ independently establish the design or rule out a shared design error. None is a
 hardware measurement. Pinning these sources encodes no instruction behaviour.
 Record future disagreements and their primary citations in this file's §1 before
 resolving them; an oracle can falsify a reading but never license it.
+
+### 8085 undocumented-instruction sources (M6; x80-mn3.2)
+
+READ locally, 2026-11-13: the two-page article and the Tundra title/colophon and
+CA80C85B section on `pdftoppm` page images; all four HTML bodies, using Python
+`gzip` to decompress the two `.html.gz` files for reading. All six are fetch-only
+and cite-only, with no redistribution grant. The paths below are in `oracles/`;
+its `MANIFEST.md` records the exact URLs, byte sizes and capture timestamps, and
+`SHA256SUMS.fetched` pins the original bytes, including gzip encoding.
+
+| Path | Title / author or organisation / date | SHA-256 | Class, label and source statement / locator |
+| --- | --- | --- | --- |
+| `intel/i8085-undocumented/dehnhardt-sorensen-1979.pdf` | Unspecified 8085 op codes enhance programming — Wolfgang Dehnhardt and Villy M. Sorensen; Electronics, Engineer's notebook, 18 January 1979 | `3e518e15baecefe525d676962631568442ecc56aef0030ab84205af96634cda4` | **C; third-party analysis.** pp. 144–145/PDF 1–2 report ten opcodes and two flags, X5 and V; PDF 2's “New 8085 instructions” table supplies operations, encodings, flags, cycles and states. The authors say they found them while testing an assembler-disassembler module; no tested manufacturer, part marking or specimen is identified |
+| `intel/i8085-undocumented/tundra-8000-series-1996.pdf` | 8000 Series Components Manual — Tundra Semiconductor Corporation; 9000000.MD302.01, ©1996; layout headers 13 June 1997 | `ffd52ddb16cf474e515608c81bff9f8a3f48e145694ef21c81175fb215cd7a2e` | **A; documented by second source (CA80C85B).** CA80C85B High Performance 8-bit CMOS Microprocessor, pp. 2-1–2-16/PDF 25–40; p. 2-4 states ten additional instructions and two additional flags. Figure 2-9 “Extended Condition Codes” and Table 2-10 “CA80C85B Extended Instruction Set” document Tundra's CMOS part; this is not evidence for a named Intel specimen |
+| `intel/i8085-undocumented/shirriff-8085-undocumented-flags.html.gz` | Silicon reverse engineering: The 8085's undocumented flags — Ken Shirriff; February 2013 (URL month); Wayback capture 20260905021235 | `62ff642a672cf3b5b860b1fdad877ba68a32f759759f19d9c7f97ad65eb9a09e` | **B; die analysis (8085; exact part unverified).** “The circuit for the K and V flags” and “The silicon” give the reverse-engineered circuit; notes [1], [3], [4] identify the earlier article, Tundra's copied description and instruction-specific flag discussion |
+| `intel/i8085-undocumented/shirriff-8085-flag-circuits.html.gz` | Reverse-engineering the flag circuits in the 8085 processor — Ken Shirriff; July 2013 (URL month); Wayback capture 20261027125023 | `3cf42d5c7d235592556def16c500f4383d5a0935a70f6e7f161cb27cb7095fe9` | **B; die analysis (8085; exact part unverified).** Opening flag list and flag-storage schematic describe PSW bus paths, bit 3 and DSUB multi-byte zero; “The carry logic” describes carry selection and the LDHI/LDSI temporary carry latch |
+| `intel/i8085-undocumented/shirriff-8085-alu.html` | Reverse-engineering the 8085's ALU and its hidden registers — Ken Shirriff; July 2013 (URL month); Wayback capture 20261014020057 | `1f7efa97c63fd8285b660b7515eee0c537802876eb5fc298cba6227a3d1ef7ee` | **B; die analysis (8085; exact part unverified).** “The real architecture of the 8085 ALU”, ACT/TMP register discussion, “Building the 8-bit ALU from single-bit slices”, and “The control lines” table describe die-derived data paths and instruction-controlled signals |
+| `intel/i8085-undocumented/zima-8085-decode-rom.html` | Intel 8085 Instruction Decode ROM — Pavel Zima (pastraiser.com attribution; no byline or publication date in capture); Wayback capture 20260606111153 | `d7afbcdfa0db020772393c171e6c697593aefd5b6da0b16161d32858cadb2eb5` | **B; die analysis (Intel 8085 as headed; exact part unverified).** Introductory ROM description and 48-line table transcribe physical decode lines, including DSUB, ARHL, RDEL, LDHI/LDSI, SHLX/LHLX, RSTV and JNK/JK. The heading names Intel 8085; the URL and linked layer drawing use AMD9085, without resolving the exact part |
+
+Page maps (one-based PDF), checked on rendered images:
+
+| Source | Printed → PDF | Images / locators checked |
+| --- | --- | --- |
+| Article (2 PDF pages) | 144–145 → 1–2 | Both images: byline/title/text and “New 8085 instructions” table. The scan does not display the issue date or printed page numbers; the publication locator comes from Shirriff's note [1] and the supplied publication record. Note [1] misspells Dehnhardt as “Sehnhardt”; the scan's byline governs the author name |
+| Tundra (186 PDF pages), title/colophon | i–ii → 1–2 | Title, document 9000000.MD302.01, ©1996 and prohibition on copying; layout stamp Friday, June 13, 1997, 12:49 PM |
+| Tundra CA80C85B, printed 2-n | **PDF = 24+n**, for 2-1–2-16 | Every page 2-1 → 25 through 2-16 → 40; extended-set statement 2-4 → 28; Figure 2-9 2-15 → 39; Table 2-10 2-16 → 40 |
+
+Reading limits: article PDF 2 prints RSTV hex C8 beside binary 11001011 and
+“reset” in the JX5 prose despite its positive test. Tundra Table 2-10 has a
+trailing comma in the DSUB flag list, subtraction remnants in the jump rows,
+a data-byte box for LHLX, and the SHLX description cut off at the original page
+end. These observations preserve the source readings; they do not correct or
+admit an encoding, timing or flag rule.
+
+Independence under decision-17: the article and Tundra count as **one origin**.
+Tundra derives its extended-set description from the article; Shirriff's
+undocumented-flags note [3] explicitly describes that copying and its introduced
+errors. The die analysis is a **separate origin** from that written lineage.
+Shirriff's credits/conclusions identify Visual6502 photographs and Zima's mask
+layers/transistor data. Shirriff's three posts and Zima's decode table share that
+die-data lineage; they do not supply four independent silicon confirmations.
+Only the written analyses and transcribed die data were read, not simulator or
+emulator implementations.
+
+Silicon scope remains limited to what the pinned pages identify: Tundra names
+CA80C85B; the article names only 8085; Shirriff names 8085, and Zima's title and
+heading say Intel 8085 despite the AMD9085 paths. No package marking or revision
+in these captured pages resolves that discrepancy. Do not infer an Intel 8085A,
+8085AH or AMD 9085 variant equivalence from those names or paths.
+
+The undocumented-flags post's opening discussion and circuit section state that
+the article's K/X5 formula, repeated as UI by Tundra, is mistaken, and derive
+K = V XOR result sign, with a separate INX/DCX path. This is a recorded source
+disagreement. Instruction/flag rulings, per-fact confirmation and any changes to
+decision-11 belong to **x80-mn3.3**; these pins license no behaviour by themselves.
 
 ### Discovery inventory
 
