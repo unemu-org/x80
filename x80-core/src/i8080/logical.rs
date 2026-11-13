@@ -12,8 +12,9 @@
 //! `and_auxiliary_carry` below for the 8080EXM and pinned results evidence.
 
 use super::opcodes::{Encoding, Instruction, Path, States};
-use super::{alu, Registers, I8080};
-use crate::{Bus, MemoryAccess};
+use super::{alu, I8080};
+use crate::intel::access::{operand, read_operand};
+use crate::Bus;
 
 /// The group's encodings, in page order. Each total is the entry's "States:"
 /// value on the cited printed page (PDF page = 44 + printed page).
@@ -75,9 +76,9 @@ pub(super) fn execute<S: Bus>(
             let operand = if opcode & 0xC0 == 0xC0 {
                 // Ch. 2 p. 2-18: M2 reads byte 2 at PC+1. p. 2-20
                 // note 6: memory read. OperandFetch is decision-5 item 3.
-                system.read(registers.pc.wrapping_add(1), MemoryAccess::OperandFetch)
+                operand(&super::view(registers), system, 1)
             } else {
-                read_operand(registers, system, opcode & 7)
+                read_operand(&super::view(registers), system, opcode & 7)
             };
             let a = registers.a;
             match opcode & 0x18 {
@@ -153,20 +154,4 @@ pub(super) fn execute<S: Bus>(
 /// 9800301-04 p. 1-12 supplies the rule (decision-8).
 const fn and_auxiliary_carry(a: u8, operand: u8) -> bool {
     (a | operand) & 0x08 != 0
-}
-
-/// Register codes: 98-153B Ch. 4 p. 4-3; M uses HL (pp. 4-8 to 4-10).
-/// Ch. 2 pp. 2-16/2-18, p. 2-20 note 6: M2 reads memory at HL.
-/// Data is decision-5 item 3's access kind for this read.
-fn read_operand<S: Bus>(registers: &Registers, system: &mut S, code: u8) -> u8 {
-    match code {
-        0 => registers.b,
-        1 => registers.c,
-        2 => registers.d,
-        3 => registers.e,
-        4 => registers.h,
-        5 => registers.l,
-        6 => system.read(registers.hl(), MemoryAccess::Data),
-        _ => registers.a,
-    }
 }

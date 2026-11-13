@@ -17,6 +17,8 @@ x80-core/
   src/exit.rs                   Exit and its Unsupported payload
   src/decode.rs                 private pattern matcher, generic opcode-map builder and cost slots
   src/progress.rs               private run counters, saturation and budget check
+  src/intel/mod.rs              private borrowed View and condition-only FlagRules (decision-16)
+  src/intel/access.rs           shared operand/location/pair/condition/address and push-and-jump helpers
   src/i8080/mod.rs              the 8080 model module and its re-exports
   src/i8080/state.rs            Registers (BC, DE, HL and PSW accessors) and Latches
   src/i8080/flags.rs            Flags and the cited flag byte of the PSW
@@ -41,7 +43,7 @@ x80-core/
   src/i8085/alu.rs              model-owned arithmetic primitives and result flags
   src/i8085/arithmetic.rs       Arithmetic encodings and executor (pp. 5-6 to 5-9)
   src/i8085/logical.rs          Logical encodings and executor (pp. 5-9 to 5-12)
-  src/i8085/branch.rs           Branch encodings, executor and stack/jump helper (pp. 5-13 to 5-15)
+  src/i8085/branch.rs           Branch encodings and executor (pp. 5-13 to 5-15)
   src/i8085/stack_io_control.rs Stack, I/O and Machine Control, excluding RIM/SIM (pp. 5-15 to 5-17)
   src/i8085/rim_sim.rs          RIM/SIM encodings and executor (pp. 5-17/5-18; decision-12 rule 8)
   src/i8085/vectored.rs         TRAP and RST 5.5/6.5/7.5 acceptance (decision-12 rule 4)
@@ -67,7 +69,7 @@ x80-core/
   src/z80/jump.rs               Jump encodings and executor (pp. 261–279)
   src/z80/call_return.rs        Call and Return encodings and executor (pp. 280–293)
   src/z80/input_output.rs       Input and Output encodings and executor (pp. 294–316)
-  tests/boundary.rs             zero-dependency, fact-free root and planned Intel-family tripwires
+  tests/boundary.rs             zero-dependency, fact-free root and Intel-family tripwires
   tests/root_contract.rs        full-width port defaults/overrides and preceding-byte diagnostics
   tests/support/                recording test bus, sample state, unsupported check
   tests/z80_run.rs              boundary, refusal, landed execution, refresh and budget-split witnesses
@@ -115,42 +117,48 @@ Exit, Unsupported}`. They carry no hardware fact and cite decisions, not
 manuals. Each CPU model is its own module and type: `x80_core::i8080`,
 `x80_core::i8085` and `x80_core::z80`, each with its CPU, `Registers`, `Flags`,
 `Latches` and `Inputs`.
-Hardware facts live in the model and cite the pinned manuals by page. There is
-no family-wide CPU or register type and no model trait.
+Hardware facts live in the model or the private Intel-family access tier and
+cite the pinned manuals by page. There is no family-wide public CPU or register
+type and no model trait.
 
-Planned Intel-family tier ([decision-16](<../decisions/decision-16 - Intel-family-shared-executors-for-the-8080-and-8085.md>),
-accepted 2026-11-13; no `src/intel` files yet):
+Intel-family tier ([decision-16](<../decisions/decision-16 - Intel-family-shared-executors-for-the-8080-and-8085.md>),
+accepted 2026-11-13; View and access helpers implemented in `x80-8sg.2`):
 
 ```text
-x80-core/src/intel/             planned, private to the crate
-  mod.rs                       View, closed FlagRules flag/ALU contract, BranchFacts
+x80-core/src/intel/             private to the crate
+  mod.rs                       View and condition-only FlagRules contract
   access.rs                    operand/location/pair/condition/address and push-and-jump helpers
-  data_transfer.rs             shared Data Transfer body
-  branch.rs                    shared Branch body, per-model untaken-read constant
-  stack_io.rs                  shared PUSH/POP, XTHL, SPHL, IN and OUT subset
-  logical.rs                   shared Logical body, per-model AND rule
-  arithmetic.rs                shared Arithmetic body including qualified DAA rules
+  data_transfer.rs             planned shared Data Transfer body
+  branch.rs                    planned shared Branch body, per-model untaken-read constant
+  stack_io.rs                  planned shared PUSH/POP, XTHL, SPHL, IN and OUT subset
+  logical.rs                   planned shared Logical body, per-model AND rule
+  arithmetic.rs                planned shared Arithmetic body including qualified DAA rules
 ```
 
-Each Intel model builds a concrete borrowed `View` from its own registers;
-its thin executor wrapper handles model-owned arms before the shared fallback.
+Each Intel model builds a concrete borrowed `View` from its own registers in a
+private `view` function. Its existing executors call the shared access helpers;
+executor bodies remain per model at this step. Later extractions introduce thin
+wrappers handling model-owned arms before the shared fallback.
 Public types, ALU/flag rules and `FlagRules` implementations, encoding lists,
 state totals, map witnesses, run loops, reset, interrupts, EI/DI/HLT/NOP and
-RIM/SIM stay per model. `FlagRules` has only the flag/ALU methods listed in
-decision-16; adding a method needs an amendment, and latch, interrupt, timing
-and bus members are forbidden. `BranchFacts` supplies untaken operand reads
-from per-model constants. Facts that differ or lack statements in both
-primaries remain model-owned rules/constants, including qualified DAA carry
-and XTHL order; matching code does not upgrade evidence.
+RIM/SIM stay per model. `FlagRules` currently has only `sign`, `zero`, `parity`
+and `carry` accessors, implemented in each model's `flags.rs`. Later steps may
+introduce the remaining flag/ALU methods listed in decision-16; methods beyond
+that list need an amendment, and latch, interrupt, timing and bus members are
+forbidden. `BranchFacts` is planned for the Branch extraction; untaken operand
+reads and PC advancement currently remain in each model's executor. Facts that
+differ or lack statements in both primaries remain model-owned rules/constants,
+including qualified DAA carry and XTHL order; matching code does not upgrade
+evidence.
 
-This planned tier permits a hardware literal only when both pinned primaries
+This tier permits a hardware literal only when both pinned primaries
 state the fact, with 98-153B and 205775-002 citations at that fact and independent
 witnesses per model. The root, `decode` and `progress` stay fact-free. Z80's
 sharing boundary stays at decode/progress/test support. The boundary test
 already checks both family identifiers, excludes Z80 identifiers and concrete
-model paths, and passes vacuously until the tier exists. Extraction stops for
-a maintainer checkpoint after Stack/IO, before Logical/Arithmetic, to assess
-interim duplication, oracle runtime and undocumented-8085 flag research.
+model paths, and now checks both family source files non-vacuously. Extraction
+stops for a maintainer checkpoint after Stack/IO, before Logical/Arithmetic, to
+assess interim duplication, oracle runtime and undocumented-8085 flag research.
 
 M4 closure duplication (2026-11-13, `x80-bi2.27`, base `37571c9`),
 **MEASURED** using decision-13 rule 7's comment-stripped, nonblank, trimmed-line
@@ -173,9 +181,10 @@ State/flag images, ALU rules (including AND auxiliary/half carry, subtraction
 and parity versus overflow), encoding restrictions, T-state totals, conditional
 operand reads, interrupt sources and EI/DI rules, reset, Z80 prefix/R rules,
 full-width ports and block iteration semantics must remain cited and witnessed
-per model. Only fact-free `decode`, `progress` and test support are shared;
-no executor/register trait or helper extraction is authorised by this measurement
-(decision-13 rule 7). A crate run-time wrapper still needs an embedder request.
+per model. That measurement alone authorises no extraction; decision-16 amends
+decision-13 rule 7 to permit the private Intel-family tier described above.
+Z80 still shares only fact-free `decode`, `progress` and test support. A crate
+run-time wrapper still needs an embedder request.
 
 Root-contract extensions (decision-14 rule 3; decision-15 rules 4/5/13):
 `Bus::input16` and `output16` accept the full A0-A15 port address, defaulting
@@ -201,7 +210,8 @@ saturates the counters and checks the budget. Neither module carries hardware
 facts; both cite decisions only. The 8080 keeps its group enum, encoding lists,
 timing values, executors, ALU, flags, state, interrupts, reset and map witness.
 The 8085 owns the same categories independently, plus `rim_sim`, `vectored`
-and `acknowledge` (decision-10; `i8085/mod.rs`).
+and `acknowledge` (decision-10; `i8085/mod.rs`). Both Intel models use the
+private access helpers under decision-16, without changing their public types.
 
 Flow for each model: CPU (owned registers and latches) + an embedder value
 that implements `Bus` and that model's `Inputs` → `step`/`run` → state updates,
@@ -223,9 +233,10 @@ There is no documented-but-unimplemented dispatch path (decision-5 item 7).
 edge sampling and highest eligible interrupt; halt; opcode fetch and group
 execution. `opcodes.rs` supplies six encoding lists to `decode.rs`, separating
 RIM/SIM from the five manual groups; executors report paths and `cpu.rs`
-selects the model-owned costs. `vectored.rs` and `acknowledge.rs` use
-`branch::restart` for stack writes and transfer of control (decision-12
-rules 4/5). Stop preserves state,
+selects the model-owned costs. `vectored.rs` and `acknowledge.rs`, like the
+8080 acknowledge path, use `intel::access::push_and_jump` with explicit return
+PC and target for stack writes and transfer of control (decision-16 rule 5;
+decision-12 rules 4/5). Stop preserves state,
 Unsupported restores pre-sampling latches, and Halt retains samples; the
 boundary and replay witnesses are `tests/i8085_run.rs` and
 `tests/i8085_determinism.rs`. Residual qualifications are in PROVENANCE.md §3.

@@ -12,6 +12,7 @@
 
 use super::opcodes::{Encoding, Instruction, Path, States};
 use super::I8080;
+use crate::intel::access::operand;
 use crate::{Bus, MemoryAccess};
 
 /// NOP, 00000000 (98-153B p. 4-14).
@@ -124,7 +125,7 @@ pub(super) fn execute<S: Bus>(
         // and pp. 2-18, 2-19: M2 fetches byte 2, M3 performs the I/O.
         // OperandFetch and the u8 port interface follow decision-5 item 3.
         0xDB | 0xD3 => {
-            let port = system.read(registers.pc.wrapping_add(1), MemoryAccess::OperandFetch);
+            let port = operand(&super::view(registers), system, 1);
             if opcode == 0xDB {
                 registers.a = system.input(port);
             } else {

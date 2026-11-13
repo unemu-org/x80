@@ -9,7 +9,8 @@
 //! images; source hashes match PROVENANCE.md §1. Independent witnesses:
 //! `tests/i8085_interrupts_vectored.rs`.
 
-use super::{branch, I8085};
+use super::I8085;
+use crate::intel::access::push_and_jump;
 use crate::Bus;
 
 /// Internally vectored sources in priority order: Intel 231718-001
@@ -57,7 +58,12 @@ pub(super) fn accept<S: Bus>(cpu: &mut I8085, system: &mut S, source: Source) ->
     // boundary PC (p. 2-5 note 1), high then low Stack writes via RST's
     // operation (p. 5-14; Fig. 2-18 p. 2-14; 9800301-04 pp. 3-54/3-55).
     let return_pc = cpu.registers().pc;
-    branch::restart(cpu, system, return_pc, vector);
+    push_and_jump(
+        &mut super::view(cpu.registers_mut()),
+        system,
+        return_pc,
+        vector,
+    );
 
     // DERIVED: six BI states in Fig. 2-19 replace RST's six-state fetch;
     // the two three-state writes remain: 6 + 3 + 3 = 12. RST p. 5-14

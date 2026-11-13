@@ -11,8 +11,9 @@
 //! All cited source values checked on rendered page images.
 
 use super::opcodes::{Encoding, Instruction, Path, States};
-use super::{alu, Registers, I8085};
-use crate::{Bus, MemoryAccess};
+use super::{alu, I8085};
+use crate::intel::access::{operand, read_operand, read_pair, write_operand, write_pair};
+use crate::Bus;
 
 /// Complete group list, in per-instruction page order.
 /// Register-field exclusions live in `opcodes` (§5.2 p. 5-1).
@@ -110,9 +111,9 @@ pub(super) fn execute<S: Bus>(
             let operand = if opcode & 0xC0 == 0xC0 {
                 // Byte 2 (§5.4 p. 5-3), MR in M2 (Ch. 2 §2.3.2).
                 // PC wrap is derived from its 16-bit width.
-                system.read(registers.pc.wrapping_add(1), MemoryAccess::OperandFetch)
+                operand(&super::view(registers), system, 1)
             } else {
-                read_operand(registers, system, opcode & 7)
+                read_operand(&super::view(registers), system, opcode & 7)
             };
             let operation = (opcode >> 3) & 3;
             let input = operation & 1 != 0 && registers.flags.carry;
@@ -133,14 +134,14 @@ pub(super) fn execute<S: Bus>(
         // F only (r); F R W (M) at the same HL address, Table 5-1.
         _ if opcode & 0xC6 == 0x04 => {
             let destination = (opcode >> 3) & 7;
-            let operand = read_operand(registers, system, destination);
+            let operand = read_operand(&super::view(registers), system, destination);
             let (value, mut flags) = if opcode & 1 == 0 {
                 alu::add(operand, 1, false)
             } else {
                 alu::subtract(operand, 1, false)
             };
             flags.carry = registers.flags.carry;
-            write_operand(registers, system, destination, value);
+            write_operand(&mut super::view(registers), system, destination, value);
             registers.flags = flags;
         }
         // INX/DCX: 205775-002 p. 5-9 (PDF 94), no flags;
@@ -149,13 +150,13 @@ pub(super) fn execute<S: Bus>(
         // Pair wrap is derived from the 16-bit register width.
         _ if opcode & 0xC7 == 0x03 => {
             let pair = (opcode >> 4) & 3;
-            let value = read_pair(registers, pair);
+            let value = read_pair(&super::view(registers), pair);
             let result = if opcode & 8 == 0 {
                 value.wrapping_add(1)
             } else {
                 value.wrapping_sub(1)
             };
-            write_pair(registers, pair, result);
+            write_pair(&mut super::view(registers), pair, result);
         }
         // DAD: 205775-002 p. 5-9 (PDF 94), only CY, set on carry
         // and otherwise reset; 9800301-04 p. 3-20 (PDF 74).
@@ -164,7 +165,7 @@ pub(super) fn execute<S: Bus>(
         // 231718-001 Tables 3/4, handbook p. 16-20 (PDF 967).
         // Wrapped HL is derived from its 16-bit width.
         _ if opcode & 0xCF == 0x09 => {
-            let operand = read_pair(registers, (opcode >> 4) & 3);
+            let operand = read_pair(&super::view(registers), (opcode >> 4) & 3);
             let (value, carry) = registers.hl().overflowing_add(operand);
             registers.set_hl(value);
             registers.flags.carry = carry;
@@ -175,53 +176,4 @@ pub(super) fn execute<S: Bus>(
     // is derived, not stated there. Dispatch does not advance PC.
     registers.pc = registers.pc.wrapping_add(u16::from(instruction.length));
     Path::Taken
-}
-
-// Register fields: 205775-002 §5.2 p. 5-1 and Table 5-1 p. 5-19;
-// second witness 9800301-04 pp. 3-3/3-4. M uses HL, §5.6.2 pp. 5-6
-// to 5-8. MR/MW: Ch. 2 §§2.3.2/2.3.3 pp. 2-10 to 2-12.
-fn read_operand<S: Bus>(registers: &Registers, system: &mut S, code: u8) -> u8 {
-    match code {
-        0 => registers.b,
-        1 => registers.c,
-        2 => registers.d,
-        3 => registers.e,
-        4 => registers.h,
-        5 => registers.l,
-        6 => system.read(registers.hl(), MemoryAccess::Data),
-        _ => registers.a,
-    }
-}
-
-fn write_operand<S: Bus>(registers: &mut Registers, system: &mut S, code: u8, value: u8) {
-    match code {
-        0 => registers.b = value,
-        1 => registers.c = value,
-        2 => registers.d = value,
-        3 => registers.e = value,
-        4 => registers.h = value,
-        5 => registers.l = value,
-        6 => system.write(registers.hl(), value, MemoryAccess::Data),
-        _ => registers.a = value,
-    }
-}
-
-// RP mapping/high-low order: 205775-002 §5.2 p. 5-1, Table 5-1 p. 5-19;
-// 9800301-04 DAD/DCX/INX pp. 3-20/3-22/3-26.
-fn read_pair(registers: &Registers, pair: u8) -> u16 {
-    match pair {
-        0 => registers.bc(),
-        1 => registers.de(),
-        2 => registers.hl(),
-        _ => registers.sp,
-    }
-}
-
-fn write_pair(registers: &mut Registers, pair: u8, value: u16) {
-    match pair {
-        0 => registers.set_bc(value),
-        1 => registers.set_de(value),
-        2 => registers.set_hl(value),
-        _ => registers.sp = value,
-    }
 }

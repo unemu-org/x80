@@ -12,7 +12,8 @@
 //! 9800301-04 p. 3-24. Page images checked; hashes: PROVENANCE.md §1.
 //! Independent witnesses: tests/i8085_interrupts_intr.rs.
 
-use super::{branch, I8085};
+use super::I8085;
+use crate::intel::access::push_and_jump;
 use crate::{Bus, MemoryAccess, Unsupported};
 
 /// Called only for the selected, eligible INTR source. Always consumes the
@@ -50,6 +51,6 @@ pub(super) fn accept<S: Bus>(cpu: &mut I8085, system: &mut S) -> Option<Result<u
             }));
         }
     };
-    branch::restart(cpu, system, pc, target);
+    push_and_jump(&mut super::view(cpu.registers_mut()), system, pc, target);
     Some(Ok(states))
 }

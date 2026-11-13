@@ -14,7 +14,8 @@
 //! decision-5 items 3/7/8; plan §2.2/§2.6.
 
 use super::opcodes::{Encoding, Instruction, Path, States};
-use super::{Registers, I8085};
+use super::I8085;
+use crate::intel::access::{operand, operand_word, read_location, write_location};
 use crate::{Bus, MemoryAccess};
 
 /// Complete group list, in per-instruction page order.
@@ -70,19 +71,29 @@ pub(super) fn execute<S: Bus>(
         // Table 5-1 p. 5-19: F, FR or FW. Read original HL before
         // changing H/L, and read the source before writing the destination.
         0x40..=0x7F if opcode != 0x76 => {
-            let value = read_location(registers, system, opcode & 7);
-            write_location(registers, system, (opcode >> 3) & 7, value);
+            let value = read_location(&super::view(registers), system, opcode & 7);
+            write_location(
+                &mut super::view(registers),
+                system,
+                (opcode >> 3) & 7,
+                value,
+            );
         }
         // MVI: p. 5-4; 9800301-04 pp. 3-37/3-38. Table 5-1:
         // FR for a register, FRW for memory; byte 2 precedes the HL write.
         0x06 | 0x0E | 0x16 | 0x1E | 0x26 | 0x2E | 0x36 | 0x3E => {
-            let value = operand(registers, system, 1);
-            write_location(registers, system, (opcode >> 3) & 7, value);
+            let value = operand(&super::view(registers), system, 1);
+            write_location(
+                &mut super::view(registers),
+                system,
+                (opcode >> 3) & 7,
+                value,
+            );
         }
         // LXI: pp. 5-1/5-5; 9800301-04 p. 3-35. Table 5-1: FRR.
         // Byte 2 is low, byte 3 high; RP selects BC/DE/HL/SP.
         0x01 | 0x11 | 0x21 | 0x31 => {
-            let value = operand_word(registers, system);
+            let value = operand_word(&super::view(registers), system);
             match opcode {
                 0x01 => registers.set_bc(value),
                 0x11 => registers.set_de(value),
@@ -94,7 +105,7 @@ pub(super) fn execute<S: Bus>(
         // 3-58/3-59, 3-61/3-62. Table 5-1: FRRR/FRRW/FRRRR/FRRWW.
         // Fetch the entire address before accessing data, even on overlap.
         0x3A | 0x32 | 0x2A | 0x22 => {
-            let address = operand_word(registers, system);
+            let address = operand_word(&super::view(registers), system);
             match opcode {
                 0x3A => registers.a = system.read(address, MemoryAccess::Data),
                 0x32 => system.write(address, registers.a, MemoryAccess::Data),
@@ -138,53 +149,4 @@ pub(super) fn execute<S: Bus>(
     // total in both state slots (§5.2 p. 5-2; decision-5 item 7).
     registers.pc = registers.pc.wrapping_add(u16::from(instruction.length));
     Path::Taken
-}
-
-// §5.3 p. 5-2: bytes follow the opcode at successive addresses. Table 5-1
-// p. 5-19 and Ch. 2 pp. 2-9/2-12: OF then MR. Access kind: decision-5
-// item 3. PC+offset wrap is DERIVED, as described above.
-fn operand<S: Bus>(registers: &Registers, system: &mut S, offset: u16) -> u8 {
-    system.read(
-        registers.pc.wrapping_add(offset),
-        MemoryAccess::OperandFetch,
-    )
-}
-
-// §5.6.1 p. 5-5: byte 2 low, byte 3 high. Table 5-1 orders both reads
-// before any data cycle. Design: decision-5 item 3, plan §2.6.
-fn operand_word<S: Bus>(registers: &Registers, system: &mut S) -> u16 {
-    let low = operand(registers, system, 1);
-    let high = operand(registers, system, 2);
-    u16::from_le_bytes([low, high])
-}
-
-// §5.2 p. 5-1 register codes; §5.6.1 p. 5-4: M addresses HL.
-// Table 5-1 p. 5-19: FR. Callers supply masked three-bit fields, with
-// 111 selecting A. Access kind: decision-5 item 3.
-fn read_location<S: Bus>(registers: &Registers, system: &mut S, code: u8) -> u8 {
-    match code {
-        0 => registers.b,
-        1 => registers.c,
-        2 => registers.d,
-        3 => registers.e,
-        4 => registers.h,
-        5 => registers.l,
-        6 => system.read(registers.hl(), MemoryAccess::Data),
-        _ => registers.a,
-    }
-}
-
-// Same field/address rules; Table 5-1 p. 5-19: FW or FRW.
-// Design: decision-5 item 3, plan §2.2/§2.6.
-fn write_location<S: Bus>(registers: &mut Registers, system: &mut S, code: u8, value: u8) {
-    match code {
-        0 => registers.b = value,
-        1 => registers.c = value,
-        2 => registers.d = value,
-        3 => registers.e = value,
-        4 => registers.h = value,
-        5 => registers.l = value,
-        6 => system.write(registers.hl(), value, MemoryAccess::Data),
-        _ => registers.a = value,
-    }
 }

@@ -76,6 +76,7 @@ mod decode;
 mod exit;
 pub mod i8080;
 pub mod i8085;
+mod intel;
 mod progress;
 pub mod z80;
 

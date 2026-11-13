@@ -45,3 +45,23 @@ impl Flags {
         }
     }
 }
+
+// Model-owned flag access (decision-16 rule 3): Intel 205775-002 (January 1983),
+// §5.5 p. 5-3.
+impl crate::intel::FlagRules for Flags {
+    fn sign(self) -> bool {
+        self.sign
+    }
+
+    fn zero(self) -> bool {
+        self.zero
+    }
+
+    fn parity(self) -> bool {
+        self.parity
+    }
+
+    fn carry(self) -> bool {
+        self.carry
+    }
+}

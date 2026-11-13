@@ -219,7 +219,15 @@ impl I8080 {
                 preceding_len: 0,
             });
         }
-        branch::restart(self, system, opcode, pc);
+        // RST target 8*NNN (bits 5..3): 98-153B Ch. 4 RST p. 4-12;
+        // 9800301-04 Ch. 3 pp. 3-54/3-55. Vector selection stays here;
+        // decision-16 rule 5 shares only the stack/jump operation.
+        crate::intel::access::push_and_jump(
+            &mut super::view(self.registers_mut()),
+            system,
+            pc,
+            u16::from(opcode & 0x38),
+        );
         // Fig. 2-8 p. 2-11 explicitly shows M1 T1..T5, M2 T1..T3,
         // M3 T1..T3: 5+3+3 = 11 states, including the acknowledge, with
         // no extra fetch. RST's table pp. 2-18/2-19 and Stack note 16

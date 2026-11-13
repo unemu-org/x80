@@ -13,7 +13,8 @@
 
 use super::opcodes::{Encoding, Instruction, Path, States};
 use super::{alu, Registers, I8085};
-use crate::{Bus, MemoryAccess};
+use crate::intel::access::{operand, read_operand};
+use crate::Bus;
 
 /// Complete group list, in per-instruction page order.
 /// Register-field exclusions live in `opcodes` (§5.2 p. 5-1).
@@ -74,9 +75,9 @@ pub(super) fn execute<S: Bus>(
             let operand = if opcode & 0xC0 == 0xC0 {
                 // Byte 2, pp. 5-10/5-11; OF then MR at PC+1:
                 // Table 5-1 p. 5-19 and §2.3.1 p. 2-7.
-                system.read(registers.pc.wrapping_add(1), MemoryAccess::OperandFetch)
+                operand(&super::view(registers), system, 1)
             } else {
-                read_operand(registers, system, opcode & 7)
+                read_operand(&super::view(registers), system, opcode & 7)
             };
             let a = registers.a;
             match opcode & 0x18 {
@@ -147,20 +148,4 @@ pub(super) fn execute<S: Bus>(
 fn and_accumulator(registers: &mut Registers, operand: u8) {
     registers.a &= operand;
     registers.flags = alu::result_flags(registers.a, true, false);
-}
-
-/// Register codes: 205775-002 §5.2 p. 5-1; M uses HL, pp. 5-10/5-11.
-/// Table 5-1 p. 5-19: F R for M; §§2.3.1/2.3.2 pp. 2-7 to 2-10:
-/// opcode fetch precedes memory read. Data kind: decision-5 item 3.
-fn read_operand<S: Bus>(registers: &Registers, system: &mut S, code: u8) -> u8 {
-    match code {
-        0 => registers.b,
-        1 => registers.c,
-        2 => registers.d,
-        3 => registers.e,
-        4 => registers.h,
-        5 => registers.l,
-        6 => system.read(registers.hl(), MemoryAccess::Data),
-        _ => registers.a,
-    }
 }

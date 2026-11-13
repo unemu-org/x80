@@ -53,3 +53,19 @@ pub use cpu::I8085;
 pub use flags::Flags;
 pub use interrupt::Inputs;
 pub use state::{Latches, Registers};
+
+// Concrete register borrowing is a library choice (decision-16 rule 2).
+fn view(registers: &mut Registers) -> crate::intel::View<'_, Flags> {
+    crate::intel::View {
+        a: &mut registers.a,
+        flags: &mut registers.flags,
+        b: &mut registers.b,
+        c: &mut registers.c,
+        d: &mut registers.d,
+        e: &mut registers.e,
+        h: &mut registers.h,
+        l: &mut registers.l,
+        sp: &mut registers.sp,
+        pc: &mut registers.pc,
+    }
+}

@@ -11,6 +11,7 @@
 
 use super::opcodes::{Encoding, Instruction, Path, States};
 use super::I8085;
+use crate::intel::access::operand;
 use crate::{Bus, MemoryAccess};
 
 /// Complete group list, in per-instruction page order.
@@ -121,7 +122,7 @@ pub(super) fn execute<S: Bus>(
         // Table 5-1: FRI/FRO; §2.3.2 p. 2-12 and §2.3.3 p. 2-13:
         // the I/O cycle is third, after the second instruction byte.
         0xDB | 0xD3 => {
-            let port = system.read(registers.pc.wrapping_add(1), MemoryAccess::OperandFetch);
+            let port = operand(&super::view(registers), system, 1);
             if opcode == 0xDB {
                 registers.a = system.input(port);
             } else {

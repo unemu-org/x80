@@ -12,7 +12,8 @@
 //! Intel 9800301-04 (May 1981), Ch. 3 entries cited with the encodings below.
 
 use super::opcodes::{Encoding, Instruction, Path, States};
-use super::{Registers, I8080};
+use super::I8080;
+use crate::intel::access::{operand, operand_word, read_location, write_location};
 use crate::{Bus, MemoryAccess};
 
 /// The group's encodings, in page order.
@@ -68,19 +69,29 @@ pub(super) fn execute<S: Bus>(
         // MOV: 98-153B Ch. 4 p. 4-4. Ch. 2 p. 2-16: memory variants
         // access original HL in M2, register moves have only M1.
         0x40..=0x7F if opcode != 0x76 => {
-            let value = read_location(registers, system, opcode & 7);
-            write_location(registers, system, (opcode >> 3) & 7, value);
+            let value = read_location(&super::view(registers), system, opcode & 7);
+            write_location(
+                &mut super::view(registers),
+                system,
+                (opcode >> 3) & 7,
+                value,
+            );
         }
         // MVI: Ch. 4 p. 4-4; Ch. 2 pp. 2-16/2-17: byte 2 read in M2,
         // then (memory form only) HL write in M3.
         0x06 | 0x0E | 0x16 | 0x1E | 0x26 | 0x2E | 0x36 | 0x3E => {
-            let value = operand(registers, system, 1);
-            write_location(registers, system, (opcode >> 3) & 7, value);
+            let value = operand(&super::view(registers), system, 1);
+            write_location(
+                &mut super::view(registers),
+                system,
+                (opcode >> 3) & 7,
+                value,
+            );
         }
         // LXI: Ch. 4 pp. 4-3/4-4 RP table, byte 2 low / byte 3 high;
         // Ch. 2 pp. 2-16/2-17: operand reads in M2 then M3.
         0x01 | 0x11 | 0x21 | 0x31 => {
-            let value = operand_word(registers, system);
+            let value = operand_word(&super::view(registers), system);
             match opcode {
                 0x01 => registers.set_bc(value),
                 0x11 => registers.set_de(value),
@@ -91,7 +102,7 @@ pub(super) fn execute<S: Bus>(
         // Direct transfers: Ch. 4 p. 4-5; Ch. 2 pp. 2-16/2-17:
         // M2 low address, M3 high address, M4 A or L, M5 H if present.
         0x3A | 0x32 | 0x2A | 0x22 => {
-            let address = operand_word(registers, system);
+            let address = operand_word(&super::view(registers), system);
             match opcode {
                 0x3A => registers.a = system.read(address, MemoryAccess::Data),
                 0x32 => system.write(address, registers.a, MemoryAccess::Data),
@@ -135,52 +146,4 @@ pub(super) fn execute<S: Bus>(
     // Flags are untouched: Ch. 4 p. 4-4, Data Transfer Group introduction.
     registers.pc = registers.pc.wrapping_add(u16::from(instruction.length));
     Path::Taken
-}
-
-// Design: decision-5 item 3. 98-153B Ch. 2 pp. 2-16/2-17 puts instruction
-// bytes after the opcode at PC+1/PC+2. The API calls these OperandFetch.
-fn operand<S: Bus>(registers: &Registers, system: &mut S, offset: u16) -> u8 {
-    system.read(
-        registers.pc.wrapping_add(offset),
-        MemoryAccess::OperandFetch,
-    )
-}
-
-// Ch. 4 pp. 4-4/4-5: byte 2 is low, byte 3 high; Ch. 2 pp. 2-16/2-17:
-// M2 precedes M3. Capture the address before any data writes.
-fn operand_word<S: Bus>(registers: &Registers, system: &mut S) -> u16 {
-    let low = operand(registers, system, 1);
-    let high = operand(registers, system, 2);
-    u16::from_le_bytes([low, high])
-}
-
-// Ch. 4 p. 4-3 DDD/SSS table; p. 4-4 memory form uses HL. Ch. 2 p. 2-16
-// gives the memory read/write cycle. The caller masks the code to 3 bits;
-// the remaining code 111 names A. Design: decision-5 item 3.
-fn read_location<S: Bus>(registers: &Registers, system: &mut S, code: u8) -> u8 {
-    match code {
-        0 => registers.b,
-        1 => registers.c,
-        2 => registers.d,
-        3 => registers.e,
-        4 => registers.h,
-        5 => registers.l,
-        6 => system.read(registers.hl(), MemoryAccess::Data),
-        _ => registers.a,
-    }
-}
-
-// 98-153B Ch. 4 pp. 4-3/4-4: DDD selects the destination register or HL
-// memory; Ch. 2 pp. 2-16/2-17 supplies the write cycle. decision-5 item 3.
-fn write_location<S: Bus>(registers: &mut Registers, system: &mut S, code: u8, value: u8) {
-    match code {
-        0 => registers.b = value,
-        1 => registers.c = value,
-        2 => registers.d = value,
-        3 => registers.e = value,
-        4 => registers.h = value,
-        5 => registers.l = value,
-        6 => system.write(registers.hl(), value, MemoryAccess::Data),
-        _ => registers.a = value,
-    }
 }
