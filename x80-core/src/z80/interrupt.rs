@@ -11,7 +11,7 @@
 /// The boundary execution contract polls `stop_requested`, `nmi`, `int`
 /// once each in that order after the budget check, including while halted
 /// or disabled, regardless of results (decision-15 rule 1). This order is
-/// an API choice; execution is implemented in a later bead. Polls should
+/// an API choice implemented by `Z80::run` and `Z80::step`. Polls should
 /// read levels without changing the emulated device. The consecutive-sample
 /// NMI sampler can miss pulses wholly between polls; hold requests until
 /// sampled (rule 2). History starts/resets not asserted by library choice.

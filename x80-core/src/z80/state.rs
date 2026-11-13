@@ -172,7 +172,8 @@ pub enum InterruptMode {
 ///
 /// `Default` clears every bool and selects IM 0. These are library
 /// construction values, not a hardware power-up claim (rule 12).
-/// Later execution beads implement the behaviour of these latches.
+/// The boundary loop owns sampling and expiry; group and interrupt
+/// executors own their instruction-specific changes.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 pub struct Latches {
     /// Maskable interrupt enable (UM Table 1 p. 18; rules 7/12).

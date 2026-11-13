@@ -49,7 +49,9 @@ x80-core/
   src/z80/state.rs              main/alternate Registers, pair accessors, InterruptMode and Latches
   src/z80/flags.rs              six flags and the decision-14 library F/F' image
   src/z80/interrupt.rs          Inputs: asserted-true NMI and INT requests
-  src/z80/cpu.rs                Z80: state ownership and reset; no execution yet
+  src/z80/cpu.rs                Z80: run/step, reset, boundary sampling, prefix dispatch and executor context
+  src/z80/nmi.rs                final NMI acceptance seam (staging: declines)
+  src/z80/acknowledge.rs        final INT acceptance/refusal seam (staging: declines)
   src/z80/opcodes.rs            eleven model groups and five private maps via decode::build
   src/z80/opcodes/tests.rs      independent literal whole-map and source-disagreement witnesses
   src/z80/load8.rs              8-Bit Load encoding slices (UM pp. 70–97)
@@ -66,6 +68,7 @@ x80-core/
   tests/boundary.rs             zero-dependency and model-neutral root tripwires
   tests/root_contract.rs        full-width port defaults/overrides and preceding-byte diagnostics
   tests/support/                recording test bus, sample state, unsupported check
+  tests/z80_run.rs              boundary, refusal traces, staging, refresh and budget-split witnesses
   tests/z80_model.rs            ownership, construction, reset, input defaults and recording polls
   tests/z80_registers.rs        main/alternate register pairs and F/F' image witnesses
   tests/i8080_run.rs            budget, boundary sequence, exit precedence, step, determinism
@@ -170,7 +173,78 @@ as untaken/taken (decision-15 rule 11). The independent literal witness checks
 every key, group, length, cost slot and complement against the rendered primary
 UM008011-0816 tables/entries and 03-0029-01 Tables 7.0-1–7.0-11; source
 reconciliations are pinned separately and recorded in PROVENANCE.md §1.
-These are data only; prefix dispatch, executors and the boundary loop are pending.
+
+Z80 dispatch and executor handoff (`x80-bi2.9`; decisions 13–15): `run` checks
+budget; polls stop, NMI, INT exactly once in that order; honors stop; samples
+NMI; selects a fresh NMI edge before eligible INT; checks halt; fetches and
+executes. Stop precedes sampling. A refusal restores the complete CPU state
+saved after polling and before sampling, including R and sampler history;
+Halt retains samples. Interrupt retirement uses the same counters as ordinary
+instructions. Only NOP executes during staging; the other documented forms
+return Unsupported using exactly their table's hole reads, with no operand
+reads beyond the bytes needed to decode. `tests/z80_run.rs` pins those traces.
+
+Every group executor has this final signature, using `cpu::Decoded`,
+`opcodes::Instruction`, and `decode::Path`:
+
+```rust
+pub(super) fn execute<S: Bus>(
+    cpu: &mut Z80,
+    system: &mut S,
+    instruction: &Instruction,
+    decoded: &Decoded,
+) -> Path
+```
+
+`Decoded` holds `table: Table` (`Main`, `Cb`, `Ed`, `Index`, `IndexCb`),
+`opcode: u8` (table key), `index: Option<IndexRegister>` (`Ix`, `Iy`),
+`displacement: Option<u8>` (only `IndexCb`) and `start_pc: u16`. The dispatcher
+leaves PC **after the fetched prefix/key bytes**, including d/op for indexed CB.
+`instruction.length` and `states` describe the whole instruction. Executors
+must not add that length to the already advanced PC. They read remaining
+operands in stream order through `cpu.fetch_operand(system)`, which returns
+one `OperandFetch` byte and wraps PC forward without changing R. For ordinary
+INDEX memory forms the executor reads d first, then any immediate byte; INDEX
+pair/index-only forms have no d. Indexed-CB executors use the saved d and never
+read it again. The dispatcher makes no data/stack/port access.
+
+Each group module owns one `LANDED: bool` switch and its executor stub. A group
+bead completes the executor and flips only its own switch; it never edits
+`cpu.rs`, the signature or `tests/z80_run.rs`. General arithmetic/CPU control
+also has `is_landed(&Decoded)` admitting only main-table NOP while its switch
+is false. Staging witnesses allow documented completion once a group lands;
+while unsupported they require the exact hole trace and complete restoration.
+The dispatcher selects the returned Path's complete cost and retires once.
+A block executor rewinds PC by two and returns `Path::Taken` when repeating;
+termination returns `Path::Untaken`. The next iteration naturally polls and
+fetches both bytes again (decision-15 rule 11; UM LDIR p. 132, TM Table 7.0-3
+p. 46). The loop has no repeat-specific machinery.
+
+R advances once per `OpcodeFetch`, prefixes included, keeping bit 7 and
+wrapping the low seven bits. Indexed CB reads DD/FD and CB as `OpcodeFetch`,
+then d and op as `OperandFetch`, so it advances R twice. This fourth-byte
+classification remains the **unverified** reading of decision-15 rule 5;
+per-M1 counting is **derived** (rule 6; UM Registers p. 3, TM §§2/3 pp. 4/7).
+No refresh bus call or halted R advance occurs (API choices). The EI delay
+and parity-note pending latch expire before ordinary execution, allowing EI
+and LD A,I/R to re-arm them; refusal restores both. EI-delay edge cases and
+the parity note's boundary interpretation remain unverified under rules 7/10.
+
+The final interrupt seams are `nmi::accept<S: Bus>(&mut Z80, &mut S) ->
+Option<u8>` and `acknowledge::accept<S: Bus>(&mut Z80, &mut S) ->
+Option<Result<u8, Unsupported>>`. None means not accepted and must have no
+CPU or bus effect; Some completes one interrupt step or refuses it. The loop
+retires returned states and skips handler execution, retaining the EI delay
+through NMI acceptance. INT refusal restores the entire pre-sampling snapshot.
+Both stubs currently return None. `x80-bi2.22` fills only `nmi.rs` and its own
+witness file; `x80-bi2.23` fills only `acknowledge.rs` and its own witness file.
+Neither changes `cpu.rs` or `tests/z80_run.rs`. The seams call
+`cpu.increment_r()` once after their discarded fetch/acknowledge respectively,
+and `cpu.consume_parity_note()` only on successful acceptance, after refusal
+validation and before service. That helper clears P/V only when a note is
+pending, consumes the note and leaves the EI delay alone. Module comments
+pin the access order, mode restrictions, costs and primary/second citations
+of decision-15 rules 8–10 for each implementation.
 
 An integration test that needs a bus includes `tests/support` with
 `mod support;`. Its `RecordingBus` logs every access and input poll for trace
@@ -183,7 +257,7 @@ selected model and gives a verdict only for their pinned SHA-256 digests
 (commands.md, "Oracle runs"; PROVENANCE.md §2).
 
 Any future dependency-bearing oracle harness will also be separate and unpublished.
-The Z80 execution work waits for its milestone beads.
+The remaining Z80 group and interrupt implementations follow their milestone beads.
 Its layout follows decision-13 (accepted): [Z80 model, prefix tables and sharing](<../decisions/decision-13 - z80-model-layout-prefix-tables-and-sharing.md>).
 The V20 adapter belongs to the embedder; x80 will expose only agreed boundaries.
 Keep this map current when modules change.

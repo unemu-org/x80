@@ -90,8 +90,27 @@ shared DD/FD maps represent 698 logical encodings. ED 63/6B are included;
 ED 70/71, CB 30–37, index halves and ignored-prefix forms remain excluded.
 The witness cross-reads UM008011-0816's rendered compact tables and instruction
 entries with 03-0029-01 Tables 7.0-1–7.0-11, pinning the reconciliations in
-PROVENANCE.md §1. Nothing executes in the Z80 model yet: the boundary loop,
-prefix dispatch and group executors remain pending. See [plan §5](plan.md#5-milestones).
+PROVENANCE.md §1. The Z80 now implements `run`/`step`, the full boundary sequence, NMI sampling,
+prefix dispatch and R counting (`x80-bi2.9`). NOP is the only executing
+instruction (UM p. 180; TM Table 7.0-5 p. 48). Every other documented encoding
+is temporarily Unsupported before any executor operand/data/stack/port access;
+its reads and payload match a hole in its selected table. `tests/z80_run.rs`
+has literal boundary/refusal traces, complete rollback (including R and
+latches), budget/stop/halt precedence, overshoot and EI-delay/parity-note
+bookkeeping across splits. Private CPU witnesses pin table/index/displacement
+context, PC convention, operand reads, R increments and interrupt selection.
+The INDEX_CB fourth-byte access kind remains the unverified reading of
+decision-15 rule 5; EI-delay edge cases and parity-note timing remain the
+unverified readings of rules 7/10. Other R counting is derived under rule 6.
+
+The eleven executors share a final `Decoded`/`execute` contract and group-owned
+landed switches; PC arrives after the fetched prefix/key bytes. INDEX memory
+executors fetch d through the shared operand helper; INDEX_CB d is pre-fetched.
+Repeating blocks rewind PC by two and return the taken path. The NMI and INT
+acceptance seams have their final signatures but decline without side effects
+until `x80-bi2.22` / `x80-bi2.23` fill their own modules and witness files.
+Those beads and the group beads need no edits to `cpu.rs` or `tests/z80_run.rs`.
+See [architecture](architecture.md) for the exact handoff and merge contract. See [plan §5](plan.md#5-milestones).
 
 **M3: done (2026-11-13, epic `x80-4gk`).** The `i8085` model executes every
 documented instruction, including RIM/SIM, and all five interrupt sources with

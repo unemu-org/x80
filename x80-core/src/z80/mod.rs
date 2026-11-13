@@ -1,5 +1,6 @@
 //! The Z80 model's register file, flags, execution latches, input contract and
-//! reset (decisions 13–15). Opcode tables and execution are not implemented yet.
+//! reset, prefix dispatch and run/step (decisions 13–15). Only NOP executes
+//! during group staging; interrupt acceptance is not implemented yet.
 //!
 //! Primary source: Zilog Z80 CPU User Manual UM008011-0816, revision 11,
 //! August 2016 (printed page + 14 = PDF page). Second witness here: Zilog
@@ -28,34 +29,24 @@
 //! assert!(!cpu.latches().iff1);
 //! ```
 
-#[cfg_attr(not(test), expect(dead_code, reason = "dispatch lands in x80-bi2.9"))]
 mod arithmetic16;
-#[cfg_attr(not(test), expect(dead_code, reason = "dispatch lands in x80-bi2.9"))]
 mod arithmetic8;
-#[cfg_attr(not(test), expect(dead_code, reason = "dispatch lands in x80-bi2.9"))]
 mod bit_set_reset_test;
-#[cfg_attr(not(test), expect(dead_code, reason = "dispatch lands in x80-bi2.9"))]
 mod call_return;
-#[cfg_attr(not(test), expect(dead_code, reason = "dispatch lands in x80-bi2.9"))]
 mod exchange_block_search;
-#[cfg_attr(not(test), expect(dead_code, reason = "dispatch lands in x80-bi2.9"))]
 mod general_arithmetic_cpu_control;
-#[cfg_attr(not(test), expect(dead_code, reason = "dispatch lands in x80-bi2.9"))]
 mod input_output;
-#[cfg_attr(not(test), expect(dead_code, reason = "dispatch lands in x80-bi2.9"))]
 mod jump;
-#[cfg_attr(not(test), expect(dead_code, reason = "dispatch lands in x80-bi2.9"))]
 mod load16;
-#[cfg_attr(not(test), expect(dead_code, reason = "dispatch lands in x80-bi2.9"))]
 mod load8;
-#[cfg_attr(not(test), expect(dead_code, reason = "dispatch lands in x80-bi2.9"))]
 mod opcodes;
-#[cfg_attr(not(test), expect(dead_code, reason = "dispatch lands in x80-bi2.9"))]
 mod rotate_shift;
 
+mod acknowledge;
 mod cpu;
 mod flags;
 mod interrupt;
+mod nmi;
 mod state;
 
 pub use cpu::Z80;

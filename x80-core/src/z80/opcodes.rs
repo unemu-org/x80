@@ -2,7 +2,7 @@
 //!
 //! Table contexts and complete lengths: decision-13 rules 3–5. Admission and
 //! reconciled source errors: decision-14 rule 1 and PROVENANCE.md §1.
-//! Prefixes have no terminal entry; dispatch lands in x80-bi2.9.
+//! Prefixes have no terminal entry; cpu.rs owns their dispatch.
 
 use crate::decode::{build, FieldRestriction};
 pub(super) use crate::decode::{Encoding, States};
