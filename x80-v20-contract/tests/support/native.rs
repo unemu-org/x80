@@ -82,27 +82,35 @@ impl Native {
         }
     }
 
-    /// NEC p. 12-169 / p. 8-2: push PSW, PS, PC; MD=0; vector.
+    /// NEC p. 12-169 / p. 8-2: push PSW, PS, PC; MD=0; vector. IE and BRK
+    /// follow the BRKEM/CALLN ASSUMPTION (R2: cleared, as on p. 6-1).
     /// `pc` is already the native continuation supplied by the caller.
     pub fn brkem(&mut self, memory: &mut Memory, vector: u8) {
         assert_ne!(self.psw & MD, 0, "BRKEM requires native mode");
         self.push_frame(memory, "brkem");
         self.psw &= !MD;
-        if !assumptions::BRKEM_PRESERVES_IE {
-            self.psw &= !IE;
-        }
-        if !assumptions::BRKEM_PRESERVES_BRK {
-            self.psw &= !BRK;
+        if assumptions::BRKEM_CALLN_CLEAR_IE_BRK {
+            self.psw &= !(IE | BRK);
         }
         self.vector(memory, vector);
     }
 
-    /// NEC p. 6-1 and p. 12-176 / Fig. 8-6 p. 8-4: saved MD=0,
-    /// then IE=0, BRK=0, MD=1, vector into a native routine.
+    /// INT/NMI: NEC p. 8-4 ("same as in native mode") and p. 6-1; CALLN: p. 12-176. Saved
+    /// MD=0, then MD=1, vector into a native routine. INT and NMI clear IE
+    /// and BRK as read on p. 6-1; for CALLN that is the BRKEM/CALLN
+    /// ASSUMPTION (R2), since p. 12-176 lists only MD.
     pub fn enter_service(&mut self, memory: &mut Memory, source: &'static str, vector: u8) {
         assert_eq!(self.psw & MD, 0);
         self.push_frame(memory, source);
-        self.psw = (self.psw & !(IE | BRK)) | MD;
+        let clear = match source {
+            "int" | "nmi" => true,
+            "calln" => assumptions::BRKEM_CALLN_CLEAR_IE_BRK,
+            other => panic!("unknown service source {other}"),
+        };
+        if clear {
+            self.psw &= !(IE | BRK);
+        }
+        self.psw |= MD;
         self.vector(memory, vector);
     }
 

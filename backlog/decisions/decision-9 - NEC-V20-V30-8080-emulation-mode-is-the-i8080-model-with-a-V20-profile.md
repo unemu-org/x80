@@ -8,6 +8,8 @@ status: accepted
 Decider: maintainer (2026-11-12). Settles decision-6's open question on the NEC
 emulation mode; bead `x80-pzp.2`. Design in [plan](../docs/plan.md) §3.
 
+Amended 2026-11-14: IE and BRK after BRKEM and CALLN (see the amendment below).
+
 ## Context
 
 decision-6 left open whether the NEC V20/V30 8080 emulation mode is the 8080 model, a
@@ -77,3 +79,34 @@ that the embedder owns the adapter (bead `x80-pzp`).
 
 A uPD8080AF source or hardware evidence shows a flag, encoding or timing difference (then
 a variant under decision-6), or C4 needs x80 itself to behave differently under the V20.
+
+## Amendment, 2026-11-14: IE and BRK after BRKEM and CALLN
+
+Maintainer decision of 2026-11-14 during review of the C4 exit-contract draft
+(`xj-50w.7` (x86jit)), recorded on both projects; bead `x80-pzp.8`. The ruling is **ASSUMED**, not read.
+
+The pinned manual does not settle whether BRKEM and CALLN change IE and BRK:
+
+- p. 6-1 (PDF 26): the general interrupt-routine entry pushes PSW, PS, PC, then
+  "IE <- 0, BRK <- 0, MD <- 1"; Table 6-1 and Fig. 6-1 list BRKEM and CALLN among the
+  sources using vectors 32-255.
+- p. 12-169 (PDF 214, BRKEM) and p. 12-176 (PDF 221, CALLN) list only MD, in both the
+  operation list and the flag table (MD <- 0 and MD <- 1 respectively).
+- Table 12-4, p. 12-3 (PDF 48): a blank flag-table entry means "No change".
+- p. 12-167 (PDF 212): BRK imm8, by contrast, lists IE <- 0 and BRK <- 0 explicitly.
+- The mode-shift prose also names only MD: BRKEM "resets the MD flag to 0" (p. 8-2,
+  PDF 33); CALLN "sets the mode flag to 1" (p. 8-4, PDF 35).
+- No 8080-mode hardware corpus is pinned or known.
+
+Readings considered:
+
+- R1: the instruction page governs; BRKEM and CALLN both preserve IE and BRK.
+- R2: p. 6-1 governs; BRKEM and CALLN both clear IE and BRK.
+
+Choice: **R2** for both instructions, labelled ASSUMED. MD still follows each
+instruction page. INT and NMI entry from emulation clearing IE and BRK remains read:
+p. 8-4 says their interrupt process "is performed the same as in native mode", and
+p. 6-1 gives that sequence. Only the two instructions are assumed. The contract fixture
+selects R2 through one ASSUMPTION constant, and PROVENANCE.md §1 keeps the question on
+its to-confirm list. Revisit when an NEC source or hardware run settles either
+instruction. The rest of this record is unchanged.

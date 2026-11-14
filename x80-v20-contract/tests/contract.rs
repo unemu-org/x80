@@ -45,11 +45,12 @@ fn brkem_maps_every_register_before_any_8080_instruction() {
         (0x11, 0xB2, 0x23, 0xC4, 0x45, 0xD6, 0x67)
     );
     assert_eq!((r.sp, r.pc, r.psw()), (0x9000, 0x0100, 0x1192));
+    // ASSUMPTION R2 (decision-9 amendment): BRKEM clears IE and BRK.
     assert_eq!(
         (a.native.sp, a.native.ps, a.native.psw),
-        (0x7FFA, 0x2000, 0x7392)
+        (0x7FFA, 0x2000, 0x7092)
     );
-    assert!(a.cpu.latches().interrupt_enable); // ASSUMPTION after BRKEM
+    assert!(!a.cpu.latches().interrupt_enable);
     assert_eq!(
         &a.memory.bytes[0x37FFA..0x38000],
         &[0x45, 0x23, 0x00, 0x10, 0x92, 0xF3]
@@ -88,7 +89,7 @@ fn refusals_copy_out_without_consuming_an_unknown_encoding() {
         assert_eq!(a.accesses.len() - count, reads);
         assert_eq!(
             (a.native.aw, a.native.bw, a.native.pc, a.native.psw),
-            (0xA1A6, 0x1234, 0x111, 0x7393)
+            (0xA1A6, 0x1234, 0x111, 0x7093)
         );
         assert_eq!(a.boundaries.last(), Some(&a.native));
         assert_eq!(a.memory.frames.len(), 1);
@@ -113,7 +114,7 @@ fn ei_delay_assumption_is_observed_by_host_interrupt_acceptance() {
     assert!(a.services.is_empty());
     assert_eq!(a.native.pc, 0x103);
     assert_eq!(a.run(1, int), Ok(Outcome::Serviced));
-    assert_eq!(a.memory.frames[1].words, [0x103, 0x2000, 0x7392]);
+    assert_eq!(a.memory.frames[1].words, [0x103, 0x2000, 0x7292]);
     assert_eq!(a.native.psw & (MD | IE), IE);
     a.until(Outcome::Retem);
 }
@@ -146,7 +147,7 @@ fn reset_copies_boundary_state_before_native_reset_and_ends_the_loop() {
     // NEC pp. 8-4, 7-1: abort, then native reset. Undefined fields retained
     // solely by fixture policy; do not turn them into hardware expectations.
     let mut a = fixture("reset_running");
-    assert_eq!(a.run(9, Lines::default()), Ok(Outcome::Budget));
+    assert_eq!(a.run(10, Lines::default()), Ok(Outcome::Budget));
     assert_eq!(
         a.run(
             1,
@@ -160,7 +161,7 @@ fn reset_copies_boundary_state_before_native_reset_and_ends_the_loop() {
     let before = a.boundaries.last().unwrap();
     assert_eq!(
         (before.aw, before.pc, before.psw, before.sp),
-        (0xA1A6, 0x111, 0x7393, 0x7FFA)
+        (0xA1A6, 0x112, 0x7293, 0x7FFA)
     );
     assert_eq!(
         (a.native.ps, a.native.pc, a.native.psw),
@@ -176,7 +177,7 @@ fn hold_inhibits_enabled_int_in_standby_without_using_the_masked_wake_rule() {
     // themselves are deliberately outside this boundary fixture.
     let mut a = fixture("hlt_int_enabled");
     a.until(Outcome::Halt);
-    assert_eq!(a.native.pc, 0x112);
+    assert_eq!(a.native.pc, 0x113);
     assert_eq!(
         a.run(
             1,
@@ -189,7 +190,7 @@ fn hold_inhibits_enabled_int_in_standby_without_using_the_masked_wake_rule() {
         ),
         Ok(Outcome::Halt)
     );
-    assert_eq!(a.native.pc, 0x112);
+    assert_eq!(a.native.pc, 0x113);
     assert!(a.services.is_empty());
     assert_eq!(
         a.run(
@@ -202,6 +203,6 @@ fn hold_inhibits_enabled_int_in_standby_without_using_the_masked_wake_rule() {
         ),
         Ok(Outcome::Serviced)
     );
-    assert_eq!(a.memory.frames[1].words, [0x112, 0x2000, 0x7393]);
+    assert_eq!(a.memory.frames[1].words, [0x113, 0x2000, 0x7293]);
     a.until(Outcome::Retem);
 }

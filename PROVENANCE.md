@@ -143,8 +143,9 @@ Pinned by the x86jit project in the shared stash (oracles 1431bbc, bead xj-vao (
 used by x80 for M2: `nec/v20-v30-um.pdf`, NEC uPD70108/uPD70116 (V20/V30) User's Manual,
 Stock No. 500350, October 1986, 228 pp, sha256
 `8252fe5ddc0623380b7f28819009e6bb7d2b8e345ef347d9e6f2d299ce97865f`, © NEC, cite-only.
-Page map: printed 8-n = PDF 31+n; 3-3 = PDF 16; 6-1 = PDF 26; 9-1 = PDF 38;
-12-151 = PDF 196; 12-168 = PDF 213; 12-169 = PDF 214; 12-176 = PDF 221; 12-177 = PDF 222.
+Page map: printed 8-n = PDF 31+n; 3-3 = PDF 16; 6-1 = PDF 26; 9-1 = PDF 38; 12-3 = PDF 48;
+12-151 = PDF 196; 12-167 = PDF 212; 12-168 = PDF 213; 12-169 = PDF 214; 12-176 = PDF 221;
+12-177 = PDF 222.
 A scan with an OCR text layer: check every value against the page image.
 
 Facts read from the page images (M2 analysis, 2026-11-12):
@@ -176,10 +177,10 @@ Facts read from the page images (M2 analysis, 2026-11-12):
   returns with RETI. BRKEM inside a native routine reached from emulation is not allowed
   (p. 8-5).
 - Interrupt-routine entry (p. 6-1): the general sequence pushes PSW, PS, PC, then
-  "IE <- 0, BRK <- 0, MD <- 1", and lists BRKEM and CALLN among the vectored sources. For
-  CALLN this agrees with p. 12-176 (MD <- 1), so CALLN clears IE and BRK. The 8080 interrupt
-  enable is PSW.IE: Fig. 8-2 shows IE as PSW bit 9, and p. 9-1 uses IE for the emulation-mode
-  INT and HLT rules.
+  "IE <- 0, BRK <- 0, MD <- 1"; NMI and INT in emulation mode are serviced this way (p. 8-4).
+  Table 6-1 and Fig. 6-1 also list BRKEM and CALLN as vectored sources, but their own pages
+  list only MD (to-confirm list below; corrected 2026-11-14). The 8080 interrupt enable is PSW.IE: Fig. 8-2 shows
+  IE as PSW bit 9, and p. 9-1 uses IE for the emulation-mode INT and HLT rules.
 
 Not stated in the manual, so not modelled as facts:
 
@@ -187,11 +188,15 @@ Not stated in the manual, so not modelled as facts:
   parity); under the V20 x80 reports Intel 98-153B T-states, which are not V20 clocks.
 - ASSUMED: the uPD8080AF behaves as the Intel 8080A, including decision-8 and the derived
   DAA carry rule. No uPD8080AF source is pinned.
-- To confirm jointly with x86jit: IE after BRKEM (p. 6-1's general sequence would clear it
-  but sets MD <- 1, while p. 12-169 sets MD <- 0 and lists only MD, so the general sequence
-  does not describe BRKEM exactly); whether the native EI delay (p. 6-4; p. 12-172) applies
-  to the 8080 EI in emulation mode; the PC that CALLN pushes; the high address byte during
-  8080 IN/OUT.
+- To confirm jointly with x86jit:
+  - IE and BRK after BRKEM and CALLN. p. 6-1's general sequence clears both (but sets
+    MD <- 1, which BRKEM does not); pp. 12-169 and 12-176 list only MD in their operation
+    lists and flag tables, and a blank flag entry means "No change" (Table 12-4, p. 12-3);
+    BRK imm8 (p. 12-167) lists IE <- 0 and BRK <- 0 explicitly. Ruling R2, **ASSUMED**: both
+    instructions clear IE and BRK, as p. 6-1 does (decision-9 amendment, 2026-11-14).
+  - Whether the native EI delay (p. 6-4; p. 12-172) applies to the 8080 EI in emulation mode.
+  - The PC that CALLN pushes.
+  - The high address byte during 8080 IN/OUT.
 - Misprints noticed: p. 12-176 "SP <- PS - 6"; p. 12-177 refers to BRKEM where RETEM is meant.
 
 ### Z80 sources (M4: documented behaviour only)

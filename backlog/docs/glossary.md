@@ -31,4 +31,4 @@ established here. See [PROVENANCE.md](../../PROVENANCE.md).
 | Budget | Explicit instruction-step and T-state limit for a run |
 | Exit | Typed reason execution returns control to the embedder |
 | Witness / oracle | Independent manual-derived assertion / comparison that can falsify a claim |
-| BRKEM / RETEM / CALLN | NEC emulation-mode boundary terminology; contract unverified pending its manual |
+| BRKEM / RETEM / CALLN | NEC V20/V30 instructions that enter 8080 emulation (BRKEM), leave it (RETEM) and call a native routine from it (CALLN); see decision-9 and plan §3 |

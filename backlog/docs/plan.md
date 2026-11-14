@@ -174,12 +174,13 @@ other.
 Flow:
 
 - Entry: BRKEM imm8 (0F FF imm8, p. 12-169) pushes PSW, PS, PC on the native stack and
-  enters emulation at PS:PC from the vector. The adapter copies the mapped registers into
+  enters emulation at PS:PC from the vector (IE and BRK cleared: ASSUMED R2, decision-9
+  amendment). The adapter copies the mapped registers into
   `Registers` and runs x80.
 - Return: x80 returns `Unsupported` at opcode EDh with PC at that byte and nothing
   consumed. The adapter reads the following bytes through PS: ED FD is RETEM (pops PC, PS,
-  PSW; p. 12-177), ED ED imm8 is CALLN (pushes PSW with MD = 0, PS, PC; IE and BRK cleared;
-  native routine returns with RETI; pp. 12-176, 6-1). Any other Unsupported byte is a
+  PSW; p. 12-177), ED ED imm8 is CALLN (pushes PSW with MD = 0, PS, PC; native routine returns with
+  RETI; p. 12-176; IE and BRK cleared: ASSUMED R2, decision-9 amendment). Any other Unsupported byte is a
   typed refusal.
 - Interrupts: serviced in native mode (p. 8-4, Fig. 8-6). A request is not an acceptance:
   NMI is always accepted; INT is accepted when it is high at an instruction boundary with
@@ -199,7 +200,8 @@ PSW from the stack, so the native flags and MD come back and the 8080 flags do n
 over (p. 12-177); the program runs within the 64 KiB of PS, and data and stack within DS0,
 with 16-bit offsets (pp. 8-1, 8-2).
 
-To confirm with x86jit (the manual is unclear): IE after BRKEM; whether the native EI delay
+To confirm with x86jit (the manual is unclear): IE and BRK after BRKEM and CALLN (ruled R2, both
+clear, ASSUMED: decision-9 amendment 2026-11-14); whether the native EI delay
 applies to the 8080 EI in emulation; the PC that CALLN pushes; the high address byte during
 8080 IN/OUT; the uPD8080AF's equivalence to the Intel 8080A (ASSUMED, PROVENANCE §1).
 

@@ -25,7 +25,7 @@ Pages were checked as rendered images. No manual images or text are distributed.
 | AL=A; BW=HL, CW=BC, DW=DE (high/low bytes as drawn); BP=SP, PC=PC; native-only registers inaccessible; PS for code, DS0 for data and emulated stack | 8-1, Figs 8-1/8-2 (32) |
 | PSW IE=bit 9, BRK=bit 8, MD=bit 15; low flag byte S Z 0 AC 0 P 1 CY | 3-3 (16), 8-1 (32) |
 | 20-bit flat memory; little-endian words; segment times 16 plus unsigned offset; native stack SS:SP | 4-1, Fig. 4-2 (20); 10-1, Fig. 10-1 (40) |
-| Vector layout PC word followed by PS word at vector times four; NMI vector 2; push PSW, PS, PC; clear IE/BRK and set MD for service | 6-1, Table 6-1/Fig. 6-1 (26) |
+| Vector layout PC word followed by PS word at vector times four; NMI vector 2; push PSW, PS, PC; clear IE/BRK and set MD for INT/NMI service | 6-1, Table 6-1/Fig. 6-1 (26) |
 | INT acceptance at boundary requires high INT, IE=1, no simultaneous NMI or hold | 6-2 (27) |
 | BRKEM saves PSW, PS, PC, sets MD=0, loads vector; native continuation PC supplied as an operation parameter | 8-2 (33), 12-169 (214) |
 | ED ED nn CALLN saves emulation PSW (MD=0), PS, PC; loads native vector; returns by RETI | 8-4, Fig. 8-6 (35), 12-176 (221), 6-1 (26) |
@@ -47,13 +47,12 @@ counts are Intel T-states, **not V20 clocks**; these vectors assert no timing.
 
 ## ASSUMPTIONS and fixture policies
 
-All six unresolved hardware choices are centralized in
+All five unresolved hardware choices are centralized in
 [`tests/support/assumptions.rs`](tests/support/assumptions.rs):
 
 | Label | Selected value | Unsettled source |
 | --- | --- | --- |
-| ASSUMPTION `BRKEM_PRESERVES_IE` | true | PROVENANCE §1 to-confirm list; NEC 6-1 versus 12-169 |
-| ASSUMPTION `BRKEM_PRESERVES_BRK` | true | NEC 6-1 clears BRK in the general interrupt sequence; 12-169 lists only MD for BRKEM |
+| ASSUMPTION `BRKEM_CALLN_CLEAR_IE_BRK` | true (ruling R2, decision-9 amendment): BRKEM and CALLN clear IE and BRK, as NEC 6-1's general sequence does | PROVENANCE §1 to-confirm list; NEC 6-1 versus 12-169 and 12-176, which list only MD (blank means "No change", Table 12-4, 12-3) |
 | ASSUMPTION `CALLN_PC_ADVANCE` | 3 bytes, so saved PC is after ED ED nn | PROVENANCE §1 to-confirm list; NEC 12-176 |
 | ASSUMPTION `EMULATION_EI_DELAY` | true: honor x80's following-instruction delay | PROVENANCE §1 to-confirm list; native EI applicability unresolved |
 | ASSUMPTION `IO_HIGH_BYTE` | 00 | PROVENANCE §1 to-confirm list; native I/O does not settle emulation high byte |
@@ -64,13 +63,23 @@ portable vectors select these values; changing them requires different expected
 data. Additional tests exercise EI delay, IN/OUT high byte and instruction-offset
 wrap; the nine required round trips do not depend on I/O or boundary wrapping.
 
+INT and NMI entry clearing IE and BRK is read (6-1, 8-4), not assumed; only BRKEM
+and CALLN depend on the R2 constant. Under R2 the emulation PSW starts with IE = 0
+and BRK = 0 (7092 after BRKEM, 7093 after the common prefix). Cases that need
+IE = 1 therefore execute an 8080 EI; where an INT must be acceptable, a NOP or HLT
+completes after the EI so the EI delay (`EMULATION_EI_DELAY`) has expired.
+`brkem_retem` checks the emulation PSW after BRKEM and the prefix (7093); the exact
+7092 BRKEM leaves is checked in `contract.rs`. `calln_reti_retem` executes EI so that
+CALLN's IE clear is visible. Under R2 BRK is always 0 in emulation, so no vector can
+observe a BRK clear at service entry or RESET.
+
 Other fixture policies, collected in that same file: keep EI-delay across a
 synchronous native excursion; clear halted on wake; scripts explicitly order
 events. The mock native payload changes AL to C7, CW to ABCD, IX to DEAD, and
 temporarily inverts CY, P, AC, Z, S, BRK, IE, DIR and V relative to the saved
 PSW, with MD=1 and reserved bits retained. Thus every writable PSW bit differs
 from its saved value before RETI. Literal `routine` records check this live PSW
-(FC46 for saved 7393, FE46 for saved 7193). RETI restores the entire saved PSW,
+(FD46 for saved 7293, FF46 for saved 7093). RETI restores the entire saved PSW,
 while general-register edits carry back.
 Every service vector checks the restored emulation PSW (including MD=0) and
 8080 flag byte immediately after RETI, before RETEM restores the native PSW.
@@ -105,7 +114,7 @@ aliases are real, even though these round trips use disjoint ranges.
 | `run N` | Run N 8080 instructions with no external request; require Budget. |
 | `until halt` / `until retem` | Run until the named exit, with a 64-iteration safety cap; CALLN service/RETI is automatic. |
 | `until serviced` | Run until a CALLN service/RETI completes, with the same safety cap. |
-| `emulation PSW` | Expected live emulation PSW and low 8080 flag byte at this script point; used immediately after RETI to witness restored flags and MD=0. |
+| `emulation PSW` | Expected live emulation PSW and low 8080 flag byte at this script point; used immediately after RETI to witness restored flags and MD=0, and in `brkem_retem` to witness the PSW after BRKEM and the prefix. |
 | `signal INT NMI HOLD RESET NN RESULT` | Deliver a boundary event (line bits 0/1), NN supplies INT vector; perform one adapter run. RESULT is budget/halt/retem/serviced/wake/reset. NMI means an already latched rising edge, always vector 02. |
 | `final AW ... PSW` | Complete expected final native context, same word order as initial. |
 | `frame SOURCE SS SP PC PS PSW` | Expected historical frame, in write order among frames. SOURCE is brkem/calln/int/nmi. SP points to its lowest address. Words at SP, SP+2, SP+4 are PC, PS, PSW; writes occurred PSW then PS then PC. |
@@ -142,20 +151,20 @@ RETEM (8-4/8-5, 12-177). This table adds the scenario-specific sources.
 
 | Case | Event script after common prefix / extra NEC pages |
 | --- | --- |
-| brkem_retem | RETEM; 12-177 |
-| calln_reti_retem | CALLN 40, mock RETI, RETEM; 6-1, 8-4, 12-176, 12-168 |
-| int_enabled_running | INT high with IE=1; 6-2, 8-4, 12-168 |
+| brkem_retem | Emulation PSW after BRKEM (IE=BRK=0, ASSUMPTION R2), RETEM; 12-177 |
+| calln_reti_retem | EI, CALLN 40 (IE clear observable; BRK already 0; ASSUMPTION R2), mock RETI, RETEM; 6-1, 8-4, 12-176, 12-168 |
+| int_enabled_running | EI, NOP, INT high with IE=1; 6-2, 8-4, 12-168 |
 | int_disabled_running | DI, masked INT, no service; 6-2 |
 | nmi_running | DI, NMI, mock RETI; 6-1, 8-4, 12-168 |
 | hlt_int_disabled | DI, HLT, INT wake without service; 8-2, 9-1 |
 | hlt_int_disabled_retem | DI, HLT, masked INT wake directly into RETEM; 9-1, 12-177 |
 | hlt_int_disabled_calln | DI, HLT, masked INT wake directly into CALLN 40, RETI, RETEM; 9-1, 12-176, 12-168 |
-| hlt_int_enabled | HLT, INT service, RETI after HLT; 8-2, 9-1, 12-168 |
+| hlt_int_enabled | EI, HLT, INT service, RETI after HLT; 8-2, 9-1, 12-168 |
 | hlt_nmi | DI, HLT, unconditional NMI service; 8-2, 9-1, 12-168 |
-| reset_running | RESET after prefix; 7-1, 8-4 |
-| int_low_running | Low INT with IE=1, no service; 6-2 |
-| int_held_running | INT high simultaneous with hold, no service; 6-2 |
-| nmi_over_int_and_hold | NMI wins over high INT even with hold; 6-1/6-2, 8-4, 12-168 |
+| reset_running | EI, then RESET clears IE; 7-1, 8-4 |
+| int_low_running | EI, NOP, low INT with IE=1, no service; 6-2 |
+| int_held_running | EI, NOP, INT high simultaneous with hold, no service; 6-2 |
+| nmi_over_int_and_hold | EI, NOP, NMI wins over high INT even with hold; 6-1/6-2, 8-4, 12-168 |
 
 Anything other than unsupported ED followed by FD or ED nn is a typed refusal;
 no speculative native semantics are assigned. The current x80 public API remains
