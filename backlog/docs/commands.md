@@ -18,6 +18,9 @@ cargo tree --offline --locked -p x80-core --all-features --target all --edges no
 ```
 
 `cargo test` is the fallback when nextest is absent; it also runs doctests.
+On macOS hosts `.config/nextest.toml` raises the leak timeout to 60 s for every
+test, because a concurrently spawned test can briefly inherit another test's
+output pipe there; Linux keeps nextest's default leak detection.
 The boundary test invokes offline, locked `cargo tree` and rejects every dependency
 kind, including optional and target-specific dependencies. The library is `no_std`
 now, not a feature toggle. The separate unpublished `x80-oracle` crate supplies

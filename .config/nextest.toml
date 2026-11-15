@@ -1,0 +1,13 @@
+# Spurious LEAK on macOS hosts. Rust's standard library creates pipes there
+# with pipe() and sets close-on-exec in a second step (pipe2 is unavailable),
+# and nextest spawns test processes from several threads at once. A test
+# process spawned inside that window inherits another test's stdout/stderr
+# pipe and holds it until it exits, so nextest reports the other test as
+# leaky although no test leaked a handle. Any test can be affected and the
+# hold lasts at most as long as the longest concurrently running test, so
+# the period matches nextest's default slow-timeout. Linux uses
+# pipe2(O_CLOEXEC) and keeps the default 100 ms leak detection.
+[[profile.default.overrides]]
+platform = { host = 'cfg(target_os = "macos")' }
+filter = 'all()'
+leak-timeout = "60s"
