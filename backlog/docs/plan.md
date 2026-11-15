@@ -222,9 +222,16 @@ handoff. Settled by decision-9's 2026-11-15 amendment: step accounting (RETEM an
 are one native step each), cancellation (x80's `stop_requested` carries the host's own
 stop or cancel) and latch ownership (the State exchange bullet above).
 
-Joint witnesses (beads `x80-pzp.5`, `x80-pzp.6`): one complete entry/exit round trip and
-one interrupted round trip on shared memory, run from x80's contract vectors on both sides
-once C4 lands.
+Joint witnesses (beads `x80-pzp.5`, `x80-pzp.6`): the same contract vectors run on both
+sides. Maintainer decision of 2026-11-15: shared vectors satisfy M2's joint witnesses.
+x80 runs `x80-v20-contract/vectors/mode-switch.txt` (format 2) against its mock native
+side; x86jit embeds the same file byte for byte and runs it against its 8080 fixture
+(commit 6614d2e0 (x86jit), bead `xj-50w.18` (x86jit)). Twelve of the fifteen cases pass on
+both the NecV20 and NecV30 models there, including full entry/exit round trips
+(`brkem_retem`, `calln_reti_retem`) and interrupted ones (`int_enabled_running`,
+`hlt_int_enabled`). The three NMI cases wait for a NEC NMI input in x86jit (`xj-50w.19`
+(x86jit)). A round trip with x80-core and x86jit running together on shared memory
+through a real adapter belongs to the embedder ([deferred](deferred.md)).
 
 ## 4. Testing strategy and provenance
 
