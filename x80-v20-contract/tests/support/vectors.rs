@@ -1,9 +1,27 @@
 //! Strict, dependency-free reader for the language-neutral format in README.md.
+//! Only format 2 is accepted.
 use super::adapter::{Adapter, Lines, Outcome};
 use super::native::{Frame, Memory, Native};
 use x80_core::MemoryAccess;
 
 const TEXT: &str = include_str!("../../vectors/mode-switch.txt");
+const FORMAT: &str = "x80-v20-contract-2";
+
+fn records(text: &str) -> impl Iterator<Item = Vec<&str>> {
+    text.lines()
+        .map(|line| line.split('#').next().unwrap().split_whitespace().collect())
+}
+
+/// The first record must be `format x80-v20-contract-2`. Format 1 counted
+/// the adapter's escape reads in `access`; format 2 counts only x80's bus.
+pub fn check_format(text: &str) {
+    let first = records(text).find(|tokens| !tokens.is_empty());
+    assert_eq!(
+        first.as_deref(),
+        Some(&["format", FORMAT][..]),
+        "unsupported vector format"
+    );
+}
 
 pub fn hex(s: &str) -> u16 {
     u16::from_str_radix(s, 16).expect("hexadecimal word")
@@ -39,14 +57,15 @@ fn patch(bytes: &mut [u8], tokens: &[&str]) {
     }
 }
 
-fn configuration(name: &str) -> (Native, Memory, u8) {
+/// Initial native context, memory and BRKEM vector of a case, before BRKEM.
+pub fn configuration(name: &str) -> (Native, Memory, u8) {
     let (common, section) = section(name);
     let mut memory = Memory::new();
     let mut initial = None;
     let mut vector = None;
     for line in common.into_iter().chain(section) {
         match line.as_slice() {
-            ["format", "x80-v20-contract-1"] => {}
+            ["format", FORMAT] => {}
             ["initial", w @ ..] => {
                 assert!(initial.replace(state(w)).is_none());
             }
@@ -62,7 +81,7 @@ fn configuration(name: &str) -> (Native, Memory, u8) {
 
 pub fn fixture(name: &str) -> Adapter {
     let (initial, memory, vector) = configuration(name);
-    Adapter::enter(initial, memory, vector)
+    Adapter::enter(initial, memory, vector).expect("BRKEM refused")
 }
 
 type Tokens<'a> = Vec<Vec<&'a str>>;
@@ -72,8 +91,8 @@ fn section(name: &str) -> (Tokens<'static>, Tokens<'static>) {
     let mut selected = Vec::new();
     let mut current = None;
     let mut found = false;
-    for line in TEXT.lines() {
-        let tokens: Vec<_> = line.split('#').next().unwrap().split_whitespace().collect();
+    check_format(TEXT);
+    for tokens in records(TEXT) {
         match tokens.as_slice() {
             [] => {}
             ["case", id] => {
@@ -97,7 +116,7 @@ pub fn run_vector(name: &str) {
     let (common, section) = section(name);
     let (initial, memory, vector) = configuration(name);
     let mut expected_memory = memory.bytes.clone();
-    let mut adapter = Adapter::enter(initial, memory, vector);
+    let mut adapter = Adapter::enter(initial, memory, vector).expect("BRKEM refused");
     let mut frames = Vec::new();
     let mut services = Vec::new();
     let mut routine_psws = Vec::new();
@@ -105,7 +124,7 @@ pub fn run_vector(name: &str) {
     let mut access_seen = false;
     for tokens in common.into_iter().chain(section) {
         match tokens.as_slice() {
-            ["format", "x80-v20-contract-1"] | ["initial", ..] | ["brkem", _] | ["memory", ..] => {}
+            ["format", FORMAT] | ["initial", ..] | ["brkem", _] | ["memory", ..] => {}
             ["run", n] => assert_eq!(
                 adapter.run(u64::from(hex(n)), Lines::default()),
                 Ok(Outcome::Budget)
@@ -117,7 +136,9 @@ pub fn run_vector(name: &str) {
                 let expected = hex(psw);
                 assert!(!adapter.ended);
                 assert_eq!(adapter.native.psw, expected);
-                assert_eq!(adapter.cpu.registers().psw() & 0xFF, expected & 0xFF);
+                // The flag byte x80 receives at the next copy-in.
+                let cpu = adapter.native.copy_in();
+                assert_eq!(cpu.registers().psw() & 0xFF, expected & 0xFF);
             }
             ["signal", int, nmi, hold, reset, vector, expected] => {
                 let bit = |s| match s {
@@ -166,6 +187,8 @@ pub fn run_vector(name: &str) {
             ["service", w @ ..] => services.push(state(w)),
             ["routine", psw] => routine_psws.push(hex(psw)),
             ["access", ps, ds0, counts @ ..] => {
+                // Only accesses through x80's bus; the native ED decode,
+                // frames and vector reads are not on it.
                 assert!(!access_seen);
                 access_seen = true;
                 let mut actual = [0u16; 6];

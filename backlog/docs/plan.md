@@ -175,22 +175,30 @@ Flow:
 
 - Entry: BRKEM imm8 (0F FF imm8, p. 12-169) pushes PSW, PS, PC on the native stack and
   enters emulation at PS:PC from the vector (IE and BRK cleared: ASSUMED R2, decision-9
-  amendment). The adapter copies the mapped registers into
+  amendment). BRK = 0 is a precondition: the native core refuses BRKEM with BRK = 1
+  (decision-9 amendment 2026-11-15). The adapter copies the mapped registers into
   `Registers` and runs x80.
-- Return: x80 returns `Unsupported` at opcode EDh with PC at that byte and nothing
-  consumed. The adapter reads the following bytes through PS: ED FD is RETEM (pops PC, PS,
-  PSW; p. 12-177), ED ED imm8 is CALLN (pushes PSW with MD = 0, PS, PC; native routine returns with
-  RETI; p. 12-176; IE and BRK cleared: ASSUMED R2, decision-9 amendment). Any other Unsupported byte is a
-  typed refusal.
+- Return (option B, decision-9 amendment 2026-11-15): x80 returns `Unsupported` at opcode
+  EDh with PC at that byte; only the ED fetch reached its bus. The adapter hands back an
+  ED escape, and the native core fetches ED at PS:PC again and decodes it: ED FD is RETEM
+  (pops PC, PS, PSW; p. 12-177), ED ED imm8 is CALLN (pushes PSW with MD = 0, PS, PC;
+  native routine returns with RETI; p. 12-176; IE and BRK cleared: ASSUMED R2, decision-9
+  amendment 2026-11-14; consumes a pending 8080 EI delay: ASSUMED). Any other ED form is
+  the native core's unknown instruction; any other Unsupported byte is the adapter's typed
+  refusal. MD stays 0 in both.
 - Interrupts: serviced in native mode (p. 8-4, Fig. 8-6). A request is not an acceptance:
   NMI is always accepted; INT is accepted when it is high at an instruction boundary with
   IE = 1 and no simultaneous NMI or hold request (p. 6-2; pp. 6-1, 8-4). When the native side
   would accept one, the adapter requests a host stop, copies state out at the clean boundary
   and services it natively; RETI returns to emulation. A masked INT is not serviced, except
   that it ends HLT standby (below). The adapter never asserts INT into x80.
-- HLT: x80 returns `Halt`; the adapter owns the V20 standby. An INT with interrupts
-  disabled resumes the 8080 program after the HLT without service (pp. 8-2, 9-1): clear
-  `latches.halted` and run again. NMI is unconditional; RESET ends emulation.
+- State exchange: at every hand-back the view carries A, the five flags, BC, DE, HL, SP,
+  PC, IE, the EI delay (verbatim) and halted; PS and DS0 are read-only. x80 is rebuilt
+  from the view at each copy-in (decision-9 amendment 2026-11-15).
+- HLT: x80 returns `Halt`; halted lives in the view, kept by the native core. An INT with
+  interrupts disabled resumes the 8080 program after the HLT without service (pp. 8-2,
+  9-1): the adapter clears halted and runs again. NMI is unconditional; RESET ends
+  emulation.
 - Timing: x80 reports Intel 98-153B T-states, not V20 clocks; NEC gives V20 clocks only for
   BRKEM, RETEM, CALLN, RETI and interrupts. A joint clock is the embedder's to reconcile.
 
@@ -202,13 +210,17 @@ with 16-bit offsets (pp. 8-1, 8-2).
 
 To confirm with x86jit (the manual is unclear): IE and BRK after BRKEM and CALLN (ruled R2, both
 clear, ASSUMED: decision-9 amendment 2026-11-14); whether the native EI delay
-applies to the 8080 EI in emulation; the PC that CALLN pushes; the high address byte during
-8080 IN/OUT; the uPD8080AF's equivalence to the Intel 8080A (ASSUMED, PROVENANCE §1).
+applies to the 8080 EI in emulation, and CALLN consuming it (ASSUMED); the EI delay across
+NMI service (open); the PC that CALLN pushes; the offset wrap inside the segment at FFFFh
+within PS and DS0 (ASSUMED); the 8080 IN/OUT high address byte (the adapter's; ASSUMED 00);
+the uPD8080AF's equivalence to the Intel 8080A (ASSUMED, PROVENANCE §1). The 2026-11-15
+items are in decision-9's amendment.
 
 Open for the joint contract (C4 and the adapter; decision-5 gives only x80's local rules):
-offset wrap at FFFFh within PS and DS0; which x80 execution latches (EI delay, halted) the
-adapter keeps across a native excursion; cancellation and joint event and budget precedence
-across the two cores; exact step and cycle accounting of each handoff.
+joint event and budget precedence across the two cores; exact cycle accounting of each
+handoff. Settled by decision-9's 2026-11-15 amendment: step accounting (RETEM and CALLN
+are one native step each), cancellation (x80's `stop_requested` carries the host's own
+stop or cancel) and latch ownership (the State exchange bullet above).
 
 Joint witnesses (beads `x80-pzp.5`, `x80-pzp.6`): one complete entry/exit round trip and
 one interrupted round trip on shared memory, run from x80's contract vectors on both sides
@@ -298,7 +310,9 @@ Decided items cite their record; the rest stay open.
    `registers_mut` and `latches_mut` suffices, since copies happen only at
    BRKEM/RETEM/CALLN and interrupt stops. Decided by the maintainer: the V20/V30
    adapter belongs to the embedder (bead `x80-pzp`); decision-9 records the copy-in/out
-   contract.
+   contract. Superseded in part by decision-9's 2026-11-15 amendment: the view is
+   exchanged at every hand-back, the native core keeps `ei_delay` and `halted`, and the
+   adapter keeps no 8080 latch.
 5. The joint register/flag/PC/segment/stack and native-context mapping is settled in
    x86jit's C4 bead (xj-50w.7) against the pinned NEC manual; x80's side must be
    reviewed in the same change. Who owns the shared test fixture? Decided (decision-9):
@@ -306,10 +320,11 @@ Decided items cite their record; the rest stay open.
    in §3.
 6. Who recognizes RETEM/CALLN, and what exact bytes, state, timing and event
    precedence apply to each native handoff, including masked external interrupts?
-   Recognition decided in decision-9 from the NEC manual: the adapter recognizes RETEM
-   and CALLN from an `Unsupported` exit at opcode EDh, and serves interrupts natively
-   through the host stop (§3). Still open with C4: handoff timing, event precedence and
-   the items listed at the end of §3.
+   Decided in decision-9's 2026-11-15 amendment (option B): x80 stops on EDh, the adapter
+   hands back an ED escape and the native core decodes RETEM and CALLN; the view
+   exchange and adapter rules are there too. Interrupts are served natively through the
+   host stop (§3). Still open with C4: handoff timing, event precedence and the items
+   listed at the end of §3.
 7. Decided for the 8080 in decision-3: undocumented encodings return a typed
    unsupported exit; decision-9's V20 ED escape remains working. Undocumented
    8080 research (`x80-mn3.4`) found no qualifying source; admission needs

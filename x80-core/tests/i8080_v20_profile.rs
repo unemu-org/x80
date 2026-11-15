@@ -183,7 +183,8 @@ fn assert_native_escape_unsupported(bytes: &[u8]) {
             assert_eq!(bus.ps, ps);
             assert_eq!(bus.ds0, ds0);
             let mut trace = Vec::new();
-            // Only the ED is fetched: the adapter can decode the suffix later.
+            // Only the ED is fetched: the native core decodes it again with its
+            // suffix (decision-9 amendment of 2026-11-15, option B).
             instruction(&mut trace, pc, &[0xED], &[]);
             assert_eq!(bus.take_log(), trace);
         }

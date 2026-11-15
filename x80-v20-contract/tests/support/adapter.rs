@@ -1,9 +1,16 @@
-//! Reference loop for decision-9 / plan §3, built on the public x80 API.
-//! NEC citations: Stock No. 500350, October 1986 (see native.rs).
+//! Reference loop for decision-9 and its amendments / plan §3, built on the
+//! public x80 API. NEC citations: Stock No. 500350, October 1986 (see
+//! native.rs).
+//!
+//! Option B and the view exchange (decision-9 amendment, 2026-11-15): every
+//! run copies x80 in from the native model and out again at every exit. The
+//! adapter keeps no 8080 register or latch of its own between runs. On ED it
+//! hands back `EdEscape` (x86jit: `I8080Handback::EdEscape`) and the native
+//! model decodes the escape itself.
 
 use super::assumptions;
-use super::native::{offset_add, Memory, Native, IE};
-use x80_core::i8080::{Inputs, Latches, I8080};
+use super::native::{Escape, Memory, Native, BRK, IE};
+use x80_core::i8080::Inputs;
 use x80_core::{Budget, Bus, Control, Exit, MemoryAccess};
 
 #[derive(Clone, Copy, Debug, Default)]
@@ -27,12 +34,27 @@ pub enum Outcome {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Refusal {
-    Opcode { pc: u16, opcode: u8 },
-    Escape { pc: u16, second: u8 },
+    /// x80 refused a non-ED opcode (decision-3). The adapter hands back a
+    /// typed refusal: MD stays 0 and nothing is decoded natively.
+    Opcode {
+        pc: u16,
+        opcode: u8,
+    },
+    /// x80 stopped on ED and the native core's decode of ED at PS:PC found
+    /// neither ED FD nor ED ED nn: the native side's unknown instruction.
+    NativeUnknown {
+        pc: u16,
+        bytes: [u8; 2],
+    },
+    /// The native core refused BRKEM with BRK = 1 (decision-9 amendment,
+    /// 2026-11-15): no effect, emulation never starts and x80 never runs.
+    NativeSingleStep,
     UnexpectedCoreExit,
     Ended,
 }
 
+/// One access through x80's bus. The native model's own reads and writes
+/// (frames, vectors and the ED decode) never appear here.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Access {
     pub kind: MemoryAccess,
@@ -71,6 +93,8 @@ impl Bus for SegmentedBus<'_> {
     }
 
     fn write(&mut self, offset: u16, value: u8, kind: MemoryAccess) {
+        // One flat image: 8080 stores are visible to the native side at
+        // once (an embedder must also invalidate native translations).
         assert!(matches!(kind, MemoryAccess::Data | MemoryAccess::Stack));
         self.memory.write(self.ds0, offset, value);
         self.accesses.push(Access {
@@ -95,6 +119,8 @@ impl Bus for SegmentedBus<'_> {
 }
 
 impl Control for SegmentedBus<'_> {
+    // decision-9 amendment, 2026-11-15: an embedder's stop request must also
+    // carry the host's own stop or cancel; the fixture scripts none.
     fn stop_requested(&mut self) -> bool {
         self.stop
     }
@@ -110,7 +136,6 @@ impl Inputs for SegmentedBus<'_> {
 pub struct Adapter {
     pub native: Native,
     pub memory: Memory,
-    pub cpu: I8080,
     pub accesses: Vec<Access>,
     pub ports: Vec<(u16, u8, bool)>,
     /// State at native routine entry, before the scripted mock payload.
@@ -122,20 +147,20 @@ pub struct Adapter {
 }
 
 impl Adapter {
-    pub fn enter(mut native: Native, mut memory: Memory, vector: u8) -> Self {
-        native.brkem(&mut memory, vector);
-        let cpu = native.copy_in(Latches::default());
-        Self {
+    pub fn enter(mut native: Native, mut memory: Memory, vector: u8) -> Result<Self, Refusal> {
+        native
+            .brkem(&mut memory, vector)
+            .map_err(|_| Refusal::NativeSingleStep)?;
+        Ok(Self {
             native,
             memory,
-            cpu,
             accesses: Vec::new(),
             ports: Vec::new(),
             services: Vec::new(),
             routine_psws: Vec::new(),
             boundaries: Vec::new(),
             ended: false,
-        }
+        })
     }
 
     pub fn run(&mut self, steps: u64, lines: Lines) -> Result<Outcome, Refusal> {
@@ -146,12 +171,14 @@ impl Adapter {
         // Native EI delay applicability is an ASSUMPTION, not a NEC fact.
         let int_accepted = lines.int
             && self.native.psw & IE != 0
-            && (!assumptions::EMULATION_EI_DELAY || !self.cpu.latches().ei_delay)
+            && (!assumptions::EMULATION_EI_DELAY || !self.native.ei_delay)
             && !lines.nmi
             && !lines.hold;
         // NEC pp. 8-2, 9-1: NMI unconditional; masked INT wakes HLT.
-        let wake = self.cpu.latches().halted && lines.int && self.native.psw & IE == 0;
+        let wake = self.native.halted && lines.int && self.native.psw & IE == 0;
         let stop = lines.reset || lines.nmi || int_accepted || wake;
+        // Copy-in: x80 is rebuilt from the native model alone.
+        let mut cpu = self.native.copy_in();
         let report = {
             let mut bus = SegmentedBus {
                 memory: &mut self.memory,
@@ -161,7 +188,7 @@ impl Adapter {
                 ds0: self.native.ds0,
                 stop,
             };
-            self.cpu.run(
+            cpu.run(
                 &mut bus,
                 Budget {
                     steps,
@@ -169,7 +196,7 @@ impl Adapter {
                 },
             )
         };
-        self.native.copy_out(&self.cpu);
+        self.native.copy_out(&cpu);
         self.boundaries.push(self.native);
         match report.exit {
             Exit::Budget => Ok(Outcome::Budget),
@@ -187,37 +214,39 @@ impl Adapter {
                     } else {
                         ("int", lines.vector)
                     };
-                    self.service(source, vector);
+                    let saved_psw = self.native.psw;
+                    self.native.enter_service(&mut self.memory, source, vector);
+                    self.routine(saved_psw);
                     Ok(Outcome::Serviced)
                 } else {
                     // NEC p. 9-1: masked INT must stay high through the
                     // instruction following HLT. The script token spans
                     // wake AND that instruction; no clocks are inferred.
-                    self.cpu.latches_mut().halted = false;
+                    // The adapter hands back halted = 0 for the wake.
+                    self.native.halted = false;
                     match self.run(1, lines)? {
                         Outcome::Budget => Ok(Outcome::Wake),
                         outcome => Ok(outcome),
                     }
                 }
             }
-            Exit::Unsupported(u) if !u.acknowledge && u.opcode == 0xED => {
-                let second = self.escape_byte(offset_add(u.pc, 1));
-                match second {
-                    0xFD => {
-                        // NEC p. 12-177: restore original native PSW,
-                        // discarding emulated flags; registers carry out.
-                        self.native.return_frame(&self.memory);
+            // decision-9: the adapter never asserts INT, so x80 never
+            // refuses an acknowledge under the profile.
+            Exit::Unsupported(u) if u.acknowledge => unreachable!("{u:?}"),
+            Exit::Unsupported(u) if u.opcode == 0xED => {
+                // Option B: hand back EdEscape without reading past ED.
+                assert_eq!(self.native.pc, u.pc);
+                let saved_psw = self.native.psw;
+                match self.native.escape(&mut self.memory) {
+                    Escape::Retem => {
                         self.ended = true;
                         Ok(Outcome::Retem)
                     }
-                    0xED => {
-                        // NEC p. 12-176; saved continuation is ASSUMED.
-                        let vector = self.escape_byte(offset_add(u.pc, 2));
-                        self.native.pc = offset_add(u.pc, i32::from(assumptions::CALLN_PC_ADVANCE));
-                        self.service("calln", vector);
+                    Escape::Calln => {
+                        self.routine(saved_psw);
                         Ok(Outcome::Serviced)
                     }
-                    second => Err(Refusal::Escape { pc: u.pc, second }),
+                    Escape::Unknown { bytes } => Err(Refusal::NativeUnknown { pc: u.pc, bytes }),
                 }
             }
             Exit::Unsupported(u) => Err(Refusal::Opcode {
@@ -228,31 +257,19 @@ impl Adapter {
         }
     }
 
-    fn escape_byte(&mut self, offset: u16) -> u8 {
-        let value = self.memory.read(self.native.ps, offset);
-        self.accesses.push(Access {
-            kind: MemoryAccess::OperandFetch,
-            segment: self.native.ps,
-            offset,
-            value,
-            write: false,
-        });
-        value
-    }
-
-    fn service(&mut self, source: &'static str, vector: u8) {
-        let mut latches = *self.cpu.latches();
-        let saved_psw = self.native.psw;
-        self.native.enter_service(&mut self.memory, source, vector);
+    /// The native routine after INT, NMI or CALLN entry, then RETI back
+    /// into emulation. RETI is an operation, not a decoded instruction.
+    fn routine(&mut self, saved_psw: u16) {
         self.services.push(self.native);
         self.native.mock_routine(saved_psw);
         self.routine_psws.push(self.native.psw);
-        // RETI is an operation, not a decoded/executed native instruction.
+        // A RETI that starts with BRK = 1 and re-enters 8080 mode would be
+        // refused natively, like BRKEM; service entry clears BRK and the mock
+        // routine leaves it clear.
+        assert_eq!(self.native.psw & BRK, 0);
         // NEC p. 12-168 / p. 8-4 Fig. 8-6: restores MD=0 and returns.
         self.native.return_frame(&self.memory);
         assert_eq!(self.native.psw, saved_psw);
-        latches.halted = false; // NEC p. 9-1: return after HLT
-        self.cpu = self.native.copy_in(latches);
     }
 
     pub fn until(&mut self, expected: Outcome) {

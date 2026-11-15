@@ -143,9 +143,9 @@ Pinned by the x86jit project in the shared stash (oracles 1431bbc, bead xj-vao (
 used by x80 for M2: `nec/v20-v30-um.pdf`, NEC uPD70108/uPD70116 (V20/V30) User's Manual,
 Stock No. 500350, October 1986, 228 pp, sha256
 `8252fe5ddc0623380b7f28819009e6bb7d2b8e345ef347d9e6f2d299ce97865f`, © NEC, cite-only.
-Page map: printed 8-n = PDF 31+n; 3-3 = PDF 16; 6-1 = PDF 26; 9-1 = PDF 38; 12-3 = PDF 48;
-12-151 = PDF 196; 12-167 = PDF 212; 12-168 = PDF 213; 12-169 = PDF 214; 12-176 = PDF 221;
-12-177 = PDF 222.
+Page map: printed 8-n = PDF 31+n; 3-3 = PDF 16; 6-1 = PDF 26; 9-1 = PDF 38; 10-1 = PDF 40;
+12-3 = PDF 48; 12-151 = PDF 196; 12-167 = PDF 212; 12-168 = PDF 213; 12-169 = PDF 214;
+12-176 = PDF 221; 12-177 = PDF 222.
 A scan with an OCR text layer: check every value against the page image.
 
 Facts read from the page images (M2 analysis, 2026-11-12):
@@ -186,6 +186,18 @@ Not stated in the manual, so not modelled as facts:
 
 - No 8080 instruction clocks for the V20 and no 8080 flag rules (AC after AND, DAA,
   parity); under the V20 x80 reports Intel 98-153B T-states, which are not V20 clocks.
+- Who decodes the bytes after ED is an interface decision, not a manual fact: x80 stops
+  on ED and the native core decodes ED FD and ED ED imm8 (option B, decision-9 amendment,
+  2026-11-15).
+- BRKEM executed with BRK = 1 (a pending single-step trap). p. 6-3 (PDF 28), "BRK FLAG
+  (SINGLE-STEP INTERRUPT)", gives the general rule: "When the BRK flag is set, an
+  interrupt routine specified by vector 1 starts after the current instruction has been
+  executed. The BRK and interrupt enable (IE) flags are also reset at this point." That
+  covers BRKEM literally, but no page settles how it combines with BRKEM's switch into
+  emulation mode (p. 12-169) and with R2's BRK clear (ASSUMED); single-step in emulation
+  mode is not described. Interface rule, not a fact: the native core refuses BRKEM with
+  BRK = 1, following the principle of decision-23 §3 (x86jit), so the contract vectors
+  start with BRK = 0 (decision-9 amendment, 2026-11-15).
 - ASSUMED: the uPD8080AF behaves as the Intel 8080A, including decision-8 and the derived
   DAA carry rule. No uPD8080AF source is pinned.
 - To confirm jointly with x86jit:
@@ -194,9 +206,26 @@ Not stated in the manual, so not modelled as facts:
     lists and flag tables, and a blank flag entry means "No change" (Table 12-4, p. 12-3);
     BRK imm8 (p. 12-167) lists IE <- 0 and BRK <- 0 explicitly. Ruling R2, **ASSUMED**: both
     instructions clear IE and BRK, as p. 6-1 does (decision-9 amendment, 2026-11-14).
-  - Whether the native EI delay (p. 6-4; p. 12-172) applies to the 8080 EI in emulation mode.
+  - Whether the native EI delay (p. 6-4; p. 12-172) applies to the 8080 EI in emulation
+    mode, and whether CALLN consumes a pending 8080 EI delay. No page states the CALLN
+    case; ruling **ASSUMED**: no EI delay survives a CALLN excursion, and CALLN itself
+    consumes it (decision-9 amendment, 2026-11-15). On a native core the routine's own
+    RETI would also end it.
+  - The EI delay across INT and NMI service: **open**. Only an NMI right after an 8080 EI
+    reaches this case, since an INT is accepted only after the delay. The contract fixture
+    keeps the delay across the excursion; on a native core the routine's instructions
+    would end it. Vector format 2 cannot express the case (decision-9 amendment,
+    2026-11-15).
   - The PC that CALLN pushes.
-  - The high address byte during 8080 IN/OUT.
+  - Offset wrap inside the segment. p. 10-1 (PDF 40) and Fig. 10-1 form the physical
+    address from the segment value times 16 plus a 16-bit offset, both "treated as
+    unsigned data"; the page does not say what an operand or stack byte past offset FFFFh
+    addresses. **ASSUMED**: the offset wraps to 0000h inside the segment. x80's bus offset
+    is 16-bit, so a carry into the next segment would need an x80 API change (decision-9
+    amendment, 2026-11-15).
+  - The 8080 IN/OUT high address byte. x80 passes only the 8-bit port (decision-5
+    item 3), so the adapter alone supplies it; **ASSUMED** 00 in the contract fixture
+    (decision-9 amendment, 2026-11-15).
 - Misprints noticed: p. 12-176 "SP <- PS - 6"; p. 12-177 refers to BRKEM where RETEM is meant.
 
 ### Z80 sources (M4: documented behaviour only)

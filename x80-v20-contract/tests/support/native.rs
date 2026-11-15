@@ -1,6 +1,9 @@
-//! Mock operations, not instruction decoding or native execution.
-//! Design: decision-9 / plan §3. Every NEC citation here means the pinned
-//! uPD70108/uPD70116 User's Manual, Stock No. 500350, October 1986.
+//! Mock operations, not native instruction execution. The only bytes the mock
+//! decodes are ED FD and ED ED nn after an `EdEscape` hand-back (x86jit:
+//! `I8080Handback::EdEscape`; option B).
+//! Design: decision-9 and its amendments / plan §3. Every NEC citation here
+//! means the pinned uPD70108/uPD70116 User's Manual, Stock No. 500350,
+//! October 1986.
 
 use super::assumptions;
 use x80_core::i8080::{Latches, Registers, I8080};
@@ -11,6 +14,10 @@ pub const BRK: u16 = 1 << 8;
 pub const MD: u16 = 1 << 15;
 const DIR: u16 = 1 << 10;
 
+/// The native context plus the two 8080 latches the native core keeps for
+/// the view exchange (decision-9 amendment, 2026-11-15). IE is PSW bit 9.
+/// `ei_delay` and `halted` are stored verbatim from each copy-out and are
+/// the only source of x80's latches at each copy-in.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Native {
     pub aw: u16,
@@ -27,9 +34,33 @@ pub struct Native {
     pub ds1: u16,
     pub pc: u16,
     pub psw: u16,
+    pub ei_delay: bool,
+    pub halted: bool,
+}
+
+/// The native core's typed refusal of BRKEM with BRK = 1, before any effect
+/// (decision-9 amendment, 2026-11-15, following the principle of decision-23
+/// §3 (x86jit)). NEC p. 6-3's general single-step rule covers BRKEM
+/// literally, but no page settles how it combines with BRKEM's switch into
+/// emulation mode and with R2's BRK clear (ASSUMED). An interface rule, not a
+/// hardware fact.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct SingleStepRefused;
+
+/// What the native core does with an `EdEscape` hand-back (option B).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Escape {
+    /// ED FD: RETEM completed; emulation ended.
+    Retem,
+    /// ED ED nn: CALLN completed; a native routine is entered.
+    Calln,
+    /// Any other ED form: the native core's unknown instruction. Nothing
+    /// changes and MD stays 0.
+    Unknown { bytes: [u8; 2] },
 }
 
 impl Native {
+    /// Fourteen words; neither 8080 latch is pending.
     pub fn from_words(w: &[u16]) -> Self {
         let &[aw, bw, cw, dw, bp, sp, ix, iy, ps, ss, ds0, ds1, pc, psw] = w else {
             panic!("native state needs fourteen words");
@@ -49,11 +80,15 @@ impl Native {
             ds1,
             pc,
             psw,
+            ei_delay: false,
+            halted: false,
         }
     }
 
-    /// NEC p. 8-1 Fig. 8-1: AL=A, BW=HL, CW=BC, DW=DE, BP=SP.
-    pub fn copy_in(self, mut latches: Latches) -> I8080 {
+    /// The view exchange into x80. NEC p. 8-1 Fig. 8-1: AL=A, BW=HL, CW=BC,
+    /// DW=DE, BP=SP; Fig. 8-2 and p. 9-1: IE. Registers and every latch come
+    /// from this model alone; the adapter keeps no 8080 state of its own.
+    pub fn copy_in(&self) -> I8080 {
         let mut r = Registers {
             sp: self.bp,
             pc: self.pc,
@@ -63,11 +98,18 @@ impl Native {
         r.set_hl(self.bw);
         r.set_bc(self.cw);
         r.set_de(self.dw);
-        latches.interrupt_enable = self.psw & IE != 0;
+        // Exhaustive on purpose: a new x80 latch must be added to the view.
+        let latches = Latches {
+            interrupt_enable: self.psw & IE != 0,
+            ei_delay: self.ei_delay,
+            halted: self.halted,
+        };
         I8080::new(r, latches)
     }
 
-    /// NEC p. 8-1 Figs 8-1/8-2. AH and native-only state stay untouched.
+    /// The view exchange out of x80, at every x80 exit. NEC p. 8-1
+    /// Figs 8-1/8-2. AH, segments and native-only state stay untouched; the
+    /// EI delay and halted are stored verbatim.
     pub fn copy_out(&mut self, cpu: &I8080) {
         let r = cpu.registers();
         self.aw = (self.aw & 0xFF00) | u16::from(r.a);
@@ -77,22 +119,63 @@ impl Native {
         self.bp = r.sp;
         self.pc = r.pc;
         self.psw = (self.psw & !(0xFF | IE)) | (r.psw() & 0xFF);
-        if cpu.latches().interrupt_enable {
+        let latches = cpu.latches();
+        if latches.interrupt_enable {
             self.psw |= IE;
         }
+        self.ei_delay = latches.ei_delay;
+        self.halted = latches.halted;
     }
 
     /// NEC p. 12-169 / p. 8-2: push PSW, PS, PC; MD=0; vector. IE and BRK
     /// follow the BRKEM/CALLN ASSUMPTION (R2: cleared, as on p. 6-1).
     /// `pc` is already the native continuation supplied by the caller.
-    pub fn brkem(&mut self, memory: &mut Memory, vector: u8) {
+    /// BRK = 1 is refused first, with no effect on state or memory.
+    pub fn brkem(&mut self, memory: &mut Memory, vector: u8) -> Result<(), SingleStepRefused> {
         assert_ne!(self.psw & MD, 0, "BRKEM requires native mode");
+        if self.psw & BRK != 0 {
+            return Err(SingleStepRefused);
+        }
         self.push_frame(memory, "brkem");
         self.psw &= !MD;
         if assumptions::BRKEM_CALLN_CLEAR_IE_BRK {
             self.psw &= !(IE | BRK);
         }
         self.vector(memory, vector);
+        Ok(())
+    }
+
+    /// Option B (decision-9 amendment, 2026-11-15): x80 stopped on ED at
+    /// PS:PC and the adapter handed back `EdEscape`. As its next unit the
+    /// native core fetches ED at PS:PC again from its own memory, so these
+    /// reads never reach x80's bus: ED FD is RETEM (p. 12-177), ED ED nn is
+    /// CALLN (p. 12-176), each one native step. Frames and vectors are read
+    /// from memory now. Any other ED form changes nothing.
+    pub fn escape(&mut self, memory: &mut Memory) -> Escape {
+        assert_eq!(self.psw & MD, 0, "an escape needs emulation mode");
+        assert!(!self.halted, "a halted 8080 core cannot stop on an opcode");
+        let first = memory.read(self.ps, self.pc);
+        assert_eq!(first, 0xED, "x80 stopped on ED at PS:PC");
+        let second = memory.read(self.ps, offset_add(self.pc, 1));
+        match second {
+            0xFD => {
+                // NEC p. 12-177: restore original native PSW, discarding
+                // emulated flags; registers carry out.
+                self.return_frame(memory);
+                self.leave_emulation();
+                Escape::Retem
+            }
+            0xED => {
+                // NEC p. 12-176; the saved continuation is ASSUMED.
+                let vector = memory.read(self.ps, offset_add(self.pc, 2));
+                self.pc = offset_add(self.pc, i32::from(assumptions::CALLN_PC_ADVANCE));
+                self.enter_service(memory, "calln", vector);
+                Escape::Calln
+            }
+            second => Escape::Unknown {
+                bytes: [first, second],
+            },
+        }
     }
 
     /// INT/NMI: NEC p. 8-4 ("same as in native mode") and p. 6-1; CALLN: p. 12-176. Saved
@@ -110,6 +193,11 @@ impl Native {
         if clear {
             self.psw &= !(IE | BRK);
         }
+        if source == "calln" && assumptions::CALLN_CONSUMES_EI_DELAY {
+            self.ei_delay = false;
+        }
+        // NEC pp. 8-2, 9-1: service ends standby; RETI returns after HLT.
+        self.halted = false;
         self.psw |= MD;
         self.vector(memory, vector);
     }
@@ -147,16 +235,25 @@ impl Native {
         self.sp = offset_add(self.sp, 6);
     }
 
+    /// Fixture policy after RETEM or RESET: no 8080 state remains, so the
+    /// mock drops both latches. Not a hardware claim.
+    fn leave_emulation(&mut self) {
+        self.ei_delay = false;
+        self.halted = false;
+    }
+
     /// Test payload, deliberately no x86 bytes/execution. Changes mapped
     /// and native-only registers and live flags before the RETI operation.
     pub fn mock_routine(&mut self, saved_psw: u16) {
         self.aw = (self.aw & 0xFF00) | 0xC7;
         self.cw = 0xABCD;
         self.ix = 0xDEAD;
-        // Fixture policy: invert CY, P, AC, Z, S, BRK, IE, DIR and V
-        // relative to the saved PSW (NEC p. 3-3 diagram). MD stays native,
-        // hence differs from saved MD=0; reserved bits stay untouched.
-        self.psw = (saved_psw ^ 0x0FD5) | MD;
+        // Fixture policy: invert CY, P, AC, Z, S, IE, DIR and V relative to
+        // the saved PSW (NEC p. 3-3 diagram). MD stays native, hence differs
+        // from saved MD=0; reserved bits stay untouched. BRK stays as service
+        // entry left it (0): a RETI that starts with BRK = 1 and re-enters
+        // 8080 mode is refused natively (decision-9 amendment, 2026-11-15).
+        self.psw = (saved_psw ^ 0x0ED5) | MD;
     }
 
     /// NEC p. 8-4 RESET aborts emulation; p. 7-1 lists defined native
@@ -169,6 +266,7 @@ impl Native {
         self.ds0 = 0;
         self.ds1 = 0;
         self.psw = (self.psw & !(IE | BRK | DIR)) | MD;
+        self.leave_emulation();
     }
 }
 
