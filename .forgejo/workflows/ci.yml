@@ -1,9 +1,13 @@
 name: CI
 
-# Manual only: the project's shared Forgejo runner serializes runs. Its
-# ubuntu-latest label uses a node:20-bookworm container as root without systemd.
-# Relative action names resolve against the runner's default action mirror.
+# Runs on every push to main and on manual dispatch. The project's shared
+# Forgejo runner serializes runs; a newer run on the same ref cancels an older
+# one. Its ubuntu-latest label uses a node:20-bookworm container as root
+# without systemd. Relative action names resolve against the runner's default
+# action mirror.
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
 
 concurrency:

@@ -268,11 +268,11 @@ Neither config nor bootstrap enables GPG signing automatically.
 
 ## CI
 
-The [CI workflow](../../.forgejo/workflows/ci.yml) runs manually
-(`workflow_dispatch`) on the project's shared Forgejo runner. Pushes do not start
-CI. The `ubuntu-latest` label runs an x86-64 Linux job in a `node:20-bookworm`
-container as root without systemd. Runs are serialized on the shared runner;
-a newer dispatch on the same ref cancels an earlier run.
+The [CI workflow](../../.forgejo/workflows/ci.yml) runs on every push to `main`
+and on manual dispatch (`workflow_dispatch`), on the project's shared Forgejo
+runner. Other branches run only when dispatched. The `ubuntu-latest` label runs
+an x86-64 Linux job in a `node:20-bookworm` container as root without systemd. Runs are serialized on the shared runner;
+a newer run on the same ref cancels an earlier one.
 
 CI checks out without persisted credentials, installs pinned Nix and enters the
 pinned dev shell without updating the lock file. It runs fmt, clippy with
@@ -282,8 +282,9 @@ commands above, with `--locked` where supported. Ordinary tests need no manuals
 or oracle downloads. Oracle/exerciser campaigns and pre-commit stay local;
 pre-commit includes the local `gpg-uid-guard` signing check.
 
-After pushing the intended ref to origin, dispatch from an authenticated Forgejo
-CLI configured for this repository:
+A push to `main` starts a run. For another ref, or to rerun `main`, push the ref
+to origin and dispatch from an authenticated Forgejo CLI configured for this
+repository:
 
 ```sh
 fj actions dispatch ci.yml <ref>
