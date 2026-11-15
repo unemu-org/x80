@@ -71,8 +71,32 @@ sheet) are pinned as fetch-only sources in the shared `oracles/` submodule, with
 same stash, is recorded for M2 in PROVENANCE.md §1. The unpublished `x80-oracle` crate runs them
 offline ([commands](commands.md)); on 2026-11-12 8080PRE passed and 8080EXM passed
 all 25 groups, about 16 s for 2.9 billion instructions in a release build.
-M2 remains in progress: its x80-side work (beads `x80-pzp.1` to `.5`) runs from the
-pinned NEC manual, and its joint witnesses wait on x86jit's V20/V30 bead (C4).
+
+**M2: done (2026-11-15, epic `x80-pzp`).** The NEC V20/V30 8080 emulation mode
+is the `i8080` model with a V20 integration profile (decision-9): no variant, no
+profile type in code and no change to x80's behaviour. Under option B
+(decision-9 amendment, 2026-11-15) x80 returns `Unsupported` at EDh and the
+native core decodes RETEM and CALLN; interrupts are serviced natively after a
+host stop; each hand-back exchanges a by-value view (A, flags, BC, DE, HL, SP,
+PC, IE, `ei_delay`, `halted`) and the adapter keeps no 8080 latch. No exit,
+latch or bus change was needed. `tests/i8080_v20_profile.rs` witnesses the
+profile rules through the public API. The unpublished, test-only
+`x80-v20-contract` crate holds the shared vectors (`vectors/mode-switch.txt`,
+format `x80-v20-contract-2`, 15 cases) and a mock native side, with 11 further
+witnesses: the format check, the initial mapping, the BRK = 1 and non-ED
+refusals, the ED escape, halted and the EI delay across hand-backs, the latches
+after RETEM, the offset-wrap and I/O assumptions, copy-out before RESET and HOLD
+in standby. By maintainer decision (2026-11-15) the shared vectors are M2's joint
+witnesses. x86jit embeds the same file byte for byte and runs its 12 non-NMI
+cases on NecV20 and NecV30, all passing (READ: x86jit's report, 6614d2e0
+(x86jit), `xj-50w.18` (x86jit)). The three NMI cases are not yet ported there;
+they run only against x80's mock until x86jit has a NEC NMI input (`xj-50w.19`
+(x86jit)). A round trip through a real adapter on shared memory is the
+embedder's ([deferred](deferred.md)). **MEASURED
+2026-11-15** on `2c956d5`: the contract crate's 26 tests and the six profile
+witnesses pass. x80 reports Intel T-states under the V20, not V20 clocks. The
+[M2 residual list](../../PROVENANCE.md#residual-unverified-or-assumed-facts-at-the-m2-closure-2026-11-15)
+gives every assumed, open or interface fact with its label and witness.
 
 **M4: done (2026-11-13, epic `x80-bi2`).** The `z80` model executes every
 documented instruction through `run`/`step` (decisions 13–15). The Zilog NMOS

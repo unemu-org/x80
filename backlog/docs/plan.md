@@ -21,8 +21,9 @@ x86jit and its embedder; x80 executes only the emulation-mode instruction stream
 
 ### 2.1. Crate layout
 
-Two workspace members: `x80-core`, edition 2021, with zero normal, build or dev
-dependencies, and the unpublished `x80-oracle` harness, which depends only on
+Three workspace members: `x80-core`, edition 2021, with zero normal, build or dev
+dependencies; the unpublished `x80-oracle` harness; and the unpublished,
+test-only `x80-v20-contract` fixture of §3. Both unpublished crates depend only on
 `x80-core`. `tests/boundary.rs` enforces the core's boundary, including optional
 and target-specific dependencies. The 8080 model executes every documented
 instruction (M1).
@@ -44,8 +45,9 @@ manual, not guessed constants. Keep register-pair and flag manipulation
 centralized within the model.
 
 M1 ships an owned register file and owned execution latches inside the model
-type (decision-5). A run borrows the embedder's bus; it does not own it. A
-borrowed register view for the V20/V30 handoff is an M2 question (§6 Q4).
+type (decision-5). A run borrows the embedder's bus; it does not own it. M2
+needed no borrowed register view: the V20/V30 adapter exchanges a by-value view
+at every hand-back (decision-9 amendment 2026-11-15; §3, §6 Q4).
 Execution latches persist across runs and budget exits. Avoid raw-pointer
 overlays and a frozen C ABI at this stage.
 
@@ -80,12 +82,12 @@ Shapes and exit precedence are fixed in decision-5: `step` executes at most
 one instruction; `run` repeats it under a budget. Both are methods of the model
 type and take the embedder's bus and input lines. Budgets carry
 instruction steps and T-states; reports include actual progress and a typed return
-reason (budget, halt, stop request or unsupported encoding, decision-3; handoff
-exits for an integration profile come with M2). `step` and `run` are implemented
-for the 8080 model.
+reason (budget, halt, stop request or unsupported encoding, decision-3). The
+V20 profile added no handoff exit: it uses `Unsupported` at EDh, `Halt` and the
+host stop (decision-9, §3). `step` and `run` are implemented for the 8080 model.
 Budget, report and exit reasons are model-neutral. The exit enum and the
-unsupported-encoding payload are non-exhaustive so that later models and the M2
-handoff can extend them. Each model has its own unsupported-encoding policy
+unsupported-encoding payload are non-exhaustive so that later models can extend
+them. Each model has its own unsupported-encoding policy
 record (decision-3 is the 8080's).
 
 Budget policy, accepted in decision-2: zero budget executes nothing; stop when
@@ -110,9 +112,11 @@ models are settled at their milestones. On acceptance the core performs the
 acknowledge bus read (§2.3), so the device sees the acknowledge when it happens.
 Separate a cooperative host stop from an architectural interrupt. The standalone
 8080 path will accept eligible interrupts according to cited enable/delay/halt
-rules; an integration policy must hand a V20 interrupt request back to the
-embedder before x80 services it, including when 8080 interrupts are disabled.
-Settle priority and precise observation boundaries with the NEC contract.
+rules. Under the V20 profile the adapter never asserts INT into x80: when the
+native side would accept an interrupt (NMI whatever IE holds) it requests a host
+stop and services it natively at that boundary; a masked INT is not serviced but
+ends HLT standby (decision-9, §3). Joint event precedence across the two cores
+stays open (§3).
 
 Identical initial state, bus responses and input-poll responses must produce
 identical state, accesses, exits and cycle counts. No wall clock, host randomness
@@ -148,8 +152,9 @@ to the embedder, not what an instruction does.
 
 ## 3. V20/V30 integration contract
 
-First consumer: the NEC V20/V30 models of x86jit (decision-23 (x86jit) §3, bead C4
-`xj-50w.7` (x86jit)), embedded by a machine. decision-9 settles x80's
+First consumer: the NEC V20/V30 models of x86jit (decision-23 (x86jit) §3; C4a, bead
+`xj-50w.7` (x86jit), on x86jit main as d19bb957 (x86jit)), embedded by a machine.
+M2 closed this contract on 2026-11-15 (§5). decision-9 settles x80's
 side: the emulation mode is the `i8080` model plus a V20 integration profile. Facts are
 from the pinned NEC manual (stock no. 500350; PROVENANCE.md §1, "NEC V20/V30 8080
 emulation mode"); page numbers below are its printed pages.
@@ -208,30 +213,39 @@ PSW from the stack, so the native flags and MD come back and the 8080 flags do n
 over (p. 12-177); the program runs within the 64 KiB of PS, and data and stack within DS0,
 with 16-bit offsets (pp. 8-1, 8-2).
 
-To confirm with x86jit (the manual is unclear): IE and BRK after BRKEM and CALLN (ruled R2, both
+Unclear in the manual; M2 closes with these as labelled selections, still to confirm
+with an NEC source or a hardware run: IE and BRK after BRKEM and CALLN (ruled R2, both
 clear, ASSUMED: decision-9 amendment 2026-11-14); whether the native EI delay
-applies to the 8080 EI in emulation, and CALLN consuming it (ASSUMED); the EI delay across
-NMI service (open); the PC that CALLN pushes; the offset wrap inside the segment at FFFFh
-within PS and DS0 (ASSUMED); the 8080 IN/OUT high address byte (the adapter's; ASSUMED 00);
-the uPD8080AF's equivalence to the Intel 8080A (ASSUMED, PROVENANCE §1). The 2026-11-15
-items are in decision-9's amendment.
+applies to the 8080 EI in emulation (ASSUMED: it does), and CALLN consuming it (ASSUMED);
+the PC that CALLN pushes (ASSUMED: the address after ED ED imm8); the offset wrap inside
+the segment at FFFFh within PS and DS0 (ASSUMED); the 8080 IN/OUT high address byte (the
+adapter's; ASSUMED 00); the uPD8080AF's equivalence to the Intel 8080A (ASSUMED,
+PROVENANCE §1). Still open: the EI delay across NMI service. The 2026-11-15 items are in
+decision-9's amendment. x86jit's passing port of the vectors that encode R2, CALLN's saved
+PC and CALLN's EI-delay consumption shows that the two sides agree; it confirms none of
+them. The
+[M2 residual list](../../PROVENANCE.md#residual-unverified-or-assumed-facts-at-the-m2-closure-2026-11-15)
+gives each label and witness.
 
-Open for the joint contract (C4 and the adapter; decision-5 gives only x80's local rules):
-joint event and budget precedence across the two cores; exact cycle accounting of each
-handoff. Settled by decision-9's 2026-11-15 amendment: step accounting (RETEM and CALLN
-are one native step each), cancellation (x80's `stop_requested` carries the host's own
-stop or cancel) and latch ownership (the State exchange bullet above).
+Still open after M2, for the embedder's adapter and x86jit (decision-5 gives only x80's
+local rules; the contract vectors order events explicitly and claim neither): joint
+event and budget precedence across the two cores, including simultaneous RESET and
+interrupts; exact cycle accounting of each handoff. Settled by decision-9's 2026-11-15
+amendment: step accounting (RETEM and CALLN are one native step each), cancellation
+(x80's `stop_requested` carries the host's own stop or cancel) and latch ownership (the
+State exchange bullet above).
 
 Joint witnesses (beads `x80-pzp.5`, `x80-pzp.6`): the same contract vectors run on both
 sides. Maintainer decision of 2026-11-15: shared vectors satisfy M2's joint witnesses.
 x80 runs `x80-v20-contract/vectors/mode-switch.txt` (format 2) against its mock native
-side; x86jit embeds the same file byte for byte and runs it against its 8080 fixture
-(commit 6614d2e0 (x86jit), bead `xj-50w.18` (x86jit)). Twelve of the fifteen cases pass on
-both the NecV20 and NecV30 models there, including full entry/exit round trips
+side; x86jit embeds the same file byte for byte and runs its twelve non-NMI cases against
+its 8080 fixture on both the NecV20 and NecV30 models, all passing (READ: x86jit's report,
+commit 6614d2e0 (x86jit), bead `xj-50w.18` (x86jit)), including full entry/exit round trips
 (`brkem_retem`, `calln_reti_retem`) and interrupted ones (`int_enabled_running`,
-`hlt_int_enabled`). The three NMI cases wait for a NEC NMI input in x86jit (`xj-50w.19`
-(x86jit)). A round trip with x80-core and x86jit running together on shared memory
-through a real adapter belongs to the embedder ([deferred](deferred.md)).
+`hlt_int_enabled`). The three NMI cases are not yet ported there; they wait for a NEC NMI
+input in x86jit (`xj-50w.19` (x86jit)). A round trip with x80-core and x86jit running
+together on shared memory through a real adapter belongs to the embedder
+([deferred](deferred.md)).
 
 ## 4. Testing strategy and provenance
 
@@ -268,7 +282,7 @@ no 8080 corpus is pinned yet.
 | --- | --- |
 | M0 — skeleton and tooling | Review scaffold, initialize tracking, verify the pinned shell and local gates, settle source pins and initial API decisions. Tracked as epic `x80-2g7`. |
 | M1 — 8080 | Complete documented instruction behavior, interrupts and halt, manual-derived cycle counts, per-opcode witnesses, and a licensed diagnostic run where a licence permits one (decision-5). Done 2026-11-12 (epic `x80-ecy`). |
-| M2 — V20 integration | Agree the shared contract with x86jit; borrowed-state/memory entry, RETEM/CALLN and interrupt handoffs pass joint witnesses. |
+| M2 — V20 integration | Agree the shared contract with x86jit; borrowed-state/memory entry, RETEM/CALLN and interrupt handoffs pass joint witnesses. Done 2026-11-15 (epic `x80-pzp`; the joint witnesses are the shared contract vectors, §3; the three NMI cases are not yet ported to x86jit and the real-adapter round trip is the embedder's, [deferred](deferred.md)). |
 | M3 — 8085 | Pin 8085 sources; record its unsupported-encoding policy; add the `i8085` model, extracting what it shares with the 8080; implement and test model-specific instructions, flags, interrupts and timing without changing 8080 witnesses. Done 2026-11-13 (epic `x80-4gk`). |
 | M4 — Z80 | Pin Zilog sources; record its unsupported-encoding policy; add the `z80` model with its own state, prefix decoding, input lines and timing; revisit the port address in the bus contract; model-specific witnesses and licensed oracles. Done 2026-11-13 (epic `x80-bi2`). |
 | M5 — shared Intel executors | Extract the private 8080/8085 register view, access helpers and five shared executor groups under decision-16; preserve public types, model-owned facts, encodings and witnesses; re-measure duplication and release oracle runtime. Done 2026-11-13 (epic `x80-8sg`; [closure measurements](architecture.md)). |
@@ -319,19 +333,21 @@ Decided items cite their record; the rest stay open.
    adapter belongs to the embedder (bead `x80-pzp`); decision-9 records the copy-in/out
    contract. Superseded in part by decision-9's 2026-11-15 amendment: the view is
    exchanged at every hand-back, the native core keeps `ei_delay` and `halted`, and the
-   adapter keeps no 8080 latch.
-5. The joint register/flag/PC/segment/stack and native-context mapping is settled in
-   x86jit's C4 bead (xj-50w.7) against the pinned NEC manual; x80's side must be
-   reviewed in the same change. Who owns the shared test fixture? Decided (decision-9):
-   x80 owns the contract vectors and a mock native side; the mapping x80 relies on is
-   in §3.
+   adapter keeps no 8080 latch. Closed at M2: no borrowed-register trait is needed.
+5. The joint register/flag/PC/segment/stack and native-context mapping: settled against
+   the pinned NEC manual in x86jit's C4a (`xj-50w.7` (x86jit), d19bb957 (x86jit)).
+   x80's side: decision-9 and plan §3 (`x80-pzp.2`, `.3`), aligned with C4a by
+   `x80-pzp.9` (decision-9 amendment 2026-11-15). Who owns the shared test fixture?
+   Decided (decision-9): x80 owns the contract vectors and a mock native side; the
+   mapping x80 relies on is in §3.
 6. Who recognizes RETEM/CALLN, and what exact bytes, state, timing and event
    precedence apply to each native handoff, including masked external interrupts?
    Decided in decision-9's 2026-11-15 amendment (option B): x80 stops on EDh, the adapter
    hands back an ED escape and the native core decodes RETEM and CALLN; the view
    exchange and adapter rules are there too. Interrupts are served natively through the
-   host stop (§3). Still open with C4: handoff timing, event precedence and the items
-   listed at the end of §3.
+   host stop (§3). Still open after M2, for the embedder's adapter and x86jit: joint
+   handoff timing and event precedence (§3). The manual readings that stay ASSUMED or
+   open are listed in §3.
 7. Decided for the 8080 in decision-3: undocumented encodings return a typed
    unsupported exit; decision-9's V20 ED escape remains working. Undocumented
    8080 research (`x80-mn3.4`) found no qualifying source; admission needs

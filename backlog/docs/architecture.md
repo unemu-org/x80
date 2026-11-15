@@ -102,6 +102,7 @@ x80-core/
   tests/i8080_determinism.rs    mixed-program replay and budget-split witnesses
   tests/i8080_model.rs          construction and ownership
   tests/i8080_registers.rs      register pairs and PSW layout
+  tests/i8080_v20_profile.rs    V20 profile rules through the public API: ED escape, PS/DS0 routing, flag byte, stop, standby
   tests/recording_bus.rs        8080 test-bus and input-default witnesses
   tests/arithmetic_reference/  independent 8080 arithmetic reference
   tests/i8085_<group>.rs        independent per-group execution witnesses, including RIM/SIM
@@ -120,7 +121,13 @@ x80-core/
   tests/i8085_registers.rs      register pairs and PSW layout
 backlog/docs/                   design and guides
 backlog/decisions/              durable decisions
-x80-v20-contract/               unpublished test-only V20 vectors and mock native mode switches (decision-9)
+x80-v20-contract/               unpublished test-only V20 contract fixture (decision-9 and its amendments)
+  vectors/mode-switch.txt       shared contract vectors, format x80-v20-contract-2 (also run by x86jit)
+  tests/contract.rs             vector runner and separate mapping, refusal, escape, latch and assumption witnesses
+  tests/support/adapter.rs      reference adapter loop: option-B ED escape, host stops, view exchange
+  tests/support/native.rs       mock native side: BRKEM, RETEM, CALLN, service entry, RETI and RESET as operations
+  tests/support/vectors.rs      format-2 reader and checker
+  tests/support/assumptions.rs  the six ASSUMPTION constants and the other fixture policies
 ```
 
 Model split (decision-6, plan §2.6): the crate root holds the model-neutral
@@ -537,5 +544,10 @@ skips and final counts remain explicit. Final release results are in PROVENANCE
 
 Any future dependency-bearing oracle harness will also be separate and unpublished.
 The Z80 layout follows decision-13 (accepted): [Z80 model, prefix tables and sharing](<../decisions/decision-13 - z80-model-layout-prefix-tables-and-sharing.md>).
-The V20 adapter belongs to the embedder; x80 will expose only agreed boundaries.
+The V20 adapter belongs to the embedder. x80 exposes only the boundaries that
+decision-9 and its amendments agree, all through the existing 8080 API:
+`Unsupported` at EDh for the ED escape (option B), the host stop for natively
+serviced interrupts and RESET, `Halt` for standby, and a by-value copy of
+`Registers` and `Latches` in and out at every hand-back. The contract fixture's
+reference adapter exists for tests only.
 Keep this map current when modules change.

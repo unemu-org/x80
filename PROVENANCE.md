@@ -200,14 +200,16 @@ Not stated in the manual, so not modelled as facts:
   start with BRK = 0 (decision-9 amendment, 2026-11-15).
 - ASSUMED: the uPD8080AF behaves as the Intel 8080A, including decision-8 and the derived
   DAA carry rule. No uPD8080AF source is pinned.
-- To confirm jointly with x86jit:
+- To confirm (M2 closed on 2026-11-15 with each item labelled as below; an NEC source
+  or hardware run must still settle them; §3 lists each with its witness):
   - IE and BRK after BRKEM and CALLN. p. 6-1's general sequence clears both (but sets
     MD <- 1, which BRKEM does not); pp. 12-169 and 12-176 list only MD in their operation
     lists and flag tables, and a blank flag entry means "No change" (Table 12-4, p. 12-3);
     BRK imm8 (p. 12-167) lists IE <- 0 and BRK <- 0 explicitly. Ruling R2, **ASSUMED**: both
     instructions clear IE and BRK, as p. 6-1 does (decision-9 amendment, 2026-11-14).
   - Whether the native EI delay (p. 6-4; p. 12-172) applies to the 8080 EI in emulation
-    mode, and whether CALLN consumes a pending 8080 EI delay. No page states the CALLN
+    mode, and whether CALLN consumes a pending 8080 EI delay. The contract fixture
+    selects **ASSUMED**: it applies (`EMULATION_EI_DELAY`). No page states the CALLN
     case; ruling **ASSUMED**: no EI delay survives a CALLN excursion, and CALLN itself
     consumes it (decision-9 amendment, 2026-11-15). On a native core the routine's own
     RETI would also end it.
@@ -216,7 +218,8 @@ Not stated in the manual, so not modelled as facts:
     keeps the delay across the excursion; on a native core the routine's instructions
     would end it. Vector format 2 cannot express the case (decision-9 amendment,
     2026-11-15).
-  - The PC that CALLN pushes.
+  - The PC that CALLN pushes. The contract fixture selects **ASSUMED**: the address
+    after ED ED imm8 (`CALLN_PC_ADVANCE`).
   - Offset wrap inside the segment. p. 10-1 (PDF 40) and Fig. 10-1 form the physical
     address from the segment value times 16 plus a 16-bit offset, both "treated as
     unsigned data"; the page does not say what an operand or stack byte past offset FFFFh
@@ -1174,7 +1177,8 @@ None is presented as a stated fact; where each qualification is recorded is note
 - The manuals differ on HLT's machine-cycle count (two versus one); no effect on
   states. §1 and `tests/i8080_timing.rs`.
 The V20 mapping in [plan §3](backlog/docs/plan.md#3-v20v30-integration-contract) is
-cited from the NEC manual (§1); its open items are listed there. Glossary definitions are orientation, not implementation
+cited from the NEC manual (§1); its open items are listed there and in the M2
+closure list below. Glossary definitions are orientation, not implementation
 authority. Ordinary tests pin derived values in code and run without manuals,
 corpus downloads or network access.
 
@@ -1489,6 +1493,58 @@ discriminate. ZEXDOC/ZEXALL PASSes report no falsification and license no hardwa
 Revisit on independent conflicting or missing-key evidence, a discriminating
 campaign failure, or an explicitly requested named variant; preserve both
 readings, silicon precedence and the zero-dependency/model ownership boundary.
+
+### Residual unverified or assumed facts at the M2 closure (2026-11-15)
+
+These qualifications concern the V20 integration profile of decision-9, with its
+2026-11-14 (R2) and 2026-11-15 (option B) amendments, and the contract fixture.
+Except the rows labelled READ, listed for their unwitnessed parts or the
+fixture's scope, none is a NEC hardware fact. NEC = Stock No. 500350 (October
+1986), pinned with its page map in §1; the readings and the to-confirm list stay
+there. Witness abbreviations: P = `x80-core/tests/i8080_v20_profile.rs`; C =
+`x80-v20-contract/tests/contract.rs`; case names are vectors in
+`x80-v20-contract/vectors/mode-switch.txt` (format `x80-v20-contract-2`), which C
+runs against the mock native side. x86jit embeds the file byte for byte and runs
+its 12 non-NMI cases against its 8080 fixture, all passing (READ: x86jit's
+report, 6614d2e0 (x86jit)); the three NMI cases are not yet ported there. A case
+passing on both sides shows that the two models agree with a selection; it
+confirms none. This
+list restates §1, decision-9 and `tests/support/assumptions.rs` without upgrading
+a label.
+
+| Fact or selection | Label and source | Witness |
+| --- | --- | --- |
+| BRKEM clears IE (R2) | ASSUMED, maintainer ruling 2026-11-14; NEC p. 6-1's general entry against p. 12-169, which lists only MD (blank = "No change", Table 12-4 p. 12-3) | C `brkem_maps_every_register_before_any_8080_instruction` (PSW 7092); `brkem_retem` |
+| BRKEM clears BRK (R2) | ASSUMED, same ruling; unobservable, because BRKEM starts with BRK = 0 (BRK = 1 row below) | No witness |
+| CALLN clears IE (R2) | ASSUMED, same ruling; NEC p. 6-1 against p. 12-176 | `calln_reti_retem`, `calln_consumes_ei_delay` (saved 7293, service F093) |
+| CALLN clears BRK (R2) | ASSUMED, same ruling; BRK is 0 throughout emulation, so every CALLN starts with BRK = 0 | No witness |
+| INT and NMI entry from emulation clear IE and BRK and set MD | READ, NEC pp. 6-1, 8-4; the BRK clear is unobservable for the same reason | IE and MD: `service` records of `int_enabled_running`, `hlt_int_enabled`, `nmi_over_int_and_hold`; BRK: no witness |
+| The native core refuses BRKEM with BRK = 1, before any effect | Interface rule (decision-9 amendment 2026-11-15, principle of decision-23 §3 (x86jit)); NEC p. 6-3's single-step rule does not settle its combination with the mode switch and R2 | C `brkem_with_brk_set_is_refused_without_effect` |
+| A RETI that starts with BRK = 1 and re-enters 8080 mode is refused | Interface rule, same amendment | No witness: unreachable in the mock, whose service entry clears BRK |
+| CALLN saves the address after ED ED imm8 (PC + 3) | ASSUMED (`CALLN_PC_ADVANCE`); NEC p. 12-176 does not settle it | `calln` frames of `calln_reti_retem`, `hlt_int_disabled_calln`, `calln_consumes_ei_delay` |
+| The native EI delay applies to the 8080 EI in emulation | ASSUMED (`EMULATION_EI_DELAY`); NEC pp. 6-4, 12-172 give the native EI delay, and its applicability in emulation is unconfirmed (§1) | C `ei_delay_assumption_is_observed_by_host_interrupt_acceptance` |
+| CALLN consumes a pending 8080 EI delay; none survives the excursion | ASSUMED (`CALLN_CONSUMES_EI_DELAY`, decision-9 amendment 2026-11-15); no page states it | `calln_consumes_ei_delay`; x86jit's C4a CALLN unit (`xj-50w.7` (x86jit)) |
+| The EI delay across INT and NMI service | Open; the fixture keeps it across the excursion. Only an NMI right after an 8080 EI reaches the case | No witness: format 2 has no EI-delay record and its routines run no native instruction |
+| Offsets wrap inside the segment, FFFFh to 0000h | ASSUMED (`WRAP_OFFSETS`); NEC p. 10-1, Fig. 10-1 do not state it; a carry into the next segment would need an x80 API change | C `offset_wrap_and_io_high_byte_are_fixture_assumptions` (instruction fetch only); data and stack offsets: no contract witness |
+| The 8080 IN/OUT high address byte is 00 | ASSUMED (`IO_HIGH_BYTE`); the adapter's alone, since x80 passes the 8-bit port (decision-5 item 3) | C `offset_wrap_and_io_high_byte_are_fixture_assumptions` |
+| The uPD8080AF behaves as the Intel 8080A, including decision-8 and the derived DAA carry | ASSUMED (decision-9); no uPD8080AF source is pinned | No witness; the 8080 witnesses are Intel's |
+| x80 reports Intel 98-153B T-states under the V20 | Library choice (decision-9); not V20 clocks, which NEC gives only for BRKEM, RETEM, CALLN, RETI and interrupts | P asserts Intel T-state totals, labelled as not NEC clocks: `mixed_program_routes_instruction_bytes_to_ps_and_data_and_stack_to_ds0` (21 steps, 226 cycles), and the cycle totals in `push_psw_stores_the_v20_flag_layout_for_all_flag_combinations`, `host_stop_returns_complete_boundary_state_and_the_next_run_continues` and `adapter_can_release_hlt_standby_with_ie_clear_and_resume_after_hlt`. The vectors assert no timing, and no V20 clock is witnessed |
+| Option B: x80 returns `Unsupported` at EDh after the ED fetch alone; the native core fetches ED again and decodes ED FD and ED ED imm8 | Interface decision (decision-9 amendment 2026-11-15); NEC pp. 12-176, 12-177 give the encodings | P `retem_returns_retryable_unsupported_without_reading_fd`, `calln_returns_retryable_unsupported_without_reading_suffix_or_vector`; C `ed_escape_is_decoded_by_the_native_side_without_reading_past_ed`; every `access` record |
+| An INT delivered before the native decode drops the pending escape; RETI returns to the ED, which x80 fetches again | Interface rule, same amendment | No x80 witness: the mock decodes the escape at once |
+| Any other ED form is the native core's unknown instruction; any other `Unsupported` byte is a typed refusal; MD stays 0 in both. After a refusal, later runs are answered by the native core until the next hand-back or an interrupt taken at that boundary | Interface rule, same amendment. Fixture divergence: the mock re-runs x80 on every retry, so x80 fetches the refused byte again, as documented in C `non_ed_refusal_is_typed_and_keeps_emulation_mode` | C `ed_escape_is_decoded_by_the_native_side_without_reading_past_ed`, `non_ed_refusal_is_typed_and_keeps_emulation_mode` (the typed refusal and MD = 0); native answering of later runs: no x80 witness |
+| The view (A, flags, BC, DE, HL, SP, PC, IE, `ei_delay`, `halted`) is exchanged at every hand-back; `ei_delay` verbatim, never cleared by a zero-step exit; the native core keeps `halted`; the adapter keeps no 8080 latch; PS and DS0 are in the view but read-only (NEC p. 8-1) | Interface decision, same amendment | C `halted_lives_in_the_native_model_across_hand_backs`, `ei_delay_assumption_is_observed_by_host_interrupt_acceptance`; `calln_consumes_ei_delay`; latch checks at every `service` and `final`; PS and DS0: every `access` record |
+| Masked-INT HLT wake spans the following instruction | READ, NEC p. 9-1 (note: INT stays high until the instruction after HLT executes); wake timing is outside the fixture | `hlt_int_disabled`, `hlt_int_disabled_retem`, `hlt_int_disabled_calln`; P `adapter_can_release_hlt_standby_with_ie_clear_and_resume_after_hlt`; timing: no witness |
+| A simultaneous hold request inhibits INT acceptance | READ, NEC p. 6-2. Fixture scope: the fixture models no other HOLD effect; p. 9-1's hold during standby (the CPU re-enters standby after the hold acknowledge cycle) and bus hold cycles are outside it | `int_held_running`, `nmi_over_int_and_hold`; C `hold_inhibits_enabled_int_in_standby_without_using_the_masked_wake_rule`; other HOLD effects: no witness |
+| Adapter obligations: `stop_requested` carries the host's own stop or cancel; 8080 stores become visible to native translations; RETEM and CALLN are one native step each | Interface rules, same amendment, for the embedder's adapter and x86jit | No x80 witness |
+| Joint event and budget precedence across the two cores, including simultaneous RESET and interrupts; exact cycle accounting of each handoff | Open, for the embedder's adapter and x86jit; the vectors order events explicitly | No witness |
+| RESET keeps values NEC p. 7-1 leaves undefined; RETEM and RESET drop both 8080 latches; the mock routine's register and PSW edits; an NMI token is an already-latched edge | Fixture policies for deterministic replay, not hardware claims | C `reset_copies_boundary_state_before_native_reset_and_ends_the_loop`, `retem_drops_the_8080_latches`; `reset_running`; `routine` records |
+| CALLN's stack decrement follows p. 6-1, not p. 12-176's "SP <- PS - 6"; p. 12-177's BRKEM means RETEM | Derived misprint resolutions (§1; the CALLN resolution is stated in `x80-v20-contract/README.md`, "Authority and limits") | CALLN: `calln` frames at 3000:7FF4, six bytes below the BRKEM frame; RETEM page: no effect, no witness |
+
+The real-adapter round trip on shared memory and the three NMI cases, not yet
+ported to x86jit, are the remaining evidence gaps of the joint witnesses
+([deferred](backlog/docs/deferred.md)).
+Revisit on an NEC source or hardware run that settles a row, or on an
+embedder's adapter that runs the format-2 vectors.
 
 ## 4. License surface and boundary
 

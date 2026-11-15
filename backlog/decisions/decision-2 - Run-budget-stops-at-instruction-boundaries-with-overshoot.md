@@ -6,6 +6,9 @@ status: accepted
 ---
 
 Decider: maintainer. Settles [plan](../docs/plan.md) §6 Q3; design in §2.4.
+M2 settled the joint step accounting below (decision-9's 2026-11-15 amendment:
+RETEM and CALLN are one native step each); exact cycle accounting and joint budget
+precedence stay open (plan §3).
 
 ## Context
 
