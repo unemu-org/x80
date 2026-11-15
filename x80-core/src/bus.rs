@@ -63,8 +63,8 @@ pub trait Bus {
 
     /// Reads a byte at the full 16-bit port address presented on A0-A15.
     ///
-    /// Only models whose decision records specify it call this method.
-    /// No current model does; the planned z80 model will (decision-15 rule 4).
+    /// The `z80` model calls this method (decision-15 rule 4); the `i8080` and
+    /// `i8085` models do not.
     /// The default forwards A0-A7 to [`Bus::input`] so existing embedders keep
     /// working. An embedder may override it to observe the full address.
     fn input16(&mut self, port: u16) -> u8 {
@@ -73,8 +73,8 @@ pub trait Bus {
 
     /// Writes `value` at the full 16-bit port address presented on A0-A15.
     ///
-    /// Only models whose decision records specify it call this method.
-    /// No current model does; the planned z80 model will (decision-15 rule 4).
+    /// The `z80` model calls this method (decision-15 rule 4); the `i8080` and
+    /// `i8085` models do not.
     /// The default forwards A0-A7 to [`Bus::output`] so existing embedders keep
     /// working. An embedder may override it to observe the full address.
     fn output16(&mut self, port: u16, value: u8) {
