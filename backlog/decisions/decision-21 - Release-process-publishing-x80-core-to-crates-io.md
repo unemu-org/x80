@@ -8,6 +8,10 @@ status: accepted
 Decider: maintainer (2026-11-16). Bead `x80-0q8`, epic `x80-tqc`. This record
 is documentation only; the beads of the epic implement it.
 
+> [decision-22](<decision-22 - GitHub-is-the-primary-forge.md>) made GitHub the
+> primary forge on the same day. Where this record assumes a Forgejo
+> development origin or a Forgejo mirror, decision-22 applies.
+
 ## Context
 
 - The repository is public at <https://github.com/unemu-org/x80>. Forgejo stays

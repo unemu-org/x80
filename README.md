@@ -170,11 +170,12 @@ the minimum Rust version check, the licence check and the CPU test programs.
 
 ## Contributing
 
-x80 is developed in a private repository. The public repository at
-<https://github.com/unemu-org/x80> is a copy of it, so pull requests are not
-accepted there. Issues are very welcome: bug reports, questions, hardware
+x80 is developed in the open at <https://github.com/unemu-org/x80>, by the
+maintainer working with LLM coding agents. Pull requests are disabled while the
+project matures. Issues are very welcome: bug reports, questions, hardware
 measurements and corrections to a cited source. Conversations about them stay
-open on GitHub.
+open on GitHub. Planned work is tracked with beads (`bd`), whose database lives
+in the same repository; `bd bootstrap` restores it in a clone.
 
 ## License
 

@@ -85,7 +85,7 @@ mirroring and publishing belong to the maintainer.
 
 The local beads database is ignored by git. A `bd dolt push`
 to `refs/dolt/data` on `origin`, including associated remote metadata, is a push
-requiring authorization. Setup commands can themselves commit; inspect their help
+requiring authorization; `origin` is public, so bead history is published at once. Setup commands can themselves commit; inspect their help
 and obtain the needed authorization first.
 
 Everything is English, publish-safe and guest-agnostic, including bead history and

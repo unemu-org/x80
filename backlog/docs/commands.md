@@ -268,48 +268,34 @@ Neither config nor bootstrap enables GPG signing automatically.
 
 ## CI
 
-The [CI workflow](../../.forgejo/workflows/ci.yml) runs on every push to `main`
-and on manual dispatch (`workflow_dispatch`), on the project's shared Forgejo
-runner. Other branches run only when dispatched. The `ubuntu-latest` label runs
-an x86-64 Linux job in a `node:20-bookworm` container as root without systemd. Runs are serialized on the shared runner;
-a newer run on the same ref cancels an earlier one.
+CI runs on GitHub Actions
+([decision-22](<../decisions/decision-22 - GitHub-is-the-primary-forge.md>)).
 
-CI checks out without persisted credentials, installs pinned Nix and enters the
-pinned dev shell without updating the lock file. It runs fmt, clippy with
-`-D warnings`, workspace nextest with `--no-fail-fast`, doctests and cargo deny,
-then tests `x80-core` in the separate MSRV shell. Cargo gates use the offline
-commands above, with `--locked` where supported. Ordinary tests need no manuals
-or oracle downloads. Oracle/exerciser campaigns and pre-commit stay local;
-pre-commit includes the local `gpg-uid-guard` signing check.
-
-A push to `main` starts a run. For another ref, or to rerun `main`, push the ref
-to origin and dispatch from an authenticated Forgejo CLI configured for this
-repository:
-
-```sh
-fj actions dispatch ci.yml <ref>
-```
-
-Confirm that a new run for the intended ref appears in Forgejo Actions before
-waiting for it. Read the result in the `ci / x86_64` commit status; its target
-links to the run. The description names failed or skipped steps and includes
-short failure excerpts when available. Every gate runs after a successful dev
-shell even if an earlier gate failed. A failed, skipped or missing required step
-makes the final report step fail, so missing tools cannot produce a passing run.
-Gate output is teed to `ci-logs/<step>.log` in the job workspace. If posting the
-commit status fails, consult the Actions job log and result for the gate verdict.
-
-The [GitHub workflow](../../.github/workflows/ci.yml) runs the same gates with
-the same commands on a GitHub-hosted `ubuntu-24.04` x86-64 runner: on every push
-to `main`, on pull requests and on manual dispatch. The release workflow calls it
-(`workflow_call`) before publication
+The [CI workflow](../../.github/workflows/ci.yml) runs the gates on a
+GitHub-hosted `ubuntu-24.04` x86-64 runner: on every push to `main`, on pull
+requests and on manual dispatch. The release workflow calls it (`workflow_call`)
+before publication
 ([decision-21](<../decisions/decision-21 - Release-process-publishing-x80-core-to-crates-io.md>)).
 Actions are pinned by commit SHA; Nix 2.29.2 comes from
 `nixbuild/nix-quick-install-action`. The checkout has no persisted credentials
-and no `oracles` submodule. Every gate runs after a successful dev shell, and any
-failed gate fails the `test (x86_64)` job; GitHub reports that check itself, so
-there is no status script or `ci-logs`. A newer run on the same ref cancels an
-older one; runs called by the release workflow use their own concurrency group.
+and no `oracles` submodule. CI installs pinned Nix and enters the pinned dev
+shell without updating the lock file. It runs fmt, clippy with `-D warnings`,
+workspace nextest with `--no-fail-fast`, doctests and cargo deny, then tests
+`x80-core` in the separate MSRV shell, with the offline commands above and
+`--locked` where supported. Ordinary tests need no manuals or oracle downloads.
+Pre-commit stays local; it includes the local `gpg-uid-guard` signing check.
+Every gate runs after a successful dev shell, and any failed gate fails the
+`test (x86_64)` job. A newer run on the same ref cancels an older one; runs
+called by the release workflow use their own concurrency group.
+
+A push to `main` starts a run. To run another ref, or to rerun `main`, push the
+ref to `origin` and dispatch it with an authenticated GitHub CLI:
+
+```sh
+gh workflow run ci.yml --ref <ref>
+```
+
+Read the result in the commit's checks or with `gh run list --workflow ci.yml`.
 
 The GitHub [CPU test workflow](../../.github/workflows/cpu-tests.yml) runs the
 release-profile campaigns of [Oracle runs](#oracle-runs) on manual dispatch and,

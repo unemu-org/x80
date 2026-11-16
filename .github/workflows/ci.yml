@@ -1,8 +1,7 @@
 name: CI
 
-# GitHub mirror of .forgejo/workflows/ci.yml: the same gates with the same
-# commands, on a GitHub-hosted x86-64 Ubuntu runner. Runs on every push to
-# main, on pull requests and on manual dispatch. The release workflow calls it
+# The gates (backlog/docs/commands.md), on a GitHub-hosted x86-64 Ubuntu
+# runner. Runs on every push to main, on pull requests and on manual dispatch. The release workflow calls it
 # (workflow_call) before publication; it needs no inputs or secrets.
 on:
   push:
