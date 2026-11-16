@@ -28,6 +28,7 @@ initialized; in a fresh clone use `bd bootstrap`, never `bd init`.
 | Rust and commit conventions | [conventions](backlog/docs/conventions.md) | Before changing code |
 | Lifecycle, review, gates and handoff | [working on tasks](backlog/docs/working-on-tasks.md) | Before starting tracked work |
 | Build and verification | [commands](backlog/docs/commands.md) | Running checks |
+| Releases | [releasing](backlog/docs/releasing.md) | Preparing or cutting an `x80-core` release |
 | Shell, direnv, hooks and bd setup | [dev setup](backlog/docs/dev-setup.md) | Onboarding or tooling work |
 | Status / deliberate deferrals | [status](backlog/docs/status.md), [deferred](backlog/docs/deferred.md) | Checking support or considering extra scope |
 | Decision capture | [decisions guide](backlog/docs/decisions.md), [records](backlog/decisions/) | Durable contract choices |

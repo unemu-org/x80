@@ -321,4 +321,5 @@ section as its notes. A manual dispatch is a rehearsal that publishes nothing:
 `verify` accepts an `Unreleased` section and skips the tag and `main` checks,
 the same gates and CPU tests run, and `publish-dry-run` runs
 `cargo publish -p x80-core --locked --dry-run`; it uses no environment, requests
-no crates.io token and creates no release.
+no crates.io token and creates no release. [Releasing](releasing.md) lists the
+steps of a release.
