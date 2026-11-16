@@ -42,7 +42,7 @@ jobs:
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
           persist-credentials: false
-          # The gates need no oracle artifacts; campaigns stay local.
+          # The gates need no oracle artifacts; cpu-tests.yml runs the campaigns.
           submodules: false
 
       - name: Install Nix
@@ -57,7 +57,7 @@ jobs:
         run: nix develop --no-update-lock-file --command rustc --version
 
       # No cargo cache: this workspace has no external crates. No Nix store
-      # cache either. Oracle/exerciser campaigns and pre-commit stay local;
+      # cache either. cpu-tests.yml runs the CPU test campaigns; pre-commit stays local;
       # gpg-uid-guard is a local signing check. Every gate below runs even after
       # an earlier failure, and any failed gate fails the job.
       - name: Formatting

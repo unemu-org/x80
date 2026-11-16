@@ -1,0 +1,134 @@
+name: CPU tests
+
+# The CPU test programs in the release profile (decision-21 item 3): 8080PRE,
+# 8080EXM, 8085EXM, Z80 prelim, ZEXDOC, ZEXALL and z80test, with the commands
+# and pass criteria of backlog/docs/commands.md ("Oracle runs"). The run is
+# long, so it starts only on manual dispatch and when the release workflow
+# calls it (workflow_call); it needs no inputs or secrets.
+#
+# scripts/fetch-cpu-tests.sh downloads only these programs, from the upstream
+# URLs in oracles/fetch-oracles.sh, and verifies each one against
+# oracles/SHA256SUMS.fetched. The GPL-2.0-or-later programs exist only in this
+# job's workspace: they are never committed, cached or uploaded. Only the
+# campaign logs, which hold program console output and verdicts, are uploaded.
+on:
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+
+# The caller-context rule of ci.yml: under workflow_call, github.workflow is
+# the caller's name and github.ref its tag. Direct runs get
+# cpu-tests-CPU tests-<ref>; runs called by the release workflow get
+# cpu-tests-<caller name>-<tag ref>. The cpu-tests- prefix keeps this group
+# apart from ci.yml's ci- groups, which the release workflow calls in the same
+# run, and from the caller's own group (commonly <workflow>-<ref>); equal groups
+# would deadlock, so the caller must not use a cpu-tests- group. A newer run in
+# the same group cancels an older one.
+concurrency:
+  group: cpu-tests-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# Explicit bash runs each step with -eo pipefail, so a command piped into tee
+# keeps its exit status.
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  cpu-tests:
+    name: cpu tests (x86_64, release)
+    runs-on: ubuntu-24.04
+    # GitHub-hosted jobs stop at 6 hours. On a loaded local arm64 host at low
+    # priority the campaigns took 5.4 minutes in total, ZEXDOC the longest at
+    # 2 minutes. Each campaign step allows at least ten times its local time, and
+    # this job limit exceeds their sum plus a cold Nix dev shell and build, so a
+    # hung campaign stops at its own limit and the later ones still run.
+    timeout-minutes: 150
+    env:
+      CARGO_TERM_COLOR: never
+      RUSTC_WRAPPER: ""
+      LOGS: cpu-tests-logs
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+          # The public oracles submodule holds the URL table and the pins.
+          submodules: true
+
+      - name: Install Nix
+        uses: nixbuild/nix-quick-install-action@2c9db80fb984ceb1bcaa77cdda3fdf8cfba92035 # v34
+        with:
+          nix_version: "2.29.2"
+          github_access_token: ""
+          enable_kvm: false
+
+      - name: Dev shell
+        id: devshell
+        run: nix develop --no-update-lock-file --command rustc --version
+
+      - name: Fetch CPU test programs
+        id: fetch
+        run: |
+          mkdir -p "$LOGS"
+          scripts/fetch-cpu-tests.sh 2>&1 | tee "$LOGS/fetch.log"
+
+      - name: Build x80-oracle (release)
+        id: build
+        if: ${{ steps.devshell.outcome == 'success' }}
+        timeout-minutes: 15
+        run: nix develop --no-update-lock-file --command cargo build -p x80-oracle --release --offline --locked
+
+      # The commands of commands.md, unchanged. Each campaign runs even after an
+      # earlier failure, and any failed campaign fails the job. x80-oracle's
+      # exit status is the verdict: 0 only when the documented pass criteria
+      # hold, so no separate output check is needed.
+      - name: 8080PRE (8080)
+        if: ${{ !cancelled() && steps.fetch.outcome == 'success' && steps.build.outcome == 'success' }}
+        timeout-minutes: 5
+        run: nix develop --no-update-lock-file --command cargo run -p x80-oracle --release --offline --locked -- oracles/8080-exercisers/8080PRE.COM 2>&1 | tee "$LOGS/8080pre-8080.log"
+
+      - name: 8080EXM
+        if: ${{ !cancelled() && steps.fetch.outcome == 'success' && steps.build.outcome == 'success' }}
+        timeout-minutes: 15
+        run: nix develop --no-update-lock-file --command cargo run -p x80-oracle --release --offline --locked -- oracles/8080-exercisers/8080EXM.COM --cycle-cap 100000000000 2>&1 | tee "$LOGS/8080exm.log"
+
+      - name: 8080PRE (8085)
+        if: ${{ !cancelled() && steps.fetch.outcome == 'success' && steps.build.outcome == 'success' }}
+        timeout-minutes: 5
+        run: nix develop --no-update-lock-file --command cargo run -p x80-oracle --release --offline --locked -- --model 8085 oracles/8080-exercisers/8080PRE.COM 2>&1 | tee "$LOGS/8080pre-8085.log"
+
+      - name: 8085EXM
+        if: ${{ !cancelled() && steps.fetch.outcome == 'success' && steps.build.outcome == 'success' }}
+        timeout-minutes: 15
+        run: nix develop --no-update-lock-file --command cargo run -p x80-oracle --release --offline --locked -- --model 8085 oracles/8080-exercisers/8085EXM.COM --cycle-cap 100000000000 2>&1 | tee "$LOGS/8085exm.log"
+
+      - name: Z80 prelim
+        if: ${{ !cancelled() && steps.fetch.outcome == 'success' && steps.build.outcome == 'success' }}
+        timeout-minutes: 5
+        run: nix develop --no-update-lock-file --command cargo run -p x80-oracle --release --offline --locked -j 4 -- --model z80 oracles/z80-exercisers/prelim.com 2>&1 | tee "$LOGS/z80-prelim.log"
+
+      - name: ZEXDOC
+        if: ${{ !cancelled() && steps.fetch.outcome == 'success' && steps.build.outcome == 'success' }}
+        timeout-minutes: 20
+        run: nix develop --no-update-lock-file --command cargo run -p x80-oracle --release --offline --locked -j 4 -- --model z80 oracles/z80-exercisers/zexdoc.com --cycle-cap 1000000000000 2>&1 | tee "$LOGS/zexdoc.log"
+
+      - name: ZEXALL
+        if: ${{ !cancelled() && steps.fetch.outcome == 'success' && steps.build.outcome == 'success' }}
+        timeout-minutes: 20
+        run: nix develop --no-update-lock-file --command cargo run -p x80-oracle --release --offline --locked -j 4 -- --model z80 oracles/z80-exercisers/zexall.com --cycle-cap 1000000000000 2>&1 | tee "$LOGS/zexall.log"
+
+      - name: z80test
+        if: ${{ !cancelled() && steps.fetch.outcome == 'success' && steps.build.outcome == 'success' }}
+        timeout-minutes: 10
+        run: nix develop --no-update-lock-file --command cargo run -p x80-oracle --release --offline --locked -j 4 -- z80test all 2>&1 | tee "$LOGS/z80test.log"
+
+      - name: Upload logs
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: cpu-tests-logs
+          # Logs only; the downloaded programs stay under oracles/.
+          path: cpu-tests-logs/*.log

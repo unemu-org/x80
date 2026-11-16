@@ -310,3 +310,14 @@ and no `oracles` submodule. Every gate runs after a successful dev shell, and an
 failed gate fails the `test (x86_64)` job; GitHub reports that check itself, so
 there is no status script or `ci-logs`. A newer run on the same ref cancels an
 older one; runs called by the release workflow use their own concurrency group.
+
+The GitHub [CPU test workflow](../../.github/workflows/cpu-tests.yml) runs the
+release-profile campaigns of [Oracle runs](#oracle-runs) on manual dispatch and,
+called by the release workflow, before each release: both 8080PRE runs, 8080EXM,
+8085EXM, Z80 prelim, ZEXDOC, ZEXALL and `z80test all`, with the commands above.
+`scripts/fetch-cpu-tests.sh [DEST]` downloads only the seven pinned files these
+campaigns read, from the upstream URLs in `oracles/fetch-oracles.sh`, and places
+them only after each matches `oracles/SHA256SUMS.fetched`. The programs are never
+committed, cached or uploaded. Each campaign runs even after an earlier failure,
+its exit status is the verdict, and the job uploads only the logs, as the
+`cpu-tests-logs` artifact.
