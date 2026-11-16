@@ -1,5 +1,11 @@
 # x80
 
+> **LLM-powered project.** Most of the code, tests and documentation in x80 are
+> written by LLM coding agents, working under the maintainer's direction. Every
+> change goes through the same source rules and test gates described below, but
+> if you use x80 in your own project, be aware of how it is made and review it as
+> you would any third-party code you depend on.
+
 An interpreter library for the Intel 8080 family of CPUs, written in pure Rust.
 It emulates the Intel 8080, the Intel 8085 and the Zilog Z80. It also covers the
 8080 emulation mode of the NEC V20/V30, working together with the companion x86
@@ -160,7 +166,15 @@ the minimum Rust version check, the licence check and the CPU test programs.
 - [design records](backlog/decisions/): why the API and behaviour are as they are
 - [PROVENANCE.md](PROVENANCE.md): sources, citations and what is still unconfirmed
 - [glossary](backlog/docs/glossary.md): terms used in the docs
-- [AGENTS.md](AGENTS.md): contributor workflow, including for coding agents
+- [AGENTS.md](AGENTS.md): development workflow, written for the coding agents
+
+## Contributing
+
+x80 is developed in a private repository. The public repository at
+<https://github.com/unemu-org/x80> is a copy of it, so pull requests are not
+accepted there. Issues are very welcome: bug reports, questions, hardware
+measurements and corrections to a cited source. Conversations about them stay
+open on GitHub.
 
 ## License
 
