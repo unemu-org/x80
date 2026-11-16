@@ -298,3 +298,15 @@ shell even if an earlier gate failed. A failed, skipped or missing required step
 makes the final report step fail, so missing tools cannot produce a passing run.
 Gate output is teed to `ci-logs/<step>.log` in the job workspace. If posting the
 commit status fails, consult the Actions job log and result for the gate verdict.
+
+The [GitHub workflow](../../.github/workflows/ci.yml) runs the same gates with
+the same commands on a GitHub-hosted `ubuntu-24.04` x86-64 runner: on every push
+to `main`, on pull requests and on manual dispatch. The release workflow calls it
+(`workflow_call`) before publication
+([decision-21](<../decisions/decision-21 - Release-process-publishing-x80-core-to-crates-io.md>)).
+Actions are pinned by commit SHA; Nix 2.29.2 comes from
+`nixbuild/nix-quick-install-action`. The checkout has no persisted credentials
+and no `oracles` submodule. Every gate runs after a successful dev shell, and any
+failed gate fails the `test (x86_64)` job; GitHub reports that check itself, so
+there is no status script or `ci-logs`. A newer run on the same ref cancels an
+older one; runs called by the release workflow use their own concurrency group.
