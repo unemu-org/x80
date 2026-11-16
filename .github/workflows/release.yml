@@ -1,0 +1,352 @@
+name: Release
+
+# Publishes x80-core to crates.io and creates its GitHub Release (decision-21
+# in backlog/decisions/).
+#
+# A pushed tag vX.Y.Z is a release:
+# - verify checks that the environment "release" exists with a required
+#   reviewer, that X.Y.Z is the x80-core version, that the tagged commit is
+#   reachable from main and that CHANGELOG.md has a dated, non-empty section
+#   for X.Y.Z;
+# - ci (ci.yml, the gates) and cpu-tests (cpu-tests.yml, the CPU test
+#   programs) run beside it;
+# - publish waits for approval in the environment "release", then runs
+#   cargo publish with a crates.io Trusted Publishing token, or skips the
+#   upload when crates.io already has X.Y.Z, so a rerun is safe;
+# - github-release creates the GitHub Release last, with the CHANGELOG.md
+#   section as its notes, unless it already exists.
+#
+# A manual dispatch (workflow_dispatch) is a rehearsal and publishes nothing:
+# verify accepts an "Unreleased" section, skips the tag and main checks and
+# only warns about the environment, ci and cpu-tests run as for a release, and
+# publish-dry-run runs cargo publish --dry-run. It uses no environment, requests
+# no crates.io token and creates no release.
+#
+# Create the environment "release" with a required reviewer before the first
+# tag. GitHub creates a missing environment on first use WITHOUT protection
+# rules, so on a tag verify fails unless the environment exists with a
+# required reviewer, and publish, the only job that uses the environment,
+# never starts. The crates.io trusted publisher names this repository, the
+# workflow file release.yml and the environment release. crates.io accepts a
+# trusted publisher only for an existing crate, so 0.1.0 is published by hand
+# once; the tag v0.1.0 then only creates the GitHub Release.
+#
+# This workflow must not be named CI: under workflow_call, github.workflow is
+# the caller's name, and the ci-CI-<ref> groups belong to ci.yml's own runs.
+on:
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+"
+  workflow_dispatch:
+
+# contents: read for every job, every other scope none. The ci and cpu-tests
+# jobs pass this on unchanged: the called workflows ask for contents: read and
+# cannot get more than their caller grants. publish adds id-token: write for
+# Trusted Publishing; github-release gets contents: write.
+permissions:
+  contents: read
+
+# One run per ref at a time, never cancelled by a newer run: a release must not
+# stop mid-publish. A later run on the same ref waits until this one ends.
+# There is no deadlock with the called workflows: under workflow_call their
+# groups are ci-Release-<ref> and cpu-tests-Release-<ref>, never equal to
+# release-<ref>, so no called run waits for a group that its caller holds.
+# Their cancel-in-progress cannot cancel a release either: only another Release
+# run on the same ref shares those groups, and that run waits here.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  verify:
+    name: verify
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      CARGO_TERM_COLOR: never
+      RUSTC_WRAPPER: ""
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      release: ${{ steps.check.outputs.release }}
+    steps:
+      # publish needs verify, so on a tag this gate stops the release before
+      # publish starts, and GitHub never creates an unprotected environment
+      # "release" on first use. A dispatch only warns, so the rehearsal works
+      # before the environment exists. Reading the environment of a public
+      # repository needs no extra permission: the step tries the job token,
+      # then an anonymous request.
+      - name: Check the release environment
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          url="$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/environments/release"
+          body="$RUNNER_TEMP/environment.json"
+          args=(-q -sS -o "$body" -w '%{http_code}' --max-time 30
+            -H 'Accept: application/vnd.github+json' -H 'X-GitHub-Api-Version: 2022-11-28')
+          status=000
+          for auth in token anonymous; do
+            if [[ $auth == token ]]; then
+              # The token reaches curl on stdin, not on its command line.
+              status="$(printf 'Authorization: Bearer %s\n' "$GH_TOKEN" |
+                curl "${args[@]}" -H @- "$url")" || status=000
+            else
+              status="$(curl "${args[@]}" "$url")" || status=000
+            fi
+            if [[ $status == 200 ]]; then
+              break
+            fi
+          done
+          reviewer='[.protection_rules[]? | select(.type == "required_reviewers"
+            and ((.reviewers // []) | length) > 0)] | length > 0'
+          if [[ $status == 200 ]] && jq -e "$reviewer" "$body" >/dev/null; then
+            echo "The environment release requires a reviewer."
+            exit 0
+          fi
+          case $status in
+            200) msg="The environment release has no required reviewer. Add one under Settings > Environments > release before tagging." ;;
+            404) msg="The environment release does not exist. Create it with a required reviewer under Settings > Environments before tagging." ;;
+            *) msg="Could not read the environment release (HTTP $status). Rerun the job." ;;
+          esac
+          printf '## Release environment\n\n%s\n' "$msg" >>"$GITHUB_STEP_SUMMARY"
+          if [[ $GITHUB_EVENT_NAME == push ]]; then
+            echo "::error title=Release environment not protected::$msg"
+            exit 1
+          fi
+          echo "::warning title=Release environment not protected::$msg"
+
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+          submodules: false
+          # All history of every branch: this fetches main as origin/main,
+          # with the history that the main check below walks.
+          fetch-depth: 0
+
+      - name: Install Nix
+        uses: nixbuild/nix-quick-install-action@2c9db80fb984ceb1bcaa77cdda3fdf8cfba92035 # v34
+        with:
+          nix_version: "2.29.2"
+          github_access_token: ""
+          enable_kvm: false
+
+      # cargo metadata from the pinned dev shell reads the version as Cargo
+      # resolves it, workspace inheritance included. The shell hook prints a
+      # banner on stdout, so cargo writes the JSON to a file.
+      - name: Read the x80-core version
+        id: version
+        run: |
+          metadata="$RUNNER_TEMP/metadata.json"
+          # shellcheck disable=SC2016 # $1 is expanded by the inner bash.
+          nix develop --no-update-lock-file --command \
+            bash -c 'cargo metadata --no-deps --format-version 1 --offline >"$1"' _ "$metadata"
+          version="$(jq -er '[.packages[] | select(.name == "x80-core") | .version]
+            | if length == 1 then .[0] else error("expected one x80-core package") end' "$metadata")"
+          if [[ ! $version =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::x80-core version $version is not X.Y.Z; this workflow releases only X.Y.Z."
+            exit 1
+          fi
+          echo "x80-core $version"
+          echo "version=$version" >>"$GITHUB_OUTPUT"
+
+      - name: Check the tag, main and CHANGELOG.md
+        id: check
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          fail() {
+            echo "::error::$*"
+            exit 1
+          }
+          notes="$RUNNER_TEMP/notes.md"
+          if [[ $GITHUB_EVENT_NAME == push ]]; then
+            [[ $GITHUB_REF_TYPE == tag ]] || fail "a release starts from a tag push, not $GITHUB_REF"
+            [[ $GITHUB_REF_NAME == "v$VERSION" ]] ||
+              fail "tag $GITHUB_REF_NAME does not match x80-core $VERSION; expected v$VERSION"
+            git rev-parse --verify --quiet refs/remotes/origin/main >/dev/null ||
+              fail "origin/main was not fetched"
+            commit="$(git rev-parse HEAD)"
+            rc=0
+            git merge-base --is-ancestor "$commit" refs/remotes/origin/main || rc=$?
+            case $rc in
+              0) echo "Tagged commit $commit is reachable from main." ;;
+              1) fail "tagged commit $commit is not reachable from main" ;;
+              *) fail "git merge-base failed with status $rc" ;;
+            esac
+            scripts/changelog-section.sh --dated "$VERSION" >"$notes" ||
+              fail "CHANGELOG.md needs a dated, non-empty section ## [$VERSION] - YYYY-MM-DD"
+            release=true
+          else
+            # A rehearsal: the section must exist, but may still be Unreleased.
+            scripts/changelog-section.sh "$VERSION" >"$notes" ||
+              fail "CHANGELOG.md needs a non-empty section ## [$VERSION] - YYYY-MM-DD or - Unreleased"
+            release=false
+          fi
+          echo "release=$release" >>"$GITHUB_OUTPUT"
+          {
+            echo "## x80-core $VERSION (release: $release)"
+            echo
+            cat "$notes"
+          } >>"$GITHUB_STEP_SUMMARY"
+
+  # A job that calls a reusable workflow takes no timeout-minutes; the called
+  # jobs set their own.
+  ci:
+    name: ci
+    uses: ./.github/workflows/ci.yml
+
+  cpu-tests:
+    name: cpu-tests
+    uses: ./.github/workflows/cpu-tests.yml
+
+  # verify has confirmed that the environment release requires a reviewer, so
+  # this job starts only after approval.
+  publish:
+    name: publish
+    needs: [verify, ci, cpu-tests]
+    if: ${{ needs.verify.outputs.release == 'true' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    environment: release
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      CARGO_TERM_COLOR: never
+      RUSTC_WRAPPER: ""
+      VERSION: ${{ needs.verify.outputs.version }}
+    steps:
+      # 200: the version exists, so skip the upload (a rerun, or 0.1.0
+      # published by hand). 404: publish. Anything else fails the job.
+      - name: Check crates.io
+        id: crate
+        run: |
+          ua="x80-release-workflow ($GITHUB_SERVER_URL/$GITHUB_REPOSITORY)"
+          status="$(curl -q -sS -o /dev/null -w '%{http_code}' --retry 3 --retry-delay 5 --max-time 60 \
+            -A "$ua" "https://crates.io/api/v1/crates/x80-core/$VERSION")"
+          case $status in
+            200)
+              echo "x80-core $VERSION is already on crates.io; skipping cargo publish."
+              publish=false
+              ;;
+            404)
+              echo "x80-core $VERSION is not on crates.io yet; publishing."
+              publish=true
+              ;;
+            *)
+              echo "::error::crates.io answered HTTP $status for x80-core $VERSION; expected 200 or 404."
+              exit 1
+              ;;
+          esac
+          echo "publish=$publish" >>"$GITHUB_OUTPUT"
+
+      - name: Checkout
+        if: ${{ steps.crate.outputs.publish == 'true' }}
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+          submodules: false
+
+      - name: Install Nix
+        if: ${{ steps.crate.outputs.publish == 'true' }}
+        uses: nixbuild/nix-quick-install-action@2c9db80fb984ceb1bcaa77cdda3fdf8cfba92035 # v34
+        with:
+          nix_version: "2.29.2"
+          github_access_token: ""
+          enable_kvm: false
+
+      # The cold dev shell takes minutes; enter it before requesting the
+      # 30-minute crates.io token.
+      - name: Dev shell
+        if: ${{ steps.crate.outputs.publish == 'true' }}
+        run: nix develop --no-update-lock-file --command rustc --version
+
+      # Trusted Publishing: exchanges this job's OIDC token for a crates.io
+      # token, which the action's post step revokes.
+      - name: Authenticate to crates.io
+        id: auth
+        if: ${{ steps.crate.outputs.publish == 'true' }}
+        uses: rust-lang/crates-io-auth-action@3268eb413133e2960fa4ae0e963ca76380c54cd9 # v1.0.6
+
+      # Cargo needs the network here: no --offline.
+      - name: cargo publish
+        if: ${{ steps.crate.outputs.publish == 'true' }}
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
+        run: nix develop --no-update-lock-file --command cargo publish -p x80-core --locked
+
+  publish-dry-run:
+    name: publish (dry run)
+    needs: [verify, ci, cpu-tests]
+    if: ${{ needs.verify.outputs.release == 'false' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      CARGO_TERM_COLOR: never
+      RUSTC_WRAPPER: ""
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+          submodules: false
+
+      - name: Install Nix
+        uses: nixbuild/nix-quick-install-action@2c9db80fb984ceb1bcaa77cdda3fdf8cfba92035 # v34
+        with:
+          nix_version: "2.29.2"
+          github_access_token: ""
+          enable_kvm: false
+
+      - name: cargo publish --dry-run
+        run: nix develop --no-update-lock-file --command cargo publish -p x80-core --locked --dry-run
+
+  # Runs when publish succeeded, including when publish skipped the upload
+  # because crates.io already had the version: a skipped step still counts as
+  # success.
+  github-release:
+    name: GitHub Release
+    needs: [verify, publish]
+    if: ${{ needs.verify.outputs.release == 'true' && needs.publish.result == 'success' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    env:
+      VERSION: ${{ needs.verify.outputs.version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
+          submodules: false
+
+      - name: Create the GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="$GITHUB_REF_NAME"
+          # 200: the release exists (a rerun), so stop. 404: create it.
+          status="$(printf 'Authorization: Bearer %s\n' "$GH_TOKEN" |
+            curl -q -sS -o /dev/null -w '%{http_code}' --retry 3 --retry-delay 5 --max-time 60 \
+              -H 'Accept: application/vnd.github+json' -H 'X-GitHub-Api-Version: 2022-11-28' -H @- \
+              "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/releases/tags/$tag")"
+          case $status in
+            200)
+              echo "The GitHub Release $tag already exists; nothing to do."
+              exit 0
+              ;;
+            404) ;;
+            *)
+              echo "::error::GitHub answered HTTP $status for the release $tag; expected 200 or 404."
+              exit 1
+              ;;
+          esac
+          notes="$RUNNER_TEMP/notes.md"
+          scripts/changelog-section.sh --dated "$VERSION" >"$notes"
+          gh release create "$tag" --repo "$GITHUB_REPOSITORY" --verify-tag \
+            --title "x80-core $VERSION" --notes-file "$notes"

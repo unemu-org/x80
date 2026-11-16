@@ -321,3 +321,18 @@ them only after each matches `oracles/SHA256SUMS.fetched`. The programs are neve
 committed, cached or uploaded. Each campaign runs even after an earlier failure,
 its exit status is the verdict, and the job uploads only the logs, as the
 `cpu-tests-logs` artifact.
+
+The GitHub [release workflow](../../.github/workflows/release.yml) starts on a
+pushed tag `vX.Y.Z`. `verify` checks that `X.Y.Z` is the `x80-core` version, that
+the tagged commit is reachable from `main` and that `CHANGELOG.md` has a dated,
+non-empty section for it, which `scripts/changelog-section.sh --dated X.Y.Z`
+prints. `verify` refuses a tag release unless the environment `release` exists
+with a required reviewer. `ci` and `cpu-tests` call the two workflows above.
+`publish` waits for approval in that environment, then publishes `x80-core` with
+a crates.io Trusted Publishing token, or skips the upload when crates.io already
+has the version. `github-release` creates the GitHub Release last, with that
+section as its notes. A manual dispatch is a rehearsal that publishes nothing:
+`verify` accepts an `Unreleased` section and skips the tag and `main` checks,
+the same gates and CPU tests run, and `publish-dry-run` runs
+`cargo publish -p x80-core --locked --dry-run`; it uses no environment, requests
+no crates.io token and creates no release.
