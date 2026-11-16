@@ -21,7 +21,7 @@ interrupt sources, timing and file loading; x80 executes the instructions.
   datasheets, cited down to the page, and each fact is checked by a test.
   Undocumented behaviour is implemented only when a written source and an
   independent hardware measurement agree. Where they do not settle a detail, the library's choice is
-  marked as such in [PROVENANCE.md](PROVENANCE.md).
+  marked as such in [PROVENANCE.md](https://github.com/unemu-org/x80/blob/main/PROVENANCE.md).
 - **Deterministic.** Given the same memory and device responses, a program ends in
   the same state whether it runs in one call, one instruction at a time or in
   slices of any size.
@@ -32,14 +32,14 @@ interrupt sources, timing and file loading; x80 executes the instructions.
 ## Status
 
 All three CPUs are complete. The 8085 and Z80 also run their undocumented
-instructions. [status](backlog/docs/status.md) has the detailed capability list.
+instructions. [status](https://github.com/unemu-org/x80/blob/main/backlog/docs/status.md) has the detailed capability list.
 
 | CPU | What is emulated |
 | --- | --- |
 | Intel 8080 | All 244 documented opcodes, interrupts (RST), the EI delay, HLT and RESET. The twelve undocumented opcodes return `Unsupported`, because no reliable source describes them. |
 | Intel 8085 | All 256 opcodes: the documented set, RIM/SIM and the ten undocumented instructions. All five interrupt inputs (TRAP, RST 7.5/6.5/5.5, INTR with RST or CALL), the serial SID/SOD lines, and the undocumented V and K flags. |
 | Zilog Z80 (NMOS) | Every opcode, undocumented ones included: IXH/IXL/IYH/IYL, SLL, the duplicate ED and indexed CB forms. Undocumented flag bits 3 and 5, the hidden WZ (MEMPTR) register, and the internal Q value that SCF and CCF read. NMI and interrupt modes 0, 1 and 2. 16-bit I/O port addresses. |
-| NEC V20/V30, 8080 mode | These x86 CPUs can switch into an 8080-compatible mode. x80 runs the 8080 side, x86jit runs the x86 side, and your program connects them ([design record](<backlog/decisions/decision-9 - NEC-V20-V30-8080-emulation-mode-is-the-i8080-model-with-a-V20-profile.md>)). Both projects pass a shared set of hand-over test cases; x86jit runs 12 of the 15, and the 3 NMI cases wait for NMI support there. Cycle counts are Intel 8080 timings, not V20 clock counts. |
+| NEC V20/V30, 8080 mode | These x86 CPUs can switch into an 8080-compatible mode. x80 runs the 8080 side, x86jit runs the x86 side, and your program connects them ([design record](https://github.com/unemu-org/x80/blob/main/backlog/decisions/decision-9%20-%20NEC-V20-V30-8080-emulation-mode-is-the-i8080-model-with-a-V20-profile.md)). Both projects pass a shared set of hand-over test cases; x86jit runs 12 of the 15, and the 3 NMI cases wait for NMI support there. Cycle counts are Intel 8080 timings, not V20 clock counts. |
 
 Each CPU is its own type: `i8080::I8080`, `i8085::I8085` and `z80::Z80`. The crate
 root holds what they share: `Bus`, `MemoryAccess`, `Control`, `Budget`, `Report`,
@@ -48,7 +48,7 @@ root holds what they share: `Bus`, `MemoryAccess`, `Control`, `Budget`, `Report`
 ## Verification
 
 Well-known CPU test programs run in an optional release-mode check, separate from
-the normal test suite ([how to run them](backlog/docs/commands.md#oracle-runs)):
+the normal test suite ([how to run them](https://github.com/unemu-org/x80/blob/main/backlog/docs/commands.md#oracle-runs)):
 
 | Test program | Result |
 | --- | --- |
@@ -60,7 +60,7 @@ the normal test suite ([how to run them](backlog/docs/commands.md#oracle-runs)):
 | z80test v1.2a | all six variants pass all 156 checked groups; four tests aimed at NEC and ST clones are skipped |
 
 These programs check the implementation; none of them is the sole source of any
-behaviour, and nothing is taken from other emulators' code or documentation. [PROVENANCE.md](PROVENANCE.md)
+behaviour, and nothing is taken from other emulators' code or documentation. [PROVENANCE.md](https://github.com/unemu-org/x80/blob/main/PROVENANCE.md)
 lists every source, the test runs, and the details that remain unconfirmed.
 
 ## Example
@@ -128,7 +128,7 @@ full 16-bit port address on the Z80, implement `Bus::input16` and `Bus::output16
   byte on the 8080, anything but RST or CALL on the 8085, a non-RST instruction in
   Z80 interrupt mode 0, and an odd vector in Z80 interrupt mode 2.
 
-[deferred.md](backlog/docs/deferred.md) explains each of these and what would
+[deferred.md](https://github.com/unemu-org/x80/blob/main/backlog/docs/deferred.md) explains each of these and what would
 change it.
 
 ## Workspace
@@ -156,17 +156,17 @@ cargo fmt --all --check
 
 Without cargo-nextest, `cargo test --workspace --all-features --offline --locked`
 runs everything. A Nix development shell provides the pinned toolchain
-([setup](backlog/docs/dev-setup.md)). [commands](backlog/docs/commands.md) covers
+([setup](https://github.com/unemu-org/x80/blob/main/backlog/docs/dev-setup.md)). [commands](https://github.com/unemu-org/x80/blob/main/backlog/docs/commands.md) covers
 the minimum Rust version check, the licence check and the CPU test programs.
 
 ## Documentation
 
-- [plan](backlog/docs/plan.md): goals, design and history
-- [architecture](backlog/docs/architecture.md): code layout
-- [design records](backlog/decisions/): why the API and behaviour are as they are
-- [PROVENANCE.md](PROVENANCE.md): sources, citations and what is still unconfirmed
-- [glossary](backlog/docs/glossary.md): terms used in the docs
-- [AGENTS.md](AGENTS.md): development workflow, written for the coding agents
+- [plan](https://github.com/unemu-org/x80/blob/main/backlog/docs/plan.md): goals, design and history
+- [architecture](https://github.com/unemu-org/x80/blob/main/backlog/docs/architecture.md): code layout
+- [design records](https://github.com/unemu-org/x80/tree/main/backlog/decisions): why the API and behaviour are as they are
+- [PROVENANCE.md](https://github.com/unemu-org/x80/blob/main/PROVENANCE.md): sources, citations and what is still unconfirmed
+- [glossary](https://github.com/unemu-org/x80/blob/main/backlog/docs/glossary.md): terms used in the docs
+- [AGENTS.md](https://github.com/unemu-org/x80/blob/main/AGENTS.md): development workflow, written for the coding agents
 
 ## Contributing
 
@@ -178,4 +178,4 @@ open on GitHub.
 
 ## License
 
-Dual-licensed under [MIT](LICENSE-MIT) or [Apache-2.0](LICENSE-APACHE), at your option.
+Dual-licensed under [MIT](https://github.com/unemu-org/x80/blob/main/LICENSE-MIT) or [Apache-2.0](https://github.com/unemu-org/x80/blob/main/LICENSE-APACHE), at your option.
