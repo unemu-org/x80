@@ -139,7 +139,8 @@ change it.
 | `x80-oracle` | Command-line runner for the CPU test programs. Not published. |
 | `x80-v20-contract` | The shared V20/V30 hand-over test cases, with a stand-in for the x86 side. Test-only, not published. |
 
-`x80-core` is not on crates.io yet; use it as a path dependency. It needs Rust 1.95
+`x80-core` is on [crates.io](https://crates.io/crates/x80-core): add it with
+`cargo add x80-core`, or `x80-core = "0.1"` under `[dependencies]`. It needs Rust 1.95
 or newer (edition 2021). The CPU test programs and manuals are not stored in this
 repository: a script in the `oracles/` submodule downloads them and checks their
 hashes.
